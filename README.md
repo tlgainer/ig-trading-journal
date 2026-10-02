@@ -14,10 +14,10 @@ Activation automatically installs schema version 1. Manual SQL, if needed, is is
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts only), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.2.0
+## Current build: 0.3.0
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
-- Deposits, withdrawals, buys and sells, immutable posted entries, and saved non-posting draft records.
+- Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.
 - Exact decimal arithmetic, fee-inclusive FIFO basis, partial sales, remaining quantities/basis and realized gains.
 - Versioned authenticated REST API, atomic posting and audit evidence, workspace-scoped idempotency keys, paginated lists, and a responsive admin screen.
 

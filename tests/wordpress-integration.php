@@ -129,3 +129,5 @@ test('Concurrent sales cannot both consume the same units', function () use ($tr
  sort($results); equal($results, ['posted', 'rejected']); decimal($tracker->holdings($w1)['items'][0]['quantity'], '2');
 });
 echo "Integration fixtures retained in disposable site for inspection. Recreate site after testing.\n";
+
+require __DIR__ . '/draft-integration.php';

@@ -39,12 +39,16 @@ final class Screen {
 			array(
 				'root'      => esc_url_raw( rest_url( 'tgit/v1/' ) ),
 				'nonce'     => wp_create_nonce( 'wp_rest' ),
+				'actorId'   => get_current_user_id(),
 				'canCreate' => current_user_can( 'manage_options' ),
 				'i18n'      => array(
 					'loading' => __( 'Loading…', 'ig-trading-journal' ),
 					'empty'   => __( 'No records yet.', 'ig-trading-journal' ),
 					'saved'   => __( 'Saved.', 'ig-trading-journal' ),
 					'unknown' => __( 'Missing price', 'ig-trading-journal' ),
+					'edit'    => __( 'Edit draft', 'ig-trading-journal' ),
+					'post'    => __( 'Post draft', 'ig-trading-journal' ),
+					'editing' => __( 'Editing draft', 'ig-trading-journal' ),
 					'network' => __( 'Request failed. Retry to use the same transaction key.', 'ig-trading-journal' ),
 				),
 			)
@@ -108,8 +112,10 @@ final class Screen {
 		<label data-security hidden><?php esc_html_e( 'Quantity', 'ig-trading-journal' ); ?><input name="quantity" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 		<label data-security hidden><?php esc_html_e( 'Unit price', 'ig-trading-journal' ); ?><input name="unit_price" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 		<label data-security hidden><?php esc_html_e( 'Fees', 'ig-trading-journal' ); ?><input name="fees" inputmode="decimal" value="0" pattern="[0-9]+([.][0-9]+)?"></label>
-		<p><?php esc_html_e( 'Posted entries are immutable. Drafts are saved for reference; editing and promotion will follow with the revision workflow.', 'ig-trading-journal' ); ?></p>
-		<button class="button button-primary"><?php esc_html_e( 'Save transaction', 'ig-trading-journal' ); ?></button>
+		<p><?php esc_html_e( 'Posted entries are immutable. Draft edits retain revision history. Owners and managers can post drafts to the ledger.', 'ig-trading-journal' ); ?></p>
+		<p id="tgit-editing" hidden></p>
+		<button type="button" id="tgit-cancel-edit" class="button" hidden><?php esc_html_e( 'Cancel editing', 'ig-trading-journal' ); ?></button>
+		<button type="submit" class="button button-primary"><?php esc_html_e( 'Save transaction', 'ig-trading-journal' ); ?></button>
 	</form>
 	</section>
 	<section><h2><?php esc_html_e( 'Holdings', 'ig-trading-journal' ); ?></h2><div id="tgit-holdings" class="tgit-cards"></div><button id="tgit-more-holdings" class="button" hidden><?php esc_html_e( 'Load more holdings', 'ig-trading-journal' ); ?></button></section>

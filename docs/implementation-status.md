@@ -23,3 +23,12 @@ Subsequent Site Health screenshots confirm the actual host runtime: PHP 8.1.2, W
 Fixed admin REST URL construction for plain permalinks so pagination does not become part of rest_route. Six URL regression cases cover pretty/plain/subdirectory routing and pagination; JavaScript syntax and PHP coding-standard checks pass. No database schema change or extra SQL is needed.
 
 Owner confirmed USD and America/New_York defaults. Workspace creation now applies these server-side when omitted, and the setup form is prefilled from the same constants. Explicit settings remain validated; existing records are unchanged. No SQL migration is needed. New York time handles both EST and EDT.
+
+
+## Build 0.3.0: draft revision workflow
+
+Draft editing and promotion are implemented in the service, REST API and WordPress admin. Edits append immutable revisions and require the current revision. Contributors can edit their own drafts; owners/managers can edit and post workspace drafts. Promotion archives the source and links it to a new immutable financial event. Workspace serialization and operation-scoped idempotency prevent duplicate financial effects, including concurrent requests. Failed posting retains an editable source draft.
+
+Validated on PHP 8.1.34 / WordPress 7.1.2 / isolated MySQL 8.0.26: 31 unit checks, 22 integration checks and 6 REST URL checks. New checks cover stale edits/promotions, permission boundaries, retry/conflicting-key behavior, exact 18-place quantities, immutable posted facts, failed promotion rollback, workspace isolation and concurrent promotion. PHP/JavaScript syntax and WPCS checks pass. Admin browser interaction and visual review remain pending.
+
+No schema change or additional SQL is required. Corrections/replay, historical posting and opening balances/lots remain the next ledger work. No deployment was performed.

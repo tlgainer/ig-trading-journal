@@ -6,7 +6,8 @@
  const status = (message, error = false) => { $('status').textContent = message; $('status').dataset.error = String(error); $('status').setAttribute('role', error ? 'alert' : 'status'); };
  let workspaces = [], accounts = [], assets = [], workspace = '', generation = 0;
  let transactionCursor = null, holdingCursor = null;
- let pending = null;
+ let pending = null, editingDraft = null;
+ const promotionKeys = new Map();
  async function request(path, body, key) {
   const response = await fetch(tgitRestUrl(config.root, path), { credentials: 'same-origin', cache: 'no-store', method: body ? 'POST' : 'GET', headers: { 'X-WP-Nonce': config.nonce, ...(body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   const result = await response.json();
@@ -15,13 +16,13 @@
  }
  const path = (suffix) => `workspaces/${workspace}/${suffix}`;
  const payload = (form) => Object.fromEntries(new FormData(form));
- function cards(target, rows, render, append = false) {
+ function cards(target, rows, render, append = false, decorate = () => {}) {
   if (!append) target.replaceChildren();
   if (!rows.length && !append) { target.textContent = config.i18n.empty; return; }
   for (const row of rows) {
    const card = document.createElement('article'); card.className = 'tgit-card';
    for (const [index, text] of render(row).entries()) { const line = document.createElement(index === 0 ? 'strong' : 'p'); line.textContent = text; card.append(line); }
-   target.append(card);
+   decorate(card, row); target.append(card);
   }
  }
  function choices(select, rows, label) {
@@ -42,12 +43,44 @@
   return rows;
  }
  function renderTransactions(items, append) {
-  cards($('transactions'), items, (row) => [`${row.effective_date} · ${row.action} · ${row.state}`, `#${row.id} · Account #${row.account_id}`, row.asset_id ? `Asset #${row.asset_id} · ${row.quantity} @ ${row.unit_price} ${row.currency} · Fees ${row.fees}` : `${row.amount} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`], append);
+  cards($('transactions'), items, (row) => [`${row.effective_date} · ${row.action} · ${row.state}`, `#${row.id} · Account #${row.account_id}`, row.asset_id ? `Asset #${row.asset_id} · ${row.quantity} @ ${row.unit_price} ${row.currency} · Fees ${row.fees}` : `${row.amount} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`], append, (card, row) => {
+   if (row.state !== 'draft') return;
+   const role = workspaces.find((item) => String(item.id) === workspace).role;
+   const canPost = ['owner', 'manager'].includes(role);
+   if (!canPost && !(role === 'contributor' && Number(row.created_by) === Number(config.actorId))) return;
+   const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button'; edit.textContent = config.i18n.edit;
+   edit.addEventListener('click', () => {
+    const form = $('transaction-form'); form.reset(); editingDraft = { id: row.id, revision: Number(row.revision) }; pending = null;
+    for (const name of ['account_id', 'action', 'effective_date', 'asset_id', 'quantity', 'unit_price', 'fees', 'amount']) if (form.elements[name]) form.elements[name].value = row[name] ?? '';
+    form.elements.state.value = 'draft'; form.elements.state.disabled = true; actionFields();
+    $('editing').textContent = config.i18n.editing + ' #' + row.id + ' / ' + row.revision; $('editing').hidden = false; $('cancel-edit').hidden = false;
+    form.scrollIntoView({ block: 'start' }); form.elements.effective_date.focus();
+   }); card.append(edit);
+   if (canPost) {
+    const post = document.createElement('button'); post.type = 'button'; post.className = 'button'; post.textContent = config.i18n.post;
+    post.addEventListener('click', async () => {
+     const target = path('transactions/' + row.id + '/post'); const identity = target + ':' + row.revision;
+     if (!promotionKeys.has(identity)) promotionKeys.set(identity, crypto.randomUUID());
+     post.disabled = true; $('workspace').disabled = true; status(config.i18n.loading);
+     try { await request(target, { expected_revision: Number(row.revision) }, promotionKeys.get(identity)); promotionKeys.delete(identity); await refresh(); status(config.i18n.saved); }
+     catch (error) { if (error.status >= 400 && error.status < 500) promotionKeys.delete(identity); status(error.message, true); }
+     finally { post.disabled = false; $('workspace').disabled = false; }
+    }); card.append(post);
+   }
+  });
  }
  function renderHoldings(items, append) {
   cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, config.i18n.unknown], append);
  }
+ function cancelEdit() {
+  editingDraft = null; pending = null; const form = $('transaction-form'); form.reset(); form.elements.state.disabled = false;
+  const member = workspaces.find((row) => String(row.id) === workspace);
+  if (member?.role === 'contributor') form.elements.state.value = 'draft';
+  $('editing').hidden = true; $('cancel-edit').hidden = true; actionFields();
+ }
+ $('cancel-edit').addEventListener('click', cancelEdit);
  async function refresh() {
+  cancelEdit();
   const expected = ++generation; status(config.i18n.loading); pending = null;
   const member = workspaces.find((row) => String(row.id) === workspace);
   $('management').hidden = !['owner', 'manager'].includes(member.role);
@@ -86,7 +119,7 @@
  function submit(id, handler) {
   const form = $(id);
   form.addEventListener('submit', async (event) => {
-   event.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
+   event.preventDefault(); const button = form.querySelector('button[type="submit"], button:not([type])'); button.disabled = true;
    $('workspace').disabled = true; status(config.i18n.loading);
    try { await handler(form); status(config.i18n.saved); }
    catch (error) { status(error.message || config.i18n.network, true); }
@@ -103,9 +136,12 @@
   if (!account) throw new Error(config.i18n.empty);
   data.currency = account.native_currency;
   if (data.asset_id) data.asset_id = Number(data.asset_id);
-  const serialized = JSON.stringify(data);
+  if (editingDraft) data.state = 'draft';
+  const target = path(editingDraft ? 'transactions/' + editingDraft.id + '/draft' : 'transactions');
+  const command = editingDraft ? { expected_revision: editingDraft.revision, transaction: data } : data;
+  const serialized = JSON.stringify({ target, command });
   if (!pending || pending.body !== serialized) pending = { body: serialized, key: crypto.randomUUID() };
-  try { await request(path('transactions'), data, pending.key); }
+  try { await request(target, command, pending.key); }
   catch (error) { if (error.status >= 400 && error.status < 500) pending = null; throw error; }
   pending = null; form.reset(); await refresh();
  });

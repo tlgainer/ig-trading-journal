@@ -38,8 +38,19 @@ Every transaction POST requires `Idempotency-Key` (8-128 ASCII letters/digits or
 {"account_id":1,"asset_id":1,"action":"buy","effective_date":"2026-01-02","state":"posted","quantity":"10","unit_price":"100","fees":"5","currency":"USD"}
 ```
 
-`sell` uses the buy-shaped body. `withdrawal` uses the deposit-shaped body. `state` may be `draft` (no legs, lots or cash effects). Cash movements reject asset/quantity/price/fee fields; buys/sells reject amount because the server calculates it. Currency must match the account and asset. Dates are `YYYY-MM-DD`; execution timestamps are not fabricated. Prior-account-date postings return conflict. Negative cash and overselling are rejected. No financial edit endpoint exists in this slice.
+`sell` uses the buy-shaped body. `withdrawal` uses the deposit-shaped body. `state` may be `draft` (no legs, lots or cash effects). Cash movements reject asset/quantity/price/fee fields; buys/sells reject amount because the server calculates it. Currency must match the account and asset. Dates are `YYYY-MM-DD`; execution timestamps are not fabricated. Prior-account-date postings return conflict. Negative cash and overselling are rejected. Posted financial events remain immutable. Draft editing and promotion use the endpoints below.
 
 Success: `{"data": ..., "correlation_id": "uuid"}`. Stable errors: `tgit_validation` (400), `tgit_unauthenticated` (401), `tgit_forbidden`/`tgit_https_required` (403), `tgit_not_found` (404), `tgit_conflict` (409), `tgit_unavailable` (503), `tgit_internal_error` (500). Application errors include a correlation ID; every routed response carries `X-Correlation-ID` and no-store headers. Field-detail error arrays are not yet implemented.
 
 Holdings return `quantity`, `remaining_basis`, `realized_gain`, native `currency`, `calculation_version`, `as_of`, `market_value: null`, `unrealized_gain: null`, `price_status: missing`. This version returns live ledger positions, not historical snapshots; `as_of` is response time. There are no base totals or complete valuation claims.
+
+
+## Draft revisions (0.3.0)
+
+- GET /workspaces/{workspace}/transactions/{id}: returns transaction and ordered immutable revisions. Revision payload is stored JSON; each revision includes actor, reason and timestamp.
+- POST /workspaces/{workspace}/transactions/{id}/draft: replace a draft using {"expected_revision":1,"transaction":{...complete draft creation facts...}}. Owners/managers can edit any draft; contributors can edit only their own. State must be draft.
+- POST /workspaces/{workspace}/transactions/{id}/post: post using {"expected_revision":2}. Only owners/managers can post. Posting validates current account/cash/lots and chronological ordering.
+
+Both writes require Idempotency-Key and an integer expected_revision. Stale revisions, promoted drafts, posted events and conflicting key reuse return 409. Keys are scoped to workspace, operation and source draft. A retry with the identical key/body returns the original result after current authorization. Financial validation failure rolls back all changes and leaves the source draft editable.
+
+Promotion creates a distinct immutable posted transaction, marks the source draft promoted, and appends a source revision linking posted_transaction_id. The source retains its creator and complete history; it has no ledger effects. The response includes transaction (posted event) and draft (archived source). Same-day FIFO follows committed posted IDs. No SQL migration is required.

@@ -113,6 +113,28 @@ final class Database {
 		return $row;
 	}
 	/**
+	 * Update a non-posting object within its explicit workspace.
+	 *
+	 * @param string $table Trusted table name.
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $id Object identifier.
+	 * @param array  $data Validated replacement values.
+	 * @return void
+	 * @throws \RuntimeException When persistence fails.
+	 */
+	public function update_object( string $table, int $workspace, int $id, array $data ): void {
+		if ( false === $this->wpdb->update(
+			$this->table( $table ),
+			$data,
+			array(
+				'workspace_id' => $workspace,
+				'id'           => $id,
+			)
+		) ) {
+			throw new \RuntimeException( 'Database operation failed.' );
+		}
+	}
+	/**
 	 * Commit an application operation or roll back every change.
 	 *
 	 * @param callable $callback callback input.

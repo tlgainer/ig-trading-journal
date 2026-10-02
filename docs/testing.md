@@ -42,3 +42,6 @@ Run `composer audit --locked` when changing the lockfile. Tool licenses are reco
 Current executed results are recorded in `docs/implementation-status.md`.
 
 REST URL regressions cover pretty permalinks, plain query routing and subdirectory/index.php installations, including paginated requests. These are URL-construction tests, not claims of remote-host HTTP access or HTTPS verification.
+
+
+The integration suite includes tests/draft-integration.php: revision conflicts, contributor/manager permissions, promotion retries, source linkage, rollback, exact quantities, REST isolation and simultaneous promotion. Run it through wordpress-integration.php in the disposable site; never directly on production. Current totals: 31 domain/permission, 22 integration and 6 REST URL checks.
