@@ -1,37 +1,29 @@
-# Remaining work after the initial ledger check-in
+# Prioritized remaining work
 
-Current build: 0.3.0. This is a working first ledger slice, not the complete PRD MVP. Requirement-by-requirement coverage is in `requirements.md`; contracts and validation evidence are in `api.md` and `implementation-status.md`.
+Current build: 0.4.0, schema 2. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
-## Implemented
+## Owner priority order
 
-- Explicit workspace ownership/membership, roles, revocation and last-owner protection.
-- Accounts and stock/ETF/crypto assets; USD and America/New_York new-workspace defaults.
-- Deposits, withdrawals, buys, sells and editable non-posting drafts, immutable revision history and atomic promotion.
-- Exact decimal FIFO, fee-inclusive basis, partial sales, native cash and realized gains.
-- Atomic posting, immutable initial revisions, audit records and idempotency.
-- Authenticated workspace-scoped REST API, pagination and WordPress admin forms; plain permalink support.
-- Automatic schema installation and separate manual SQL file: `001-ledger-foundation.sql`.
+1. **Trade journals, strategies, and multiple private images.** Implemented: trade groups and linked entry/exit fills, optional journal fields, checked confluences and original sheet text, immutable journal revisions, strategy snapshots, multiple JPEG/PNG/WebP images, private authenticated originals/thumbnails, normalization, quotas, individual retry/replacement, captions/order/comparison, recoverable trash and bounded owner-authorized retention jobs. Remaining: asynchronous processing/lease recovery and crash/orphan reconciliation, richer filtering/strategy analytics, full accessibility and hosting validation, operational job monitoring and consistent media backup/restore evidence.
+2. **Draft promotion, corrections, historical replay, and opening balances.** Draft editing/promotion is implemented, including preservation of linked journals during promotion. Next: corrections with reasons and expected revisions, chronological replay, historical entries and documented opening cash/asset lots. Posted financial facts remain immutable and backdating stays blocked until replay exists.
+3. **Watchlists, research, calculators, and reports.** Next: manual watchlists/research, scenario calculators, saved views/filters and activity/holdings/gain/income/allocation/strategy reports. Valuation-dependent reports need manual prices, FX provenance and clearly incomplete totals before providers are added.
+4. **Spreadsheet imports, reconciliation, exports, and restore testing.** Next: full workbook inventory, mapping/preview, duplicate/change detection, per-row outcomes, reconciliation, controlled commit, CSV/portable export with image manifests, and verified database/private-byte restore.
 
-## Next implementation slices
+## Other PRD work after the ordered priorities
 
-1. **Complete ledger revision workflows:** corrections with reasons and expected revisions, chronological replay, historical entries and documented opening cash/asset lots.
-2. **Complete accounting and valuation:** dividends/withholding, interest, fees, rewards/reinvestment policies, linked cash/asset transfers, swaps and splits; transaction-date and valuation-date FX; manual prices and provenance; holdings market values and complete dashboard totals.
-3. **Trade journal and multiple private images:** trade groups/fills, journal fields, strategies/version snapshots, private storage, authenticated originals/thumbnails, image validation/normalization, quotas, job queue, captions/order/comparison, retry and recoverable deletion.
-4. **Migration and portability:** full workbook inventory, import mapping/preview, duplicate/change detection, per-row outcomes, reconciliation, controlled commit, CSV/portable exports including image manifests, and restore verification.
-5. **Spreadsheet parity:** watchlists, research, calculators, saved views/filters, income/activity/allocation reports and strategy analytics.
-6. **Commercial readiness:** extension/provider and entitlement interfaces, licensing/billing adapters, hosted provisioning, support access, quotas and operational/legal/provider review. No provider or billing vendor is selected yet.
+Dividends/withholding, interest, fees, rewards/reinvestment, linked transfers, swaps and splits; remaining accounting fixtures; provider adapters and entitlements; billing/licensing/hosted provisioning and commercial operational/legal review. No provider or billing vendor has been chosen.
 
 ## Before staging/pilot or production use
 
-- Confirm BCMath is enabled for WordPress's Apache PHP 8.1 runtime. It is not established by the provided screenshots.
-- Enable HTTPS and update WordPress home/site URLs. The current production HTTP setup is intentionally refused by the plugin API.
-- Select private media storage, limits, retention and consistent backup infrastructure before the image slice.
-- Test on the actual Ubuntu/PHP 8.1.2/MySQL 8.0.46 host; local validation uses PHP 8.1.34/WordPress 7.1.2/MySQL 8.0.26.
-- Complete browser/mobile/accessibility review, HTTP cookie/application-password and CSRF tests, broader malicious-input cases, CI/runtime matrix, schema repair/upgrade tests and performance benchmarks.
-- Complete privacy/closure and export/retention workflows; rehearse recovery and source import before cutover.
+- Confirm BCMath in WordPress's Apache PHP 8.1 runtime. Screenshots do not establish its presence.
+- Enable HTTPS and update both WordPress URLs. Production HTTP is intentionally refused by the API.
+- For images, enable GD, configure a directory outside all public roots with server deny rules, and save the workspace owner's quota/retention policy. See `private-images.md`.
+- Back up before reactivation/schema upgrade; keep both SQL files in the plugin package. Manual journal/media SQL is in `002-trade-journal-media.sql`.
+- Validate on the actual Ubuntu/PHP 8.1.2/Apache/MySQL 8.0.46 host; local evidence uses PHP 8.1.34/WordPress 7.1.2/MySQL 8.0.26.
+- Complete minimum-version/MariaDB/CI matrix, broader accessibility and abuse testing, sustained performance, privacy/closure and recovery gates.
 
-## Validation available now
+## Validation
 
-31 unit/accounting/role tests, 22 real WordPress/MySQL integration checks and 6 REST URL regression cases. Integration checks include two-workspace denial, revocation, idempotency, full rollback after a forced failure and concurrent oversell prevention. PHP/JavaScript syntax and WordPress coding-standard checks pass. These do not constitute complete PRD acceptance or a production deployment.
+Current fixtures cover domain accounting/roles, real WordPress/database isolation and revisions, migration repetition, concurrent quota reservations, bounded history, native image decoding, real multipart/cookie/nonce delivery, rollback after encoding and desktop/360-pixel browser workflows. Exact commands and results are in `testing.md` and `implementation-status.md`.
 
-Posted history cannot currently be corrected or backdated, and market values are missing rather than guessed. Keep this build on a disposable/staging installation until the remaining release gates are met.
+No production database, server or deployed plugin was changed. Prices and base totals remain visibly missing; corrections/backdating are not available yet.

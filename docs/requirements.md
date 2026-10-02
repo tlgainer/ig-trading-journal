@@ -1,32 +1,23 @@
 # PRD implementation coverage
 
-Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. This file tracks shipped code separately from release acceptance. Version 0.3.0 begins Phase 1 and the first Phase 2 vertical slice; neither complete phase nor complete MVP acceptance is claimed.
+Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.4.0, schema 2. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
-| ACL 01-04 | Explicit workspace membership; contextual tgit capabilities; owner/manager/contributor/viewer; per-service authorization; revocation; last-owner protection | Delegated posting, invitation flow, support grants, jobs/media/export isolation |
-| Section 8/9, OPS 01 | Versioned InnoDB/utf8mb4 tables, configured prefix, decimal storage, scoped indexes; activation installer; schema lock | Full logical schema as modules land; upgrade backup/resume/recovery contracts |
-| TX 01-02, CAL 01/03 | Posted buys/sells and cash; editable drafts with immutable revisions and atomic promotion; exact decimal FIFO; fee-inclusive basis; atomic writes; oversell and overdraft rejection | All other financial actions |
-| TX 07-09 | Posted history is immutable; stable same-day ordering; date precision preserved; historical posting blocked | Corrections/replay, imported identity, opening lots, overdraft policy |
-| API 01-04, SEC 01/04 | Authenticated versioned API; role/object checks; JSON decimal strings; CSRF through WP REST authentication; unknown-field rejection; private no-store responses; posting keys; bounded ID pagination | Detailed field errors, filters, stale-edit contracts when edits exist, per-resource limits |
-| AUD 01-03 | Append-only application audit events and initial immutable financial payloads; actors, UTC time, correlation and calculation version | Superseding revisions, prior/new role payloads, export/media audit, independent digests |
-| PF 01, UX 01/03/04/05 | Native quantities, cash, remaining basis and realized gains; null missing valuation; responsive form/cards and accessible labels/focus | Prices/FX, complete dashboard/reporting, full browser/a11y review |
-| OPS 02, PRI 02 | No deactivation purge or uninstall deletion; no telemetry/provider calls | Owner closure, privacy hooks, retention policy/export |
-| DEV 01-08 | Architecture boundary, deterministic tests, API/schema/operations docs, requirement tracking and initial ADR | Complete CI matrix, full source discovery and migration signoff |
+| ACL 01-04 | Explicit memberships/capabilities, revocation, owner protection; journal/media services and streaming check workspace/relationships; retention jobs recheck their authorizing owner | Delegated posting, invitations/support grants, export and broader worker isolation/matrix |
+| Sections 8/9, OPS 01 | Versioned InnoDB/utf8mb4 custom tables, scoped indexes, additive schema 1-to-2 reactivation and named migration lock | Future modules, interrupted-upgrade/forward-repair and full host/matrix evidence |
+| TX 01-02, CAL 01/03 | Draft edits/promotion, exact decimal FIFO, native cash/basis/gains, atomic ledger and audit, idempotency, no overdraft/oversell | Remaining classified accounting actions/valuation |
+| TX 07-09 | Immutable posted history, preserved date-only precision, committed same-day order, draft revision checks; promoted fill keeps its trade | Corrections/replay, backdating, imported identity, opening cash/lots |
+| JR 01-02 | Trade groups/fills, optional thesis/rationales/levels/stop/target/confidence/emotions/lessons/tags/notes; checked confluences plus text; original sheet confluences preserved; immutable bounded journal history | Import mapping and richer search/filter/analytics |
+| JR 03 | Strategy name/status, safe rich description/rules/tags, immutable versions; trade captures a workspace-scoped version | Richer editor, analytics and complete localization/a11y review |
+| MED 01-06 | Multiple optional JPEG/PNG/WebP files, owner policy/count/storage reservation, MIME/magic/decoder/memory bounds, random private keys, authenticated originals/thumbs, normalized files and metadata stripping | Actual Apache/GD/storage configuration and complete hosting/security matrix |
+| MED 07-09 | Independent multipart upload/progress/cancel, retry or pending-file replacement, idempotent finalize, ready/failed states, captions/alt/stage/timeframe/order/comparison, soft deletion/restore, bounded owner-authorized retention cron | Synchronous processing stages are transactional; asynchronous processing leases, crash/orphan reconciliation, fuller job status/monitoring and backup expiry evidence remain |
+| API 01-04, SEC 01/04 | Authenticated/private versioned API, decimal strings, WP cookie/nonce checks, object/capability checks, strict JSON keys, idempotency/revisions, bounded list/history pages and private binary routes | Detailed field errors, saved filters and broader abuse/rate/host tests |
+| AUD 01-03 | Append-only ledger/journal/strategy revisions, actor/UTC/correlation evidence, media lifecycle/metadata audit | Superseding financial corrections, stronger old/new role/media payloads, independent digests/export |
+| PF 01, UX 01/03/04/05 | Native holdings/cash/basis/gains, missing valuation is null; desktop/360-pixel journal/gallery workflow; workspace-zone history presentation | Prices/FX/base reports and full WordPress-theme/browser/WCAG audit |
+| OPS 02, PRI 02 | Deactivation/uninstall preserve data; private retained trash policy; no external telemetry/AI/providers | Closure/privacy/export, consistent DB/media restore and full operational recovery |
+| DEV 01-08 | Contracts, deterministic fixtures, SQL/API/setup/decision docs, locked PHP and browser test tools | CI compatibility matrix, discovery/reconciliation/cutover and release signoff |
 
-## Next slices in dependency order
+The owner's order is authoritative: **journals/strategies/multiple images; remaining ledger revisions/replay/opening balances; watchlists/research/calculators/reports; imports/reconciliation/exports/restore testing**. See `remaining-work.md` for current gates within that order.
 
-1. Transaction revision/correction and chronological replay, explicit opening balances/lots; concurrency gates.
-2. Manual prices/FX with observation provenance, income/transfers/splits with the remaining AC 01-08 fixtures.
-3. Trade groups, journal revisions and strategy snapshots; private storage, queue, quota reservation and multiple-image upload/gallery (MED 01-09). No public WordPress Media Library shortcut.
-4. Full workbook discovery, controlled import preview/commit, reconciliation and rejection report, then portable exports and restore evidence.
-5. Watchlists/research/calculators/analytics, then vendor-neutral entitlements and commercial launch gates.
-
-## Phase 0 decisions still open
-
-- Site Health confirms WordPress 7.1.2, PHP 8.1.2, Apache 2.4.52, MySQL 8.0.46, wp_ and utf8mb4. BCMath remains unconfirmed. Production HTTP must be converted to HTTPS before plugin API use. Plain permalinks are supported; Europe/London is the WordPress site timezone.
-- Owner confirmed USD base currency and America/New_York as the new-workspace defaults. Use date-appropriate EST/EDT, not fixed-offset EST. Existing workspace settings are not rewritten.
-- Complete source inventory, approved sanitized import fixtures and reconciliation differences. The source sheet is not fetched or altered in this slice.
-- Historical completeness/opening lots, private storage location, quotas, retention and backup/restore infrastructure.
-
-Defaults accepted for this development slice: FIFO, long-only stock/ETF/crypto, account-native cash and matching quote currency, no overdrafts, no providers/billing. These do not authorize historical migration or production launch.
+Established workspace defaults: USD and America/New_York. Proposed media defaults are prefilled but require an explicit owner policy save; local private storage requires host configuration. Full source discovery, retention/backup operations, licensed providers and commercial policies remain open. No production migration or deployment has occurred.

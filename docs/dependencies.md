@@ -1,6 +1,6 @@
 # Dependency inventory
 
-Production: PHP 8.1+ including BCMath, WordPress, MySQL/MariaDB. The plugin has no runtime Composer or Node dependency and makes no provider, AI or billing calls.
+Production: PHP 8.1+ including BCMath, WordPress, MySQL/MariaDB. Private image uploads also require PHP GD with JPEG/PNG/WebP support and a configured private local directory. The plugin has no runtime Composer or Node dependency and makes no provider, AI or billing calls.
 
 Development-only dependencies are pinned in `composer.lock`:
 
@@ -12,6 +12,8 @@ Development-only dependencies are pinned in `composer.lock`:
 | phpcsstandards/phpcsextra | 1.5.1 | LGPL-3.0-or-later |
 | dealerdirect/phpcodesniffer-composer-installer | 1.2.1 | MIT |
 
-Keep upstream license files with any redistributed development tooling. Omit `vendor`, `tmp`, tests and development tools from the WordPress package. Include `src`, `includes`, `assets`, plugin bootstrap and `docs/001-ledger-foundation.sql`. The SQL file is required at runtime by the activation installer.
+Keep upstream license files with any redistributed development tooling. Omit `vendor`, `tmp`, tests and development tools from the WordPress package. Include `src`, `includes`, `assets`, plugin bootstrap and both `docs/001-ledger-foundation.sql` and `docs/002-trade-journal-media.sql`. Both SQL files are required at runtime by the activation installer.
 
 Composer advisory audit on October 2, 2026 reported no advisories for these locked packages. Recheck when updating dependencies; this is not a security review of the product.
+
+Browser tests use playwright-core 1.63.0 (Apache-2.0), locked in tests/browser/package-lock.json. Node 20+ and a locally installed Chrome/Chromium browser are development dependencies only. No browser binary or Node package belongs in the production plugin.

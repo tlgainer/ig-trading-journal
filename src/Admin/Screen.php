@@ -33,6 +33,7 @@ final class Screen {
 		wp_enqueue_style( 'tgit-admin', plugins_url( 'assets/admin.css', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION );
 		wp_enqueue_script( 'tgit-rest-url', plugins_url( 'assets/rest-url.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -120,6 +121,7 @@ final class Screen {
 	</section>
 	<section><h2><?php esc_html_e( 'Holdings', 'ig-trading-journal' ); ?></h2><div id="tgit-holdings" class="tgit-cards"></div><button id="tgit-more-holdings" class="button" hidden><?php esc_html_e( 'Load more holdings', 'ig-trading-journal' ); ?></button></section>
 	<section><h2><?php esc_html_e( 'Transactions', 'ig-trading-journal' ); ?></h2><div id="tgit-transactions" class="tgit-cards"></div><button id="tgit-more-transactions" class="button" hidden><?php esc_html_e( 'Load more transactions', 'ig-trading-journal' ); ?></button></section>
+		<?php JournalScreen::render(); ?>
 	<section id="tgit-members-section" hidden><h2><?php esc_html_e( 'Workspace members', 'ig-trading-journal' ); ?></h2><div id="tgit-members" class="tgit-cards"></div>
 	<form id="tgit-member-form" class="tgit-form">
 		<label><?php esc_html_e( 'Existing WordPress user ID', 'ig-trading-journal' ); ?><input name="wp_user_id" type="number" min="1" step="1" required></label>

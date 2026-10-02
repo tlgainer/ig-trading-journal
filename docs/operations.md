@@ -1,38 +1,40 @@
 # Installation, SQL and recovery
 
-Development slice requirements: PHP 8.1+ and BCMath, WordPress 6.8+, MySQL 8.0+/MariaDB 10.6+, InnoDB, utf8mb4, HTTPS. Confirm the actual target-host versions and enable BCMath before activation. MariaDB and the minimum WordPress version still require matrix testing.
+Requires PHP 8.1+ with BCMath, WordPress 6.8+, MySQL 8.0+/MariaDB 10.6+, InnoDB, utf8mb4 and HTTPS outside development. Private images additionally require GD and configured private storage; journals/strategies do not require GD. Minimum WordPress/MariaDB and the actual host still need matrix validation.
 
-Confirmed WordPress hosting from Site Health: WordPress 7.1.2, PHP 8.1.2-1ubuntu2.26, Apache 2.4.52 (apache2handler), MySQL 8.0.46, mysqli, utf8mb4/utf8mb4_unicode_520_ci, wp_ table prefix, plain permalinks and Europe/London site timezone. The earlier phpMyAdmin PHP 7.4/nginx details describe a different application runtime; they are not the WordPress baseline. BCMath must be enabled for WordPress's Apache PHP configuration. Site timezone does not automatically establish workspace timezone or base currency.
+Confirmed host: WordPress 7.1.2, PHP 8.1.2-1ubuntu2.26 on Apache 2.4.52/apache2handler, MySQL 8.0.46/mysqli, wp_ prefix, utf8mb4/utf8mb4_unicode_520_ci, plain permalinks and Europe/London site timezone. Earlier phpMyAdmin PHP 7.4/nginx details are a different runtime. BCMath/GD presence in the WordPress Apache runtime is not established by screenshots.
 
-Site Health reports production with HTTP home/site URLs and HTTPS disabled. The plugin will return `tgit_https_required` for its API until HTTPS is configured for WordPress. Enable HTTPS and update both WordPress URLs before using real ledger data. Do not change the environment to development just to bypass this check. Plain permalinks are supported: admin requests preserve the rest_route query parameter and add pagination separately. No permalink change or SQL is required.
+The site currently reports production HTTP URLs. Configure HTTPS and update both WordPress URLs before real use; do not switch production to development to bypass transport checks. Plain permalinks work without a permalink change. Workspaces default to USD/America/New_York (EST/EDT); WordPress's site timezone does not override the workspace.
 
-Owner-confirmed workspace defaults are USD and America/New_York. The setup form is prefilled and API creation applies these defaults when omitted. New York observes EST/EDT based on the date. WordPress's Europe/London setting does not override a workspace's timezone. This change requires no SQL and does not alter existing workspace records.
+## Activation and schema 2 upgrade
 
-## Automatic installation
+Back up the database before replacing code/reactivating. Keep **both** `docs/001-ledger-foundation.sql` and `docs/002-trade-journal-media.sql` in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
 
-Back up the WordPress database. Activate the plugin on a single site. The installer reads `docs/001-ledger-foundation.sql`, replaces `{{prefix}}` with `$wpdb->prefix`, and uses WordPress `dbDelta` under a database named lock. It checks table engines and records `tgit_schema_version=1` after completion. The installation creates no workspace or portfolio records; setup explicitly creates owner membership.
+Activation/reactivation reads both bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` under a named database lock, verifies InnoDB and records `tgit_schema_version=2` after success. This upgrades schema 1 or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
 
-MySQL DDL is not transactionally rolled back. If creation fails, the readiness marker is not set. Fix prerequisites/permissions and rerun activation to repair the additive schema. Existing tables are never dropped. A future schema version requires an explicit reviewed migration, backup and compatibility procedure; this build does not silently run future migrations on requests.
+There is no request-time migration. Until reactivation succeeds, the API readiness gate and admin notice explain the mismatch. MySQL DDL is not transactional: after a partial failure, fix permissions/prerequisites and reactivate to repeat the additive repair. Unknown future schema versions are refused. No table is dropped and no financial replay occurs in this migration.
 
-## Manual SQL file
+## Separate manual SQL
 
-The only initial schema file is **`docs/001-ledger-foundation.sql`**. You ordinarily do not need to run SQL yourself.
+Ordinarily activation handles SQL. If manual execution is necessary, select the correct backed-up WordPress database and confirm its prefix in wp-config.php.
 
-1. Back up, select the correct WordPress database, and confirm its configured table prefix in `wp-config.php`.
-2. Work on a copy of the SQL file and replace every `{{prefix}}` with that prefix (for example `wp_` or a per-site prefix).
-3. Run the file only against an empty schema. It contains CREATE statements and intentionally fails on existing tables; do not convert it to destructive replacement SQL.
-4. Activate/reactivate the plugin so `dbDelta` verifies installation and WordPress records schema version 1. Do not manually forge the schema-version option.
+- Fresh installation: `001-ledger-foundation.sql` followed by `002-trade-journal-media.sql`.
+- Existing schema-1 ledger installation: `002-trade-journal-media.sql` adds journal, strategy and private-media tables.
 
-The table names are `<prefix>tgit_` plus workspaces, memberships, accounts, assets, transactions, transaction_legs, transaction_revisions, lots, lot_allocations, idempotency and audit_events. Relationship integrity is checked in the application, not through foreign-key constraints generated by dbDelta. Do not write ledger tables manually.
+Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; do not convert them to destructive replacements. Reactivate afterward so the installer verifies both schemas and records version 2. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media rows manually.
 
-## Preserve and recover
+## Private images and jobs
 
-Deactivation and uninstall preserve tables and portfolio data. No purge command or cron job exists in this slice. Back up the full database consistently; private media is not implemented yet. Restore into an isolated site and compare legs, lots, transaction revisions, cash and audit records before returning to service.
+Follow `private-images.md` for the GD/runtime check, private directory, Apache deny rule, owner quota policy, upload behavior and retention jobs. Images never use public WordPress attachments. Owner-authorized daily cleanup is the only retention operation introduced here; deactivation/uninstall do not purge the portfolio.
 
-Rolling back to 0.1.0 hides this feature but leaves the additive tables intact. Do not delete tables to roll back. Reinstalling 0.2.0 can read schema version 1. Production deployment, migration/cutover, retention and backup restoration remain release gates.
+## Backup and rollback
+
+Back up the database and private normalized bytes consistently. Database-only backup loses the gallery. Restore into an isolated installation and compare financial legs/lots/cash/revisions, journals, captured strategies and media hashes before cutover. Automated restore/export reconciliation is still pending under the owner's fourth priority.
+
+Schema 2 code refuses incompatible markers. Old 0.3.0 code expects schema 1 and cannot safely operate the new journal-linked workflow. Rollback requires a matching complete backup or a reviewed forward-compatible repair; do not delete additive tables or force a schema downgrade. No production backup, restore, purge, migration or deployment was performed during development.
 
 ## Staging smoke test
 
-Create workspace A and B; grant a viewer membership only in A. Verify that the viewer cannot list B, use B account IDs, post in A, or read A after revocation. Record deposit 2000, buy 10 at 100 with fee 5, then sell 4 at 120 with fee 2. Check cash 1473, remaining units 6, basis 603 and realized gain 76. Retry the sale with the same key and confirm no duplicate. There should be no public portfolio page, media URL or export in this build.
+Create two workspaces; confirm that a viewer/member cannot access foreign data and loses future access after revocation. Deposit 2000, buy 10 at 100 with fee 5, sell 4 at 120 with fee 2: expect cash 1473, units 6, basis 603 and gain 76. Retry with the same key; no duplicate should appear.
 
-Sources for the WordPress integration: [custom-table installation/dbDelta](https://developer.wordpress.org/plugins/creating-tables-with-plugins/) and [REST endpoints/permission callbacks](https://developer.wordpress.org/rest-api/extending-the-rest-api/adding-custom-endpoints/).
+Create a strategy and trade journal with optional fields and fills. Edit the strategy and verify the trade retains its captured version. Save a journal with zero images, then three valid images plus one rejected file. Ready images should work and failed images should retry independently. Caption/order/compare, delete and restore; originals and thumbnails must deny anonymous, revoked and foreign-workspace requests. Verify the directory has no public URL. Complete the remaining release gates before production.

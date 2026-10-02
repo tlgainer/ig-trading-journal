@@ -59,12 +59,13 @@
    if (canPost) {
     const post = document.createElement('button'); post.type = 'button'; post.className = 'button'; post.textContent = config.i18n.post;
     post.addEventListener('click', async () => {
+     if (window.tgitWriteBusy) return; window.tgitWriteBusy = true;
      const target = path('transactions/' + row.id + '/post'); const identity = target + ':' + row.revision;
      if (!promotionKeys.has(identity)) promotionKeys.set(identity, crypto.randomUUID());
      post.disabled = true; $('workspace').disabled = true; status(config.i18n.loading);
      try { await request(target, { expected_revision: Number(row.revision) }, promotionKeys.get(identity)); promotionKeys.delete(identity); await refresh(); status(config.i18n.saved); }
      catch (error) { if (error.status >= 400 && error.status < 500) promotionKeys.delete(identity); status(error.message, true); }
-     finally { post.disabled = false; $('workspace').disabled = false; }
+     finally { window.tgitWriteBusy = false; post.disabled = false; $('workspace').disabled = false; }
     }); card.append(post);
    }
   });
@@ -106,6 +107,7 @@
    cards($('members'), members.items, (row) => [`User #${row.wp_user_id}`, `${row.role} · ${row.state}`]);
   }
   actionFields(); $('content').hidden = false; status('');
+  window.dispatchEvent(new CustomEvent('tgit-workspace', { detail: { workspace, role: member.role, timezone: member.timezone, accounts, assets } }));
  }
  async function loadWorkspaces(selected) {
   workspaces = (await request('workspaces')).items;
@@ -119,11 +121,11 @@
  function submit(id, handler) {
   const form = $(id);
   form.addEventListener('submit', async (event) => {
-   event.preventDefault(); const button = form.querySelector('button[type="submit"], button:not([type])'); button.disabled = true;
+   event.preventDefault(); if (window.tgitWriteBusy) return; window.tgitWriteBusy = true; const button = form.querySelector('button[type="submit"], button:not([type])'); button.disabled = true;
    $('workspace').disabled = true; status(config.i18n.loading);
    try { await handler(form); status(config.i18n.saved); }
    catch (error) { status(error.message || config.i18n.network, true); }
-   finally { button.disabled = false; $('workspace').disabled = false; }
+   finally { window.tgitWriteBusy = false; button.disabled = false; $('workspace').disabled = false; }
   });
  }
  submit('workspace-form', async (form) => { const result = await request('workspaces', payload(form)); form.reset(); await loadWorkspaces(String(result.id)); });

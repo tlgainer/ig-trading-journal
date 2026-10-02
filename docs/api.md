@@ -54,3 +54,37 @@ Holdings return `quantity`, `remaining_basis`, `realized_gain`, native `currency
 Both writes require Idempotency-Key and an integer expected_revision. Stale revisions, promoted drafts, posted events and conflicting key reuse return 409. Keys are scoped to workspace, operation and source draft. A retry with the identical key/body returns the original result after current authorization. Financial validation failure rolls back all changes and leaves the source draft editable.
 
 Promotion creates a distinct immutable posted transaction, marks the source draft promoted, and appends a source revision linking posted_transaction_id. The source retains its creator and complete history; it has no ledger effects. The response includes transaction (posted event) and draft (archived source). Same-day FIFO follows committed posted IDs. No SQL migration is required.
+
+## Journal, strategy and private images (0.4.0)
+
+All routes are relative to `/tgit/v1/workspaces/{workspace}` and use the existing private envelopes/errors/transport/authentication. Every JSON write and multipart finalize requires Idempotency-Key. Existing-object JSON edits additionally require integer expected_revision. Viewers read; owner/manager/contributor edit journals/media; owner/manager manage strategies; only owners manage media policy/cleanup.
+
+| Route | Methods | Contract |
+| --- | --- | --- |
+| /trades | GET, POST | Cursor after/limit (max 100); create full trade/journal facts |
+| /trades/{id} | GET, POST | Current trade/fills/captured strategy and latest 20 journal revisions; full replacement with expected_revision |
+| /trades/{id}/revisions | GET | Immutable history with exclusive before revision cursor; limit 1–20 |
+| /strategies | GET, POST | Cursor list; create strategy version |
+| /strategies/{id} | GET, POST | Current strategy/latest 20 versions; full replacement with expected_revision |
+| /strategies/{id}/versions | GET | Older immutable versions with before/limit |
+| /media-settings | GET, POST | Health/used bytes/limits; owner explicit policy with expected_revision=0 initially |
+| /trades/{id}/images | GET, POST | Active/recoverable gallery; reserve filename/hash/size and optional metadata |
+| /images/{id}/upload | POST | Exactly one multipart file; size/hash must match reservation; bounded synchronous normalization |
+| /images/{id}/retry | POST | Replace reserved/failed file declaration using expected_revision, filename, hash, size; ready images conflict |
+| /images/{id}/metadata | POST | Expected revision and caption/alt_text/stage/timeframe/sort_order |
+| /images/{id}/delete | POST | Expected revision; block access and retain recoverable trash |
+| /images/{id}/restore | POST | Expected revision; restore only within retention |
+| /images/{id}/content | GET | variant=original or thumbnail; authenticated binary with private/no-store, nosniff/noindex headers |
+| /media-cleanup | POST | Empty JSON object; owner-only bounded expired-trash/abandoned-reservation cleanup |
+
+Trade input: asset_id, title, state (planned/open/closed/archived), optional opened_on/closed_on, optional nullable strategy_version_id, transaction_ids (up to 200), journal object, and expected_revision for edits. Linked transactions must be workspace buy/sell fills for the asset and cannot belong to another trade. Promoted source drafts are replaced by their posted fill while preserving journal revisions.
+
+Journal fields: thesis, entry_rationale, exit_rationale, emotions, lessons, notes, confluence_text, original_confluences, tags, confluences, confidence; optional premarket_low/high, previous_day_low/high, planned_stop/target. Level values are decimal strings or blank/null. Confidence is optional integer 0–100. Confluences accept up to 50 `{label,checked}` items with boolean checked state (plain string labels are normalized as checked for compatibility). Text is bounded to 20000 bytes/field; tags/labels to 50 items and 190 bytes/item. Original confluence text remains plain data, not executable content.
+
+Strategy input: name, status (active/archived), description, rules, tags and expected_revision for edits. Rich text uses a basic allowlist without remote image embeds. A trade's captured strategy version remains unchanged unless explicitly changed through a new journal revision.
+
+Media reserve requires SHA-256 input hash, integer size, filename and optional caption/alt_text/stage/timeframe/sort_order. Metadata fields default blank/review/order 0. File names are display metadata only. Gallery responses omit internal keys and expected input hashes; content_hash is the normalized original hash. Thumbnail/original byte access rechecks membership and the trade relationship. Deleted/not-ready bytes return 404; anonymous/revoked/foreign requests are denied through the normal permission/object contracts.
+
+Limits: max_images 1–100; max_file_bytes 1–10485760; max_pixels 1–40000000; quota_bytes 1–107374182400; trash_days 1–365. Existing usage cannot exceed a newly selected quota. Trash and pending/failed reservations count until purged. Settings increases cannot bypass reservation/quota revalidation during finalize.
+
+History pages return items in ascending order within the newest page and next_cursor pointing to the exclusive before value. Trade detail uses revisions_cursor; strategy detail uses versions_cursor. Stale edits, wrong retry identity, double finalize and attempts to replace ready images return conflict. Ordinary upload/decoder/DB failures preserve a saved journal and independent ready images. See private-images.md for hosting and operational boundaries.
