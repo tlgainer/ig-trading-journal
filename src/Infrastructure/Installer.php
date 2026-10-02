@@ -1,0 +1,86 @@
+<?php
+/**
+ * Versioned additive installation; OPS 01/02.
+ *
+ * @package IGTradingJournal
+ */
+
+declare(strict_types=1);
+namespace GainerInteractive\IGTradingJournal\Infrastructure;
+
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Migration locks and schema validation must query the database directly without a cache.
+
+/** Installer service for the current implementation slice. */
+final class Installer {
+	public const VERSION = '1';
+
+	/**
+	 * Check runtime prerequisites and the installed schema marker.
+	 *
+	 * @return bool
+	 */
+	public static function ready(): bool {
+		return PHP_VERSION_ID >= 80100 && extension_loaded( 'bcmath' ) && get_option( 'tgit_schema_version' ) === self::VERSION;
+	}
+
+	/**
+	 * Install the initial schema on explicit single-site activation.
+	 *
+	 * @param bool $network_wide network wide input.
+	 * @return void
+	 */
+	public static function activate( bool $network_wide = false ): void {
+		if ( $network_wide ) {
+			wp_die( esc_html__( 'Activate TG Investment Tracker separately on each site; network activation is not supported yet.', 'ig-trading-journal' ) );
+		}
+		if ( PHP_VERSION_ID < 80100 || ! extension_loaded( 'bcmath' ) ) {
+			wp_die( esc_html__( 'TG Investment Tracker requires PHP 8.1 or newer with BCMath.', 'ig-trading-journal' ) );
+		}
+		self::install();
+	}
+
+	/**
+	 * Apply the versioned additive schema under an exclusive migration lock.
+	 *
+	 * @return void
+	 * @throws \RuntimeException When the operation contract cannot be satisfied.
+	 */
+	public static function install(): void {
+		global $wpdb;
+		$installed = get_option( 'tgit_schema_version' );
+		if ( false !== $installed && self::VERSION !== $installed ) {
+			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
+		}
+		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) ) ) {
+			throw new \RuntimeException( 'Schema installation is already in progress.' );
+		}
+		try {
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the bundled local schema; there is no remote URL.
+			$sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/001-ledger-foundation.sql' );
+			if ( false === $sql ) {
+				throw new \RuntimeException( 'Schema file is missing.' );
+			}
+			$sql = preg_replace( '/^--.*$/m', '', $sql );
+			$sql = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
+			foreach ( explode( ';', $sql ) as $statement ) {
+				if ( trim( $statement ) === '' ) {
+					continue;
+				}
+				dbDelta( trim( $statement ) . ';' );
+				if ( $wpdb->last_error ) {
+					throw new \RuntimeException( 'Schema installation failed. Retry after inspecting database permissions.' );
+				}
+				preg_match( '/CREATE TABLE (\S+)/', $statement, $match );
+				$status = $wpdb->get_row( $wpdb->prepare( 'SHOW TABLE STATUS WHERE Name = %s', $match[1] ), ARRAY_A );
+				if ( ! $status || 'InnoDB' !== $status['Engine'] ) {
+					throw new \RuntimeException( 'Ledger tables require InnoDB.' );
+				}
+			}
+			update_option( 'tgit_schema_version', self::VERSION, false );
+		} finally {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+		}
+	}
+}

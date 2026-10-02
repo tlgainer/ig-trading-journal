@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="IG Trading Journal">
+	<description>WordPress coding standards for IG Trading Journal.</description>
+	<file>ig-trading-journal.php</file>
+	<file>includes</file>
+	<file>src</file>
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<exclude-pattern>tmp/*</exclude-pattern>
+	<exclude-pattern>tests/*</exclude-pattern>
+	<arg name="extensions" value="php" />
+	<rule ref="WordPress">
+		<!-- Namespaced domain classes use the explicit PSR-style class-path loader. -->
+		<exclude name="WordPress.Files.FileName" />
+	</rule>
+</ruleset>
