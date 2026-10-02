@@ -59,6 +59,7 @@ final class Controller {
 	 * @return void
 	 */
 	public static function register(): void {
+		JournalRoutes::register();
 		add_filter( 'rest_post_dispatch', array( self::class, 'private_response' ), 10, 3 );
 		self::route( '/workspaces', 'GET', 'workspaces' );
 		self::route( '/workspaces', 'POST', 'create_workspace' );
@@ -88,7 +89,10 @@ final class Controller {
 			$response = rest_ensure_response( $response );
 			$response->header( 'Cache-Control', 'private, no-store, max-age=0' );
 			$response->header( 'Vary', 'Cookie, Authorization' );
-			$response->header( 'X-Correlation-ID', wp_generate_uuid4() );
+			$headers     = $response->get_headers();
+			$payload     = $response->get_data();
+			$correlation = $headers['X-Correlation-ID'] ?? ( $payload['correlation_id'] ?? ( $payload['data']['correlation_id'] ?? wp_generate_uuid4() ) );
+			$response->header( 'X-Correlation-ID', $correlation );
 		}
 		return $response;
 	}
@@ -147,13 +151,15 @@ final class Controller {
 			$service   = self::service( $correlation );
 			$workspace = (int) $request['workspace'];
 			$data      = array();
-			if ( $request->get_method() === 'POST' ) {
+			if ( $request->get_method() === 'POST' && 'journal_upload' !== $operation ) {
 				$data = $request->get_json_params();
 				if ( ! is_array( $data ) || ( $data && array_is_list( $data ) ) ) {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( str_starts_with( $operation, 'list_' ) ) {
+			if ( str_starts_with( $operation, 'journal_' ) ) {
+				$result = JournalRoutes::execute( $request, substr( $operation, 8 ), $data, $correlation );
+			} elseif ( str_starts_with( $operation, 'list_' ) ) {
 				$limit  = (int) $request['limit'];
 				$items  = $service->list_objects( $workspace, substr( $operation, 5 ), (int) $request['after'], $limit );
 				$result = array(
@@ -188,8 +194,12 @@ final class Controller {
 								),
 								200
 							);
+			if ( $result instanceof \WP_REST_Response ) {
+				$response = $result;
+			}
 			$response->header( 'Cache-Control', 'private, no-store, max-age=0' );
 			$response->header( 'Vary', 'Cookie, Authorization' );
+			$response->header( 'X-Correlation-ID', $correlation );
 			return $response;
 		} catch ( \Throwable $error ) {
 			$code    = 'tgit_internal_error';

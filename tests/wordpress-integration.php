@@ -10,6 +10,7 @@ if (!defined('ABSPATH') || !defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSA
  throw new RuntimeException('Set TGIT_DISPOSABLE_TEST_SITE=true in a disposable test site wp-config.php. Never run on production.');
 }
 require_once __DIR__ . '/run.php';
+$domain_passed = $passed;
 global $wpdb;
 Installer::install();
 $suffix = wp_generate_uuid4();
@@ -131,3 +132,7 @@ test('Concurrent sales cannot both consume the same units', function () use ($tr
 echo "Integration fixtures retained in disposable site for inspection. Recreate site after testing.\n";
 
 require __DIR__ . '/draft-integration.php';
+
+require __DIR__ . '/journal-integration.php';
+
+echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

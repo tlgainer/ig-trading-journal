@@ -16,7 +16,7 @@ final class Database {
 	 * @var \wpdb
 	 */
 	private $wpdb;
-	private const TABLES = array( 'workspaces', 'memberships', 'accounts', 'assets', 'transactions', 'transaction_legs', 'transaction_revisions', 'lots', 'lot_allocations', 'idempotency', 'audit_events' );
+	private const TABLES = array( 'workspaces', 'memberships', 'accounts', 'assets', 'transactions', 'transaction_legs', 'transaction_revisions', 'lots', 'lot_allocations', 'idempotency', 'audit_events', 'strategies', 'strategy_versions', 'trades', 'trade_journals', 'trade_fills', 'media_settings', 'media' );
 
 	/**
 	 * Bind the WordPress database connection.

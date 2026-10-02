@@ -1,0 +1,11 @@
+{
+  "name": "tgit-browser-tests",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

@@ -11,9 +11,9 @@ namespace GainerInteractive\IGTradingJournal\Application;
 /** Access service for the current implementation slice. */
 final class Access {
 	private const GRANTS = array(
-		'owner'       => array( 'tgit_view', 'tgit_post', 'tgit_create_draft', 'tgit_manage_settings', 'tgit_manage_members' ),
-		'manager'     => array( 'tgit_view', 'tgit_post', 'tgit_create_draft', 'tgit_manage_settings' ),
-		'contributor' => array( 'tgit_view', 'tgit_create_draft' ),
+		'owner'       => array( 'tgit_view', 'tgit_edit_journal', 'tgit_post', 'tgit_create_draft', 'tgit_manage_settings', 'tgit_manage_members' ),
+		'manager'     => array( 'tgit_view', 'tgit_edit_journal', 'tgit_post', 'tgit_create_draft', 'tgit_manage_settings' ),
+		'contributor' => array( 'tgit_view', 'tgit_edit_journal', 'tgit_create_draft' ),
 		'viewer'      => array( 'tgit_view' ),
 	);
 

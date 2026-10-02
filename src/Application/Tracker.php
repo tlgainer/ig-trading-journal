@@ -524,6 +524,13 @@ final class Tracker {
 			$command,
 			function () use ( $workspace, $id, $revision, $data ) {
 				$this->editable_draft( $workspace, $id, $revision );
+				$link = $this->db->row( 'SELECT trade_id FROM ' . $this->db->table( 'trade_fills' ) . ' WHERE workspace_id = %d AND transaction_id = %d', array( $workspace, $id ) );
+				if ( $link ) {
+					$trade = $this->db->object( 'trades', $workspace, (int) $link['trade_id'] );
+					if ( $data['asset_id'] !== (int) $trade['asset_id'] || ! in_array( $data['action'], array( 'buy', 'sell' ), true ) ) {
+						throw new \InvalidArgumentException( 'Unlink the draft from its trade before changing its asset or financial action.' );
+					}
+				}
 				$account = $this->db->object( 'accounts', $workspace, $data['account_id'] );
 				if ( null !== $account['archived_at'] || $account['native_currency'] !== $data['currency'] ) {
 					throw new \InvalidArgumentException( 'Use an active account in the transaction currency.' );
@@ -592,6 +599,36 @@ final class Tracker {
 						'revision' => $revision + 1,
 					)
 				);
+				// A linked draft becomes a posted fill without detaching its trade-level gallery.
+				$link = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'trade_fills' ) . ' WHERE workspace_id = %d AND transaction_id = %d', array( $workspace, $id ) );
+				if ( $link ) {
+					$trade_id                   = (int) $link['trade_id'];
+					$trade_record               = $this->db->object( 'trades', $workspace, $trade_id );
+					$journal_record             = $this->db->row( 'SELECT payload FROM ' . $this->db->table( 'trade_journals' ) . ' WHERE workspace_id = %d AND trade_id = %d AND revision = %d', array( $workspace, $trade_id, (int) $trade_record['revision'] ) );
+					$payload                    = json_decode( $journal_record['payload'], true, 512, JSON_THROW_ON_ERROR );
+					$payload['transaction_ids'] = array_map(
+						static function ( $fill ) use ( $id, $result ) {
+							return (int) $fill === $id ? (int) $result['transaction']['id'] : (int) $fill;
+						},
+						$payload['transaction_ids']
+					);
+					$trade_revision             = (int) $trade_record['revision'] + 1;
+					$this->db->update_object( 'trade_fills', $workspace, (int) $link['id'], array( 'transaction_id' => (int) $result['transaction']['id'] ) );
+					$this->db->update_object( 'trades', $workspace, $trade_id, array( 'revision' => $trade_revision ) );
+					$this->db->insert(
+						'trade_journals',
+						array(
+							'workspace_id' => $workspace,
+							'trade_id'     => $trade_id,
+							'revision'     => $trade_revision,
+							'payload'      => wp_json_encode( $payload ),
+							'actor_id'     => $this->actor,
+							'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+						)
+					);
+					$this->audit( $workspace, 'trade.fill_promoted', 'trade', $trade_id, $trade_revision );
+				}
+
 				$record = $this->db->object( 'transactions', $workspace, $id );
 				$this->db->insert(
 					'transaction_revisions',

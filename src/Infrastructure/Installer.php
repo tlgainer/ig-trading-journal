@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '1';
+	public const VERSION = '2';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && self::VERSION !== $installed ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -59,6 +59,12 @@ final class Installer {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the bundled local schema; there is no remote URL.
 			$sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/001-ledger-foundation.sql' );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the bundled additive migration.
+			$journal_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/002-trade-journal-media.sql' );
+			if ( false === $journal_sql ) {
+				throw new \RuntimeException( 'Journal migration is missing.' );
+			}
+			$sql .= $journal_sql;
 			if ( false === $sql ) {
 				throw new \RuntimeException( 'Schema file is missing.' );
 			}
