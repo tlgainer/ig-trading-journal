@@ -1,13 +1,13 @@
 # PRD implementation coverage
 
-Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.4.0, schema 2. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
+Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.5.0, schema 3. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
 | ACL 01-04 | Explicit memberships/capabilities, revocation, owner protection; journal/media services and streaming check workspace/relationships; retention jobs recheck their authorizing owner | Delegated posting, invitations/support grants, export and broader worker isolation/matrix |
-| Sections 8/9, OPS 01 | Versioned InnoDB/utf8mb4 custom tables, scoped indexes, additive schema 1-to-2 reactivation and named migration lock | Future modules, interrupted-upgrade/forward-repair and full host/matrix evidence |
+| Sections 8/9, OPS 01 | Versioned InnoDB/utf8mb4 custom tables, scoped indexes, additive schema 1/2-to-3 reactivation and named migration lock | Future modules, interrupted-upgrade/forward-repair and full host/matrix evidence |
 | TX 01-02, CAL 01/03 | Draft edits/promotion, exact decimal FIFO, native cash/basis/gains, atomic ledger and audit, idempotency, no overdraft/oversell | Remaining classified accounting actions/valuation |
-| TX 07-09 | Immutable posted history, preserved date-only precision, committed same-day order, draft revision checks; promoted fill keeps its trade | Corrections/replay, backdating, imported identity, opening cash/lots |
+| TX 07-09 | Immutable posted history, preserved date-only precision, committed same-day order, draft revision checks; promoted fill keeps its trade. Documented opening cash/lots precede ordinary posting; original acquisition date and explicit known/unknown basis are preserved | Corrections/replay, retroactive openings, imported identity and unresolved-basis resolution |
 | JR 01-02 | Trade groups/fills, optional thesis/rationales/levels/stop/target/confidence/emotions/lessons/tags/notes; checked confluences plus text; original sheet confluences preserved; immutable bounded journal history | Import mapping and richer search/filter/analytics |
 | JR 03 | Strategy name/status, safe rich description/rules/tags, immutable versions; trade captures a workspace-scoped version | Richer editor, analytics and complete localization/a11y review |
 | MED 01-06 | Multiple optional JPEG/PNG/WebP files, owner policy/count/storage reservation, MIME/magic/decoder/memory bounds, random private keys, authenticated originals/thumbs, normalized files and metadata stripping | Actual Apache/GD/storage configuration and complete hosting/security matrix |

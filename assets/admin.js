@@ -71,7 +71,7 @@
   });
  }
  function renderHoldings(items, append) {
-  cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, config.i18n.unknown], append);
+  cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, row.basis_status === 'unresolved' ? 'Remaining basis: unresolved' : `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, config.i18n.unknown], append);
  }
  function cancelEdit() {
   editingDraft = null; pending = null; const form = $('transaction-form'); form.reset(); form.elements.state.disabled = false;
@@ -113,6 +113,7 @@
   workspaces = (await request('workspaces')).items;
   choices($('workspace'), workspaces, (row) => `${row.name} · ${row.base_currency} · ${row.timezone}`);
   $('setup').hidden = !config.canCreate;
+  if (workspaces.length) $('panel-settings').append($('setup')); else $('workspace-label').before($('setup'));
   $('workspace-label').hidden = workspaces.length === 0;
   if (!workspaces.length) { $('content').hidden = true; status(config.i18n.empty); return; }
   if (selected && workspaces.some((row) => String(row.id) === selected)) $('workspace').value = selected;
@@ -148,6 +149,7 @@
   pending = null; form.reset(); await refresh();
  });
  $('transaction-form').elements.action.addEventListener('change', actionFields);
+ window.addEventListener('tgit-ledger-refresh', () => refresh().catch((error) => status(error.message, true)));
  $('workspace').addEventListener('change', () => { workspace = $('workspace').value; refresh().catch((error) => status(error.message, true)); });
  for (const type of ['transactions', 'holdings']) {
   $(`more-${type}`).addEventListener('click', async () => {

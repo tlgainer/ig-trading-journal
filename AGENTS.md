@@ -12,7 +12,8 @@
 - Deactivation/uninstall preserve data. Schema changes require documented backup and forward repair.
 
 - Owner priority order: trade journals/strategies/multiple private images; remaining ledger revision/replay/opening balances; watchlists/research/calculators/reports; spreadsheet import/reconciliation/export/restore testing.
-- Schema version 2 adds docs/002-trade-journal-media.sql. Keep both bundled SQL files in production packaging; reactivate explicitly after a backup to upgrade version 1.
+- Schema version 3 adds docs/003-opening-balances.sql. Keep all three bundled SQL files in production packaging; reactivate explicitly after a backup to upgrade version 1 or 2.
+- Opening cash and pre-existing asset lots require source provenance and must precede ordinary posting for each account. Unresolved opening basis is unknown and blocks sales; do not substitute a fabricated zero.
 - Journal edits are non-financial and separately authorized. Strategy versions are immutable; transaction-to-trade links live outside posted financial rows.
 - Private images use PHP GD and TGIT_PRIVATE_MEDIA_DIR outside every public root. Never use WordPress public uploads/attachments as private storage. Owner quota policy must be saved before reservations. Keep normalized originals only.
 - Run the journal/media integration, real HTTP and desktop/mobile browser fixtures on the disposable site with GD and private test storage. Browser tools are locked under tests/browser; never commit temporary cookies, credentials, media bytes or screenshots.

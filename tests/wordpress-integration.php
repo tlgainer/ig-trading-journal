@@ -135,4 +135,6 @@ require __DIR__ . '/draft-integration.php';
 
 require __DIR__ . '/journal-integration.php';
 
+require __DIR__ . '/opening-integration.php';
+
 echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

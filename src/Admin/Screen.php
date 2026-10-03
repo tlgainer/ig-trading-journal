@@ -34,6 +34,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-rest-url', plugins_url( 'assets/rest-url.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tabs', plugins_url( 'assets/tabs.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url', 'tgit-tabs' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-opening', plugins_url( 'assets/opening.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
@@ -118,6 +119,24 @@ final class Screen {
 		</form>
 	</section>
 	</div>
+	<section id="tgit-opening-section" hidden>
+	<h2><?php esc_html_e( 'Opening balances', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Record documented starting cash or pre-existing shares before posting ordinary transactions in this account. Opening shares do not deduct cash. Use the same opening date for all starting entries in an account.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-opening-status" role="status" aria-live="polite"></p>
+	<form id="tgit-opening-form" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Account', 'ig-trading-journal' ); ?><select name="account_id" required></select></label>
+	<label><?php esc_html_e( 'Opening type', 'ig-trading-journal' ); ?><select name="kind"><option value="cash"><?php esc_html_e( 'Starting cash', 'ig-trading-journal' ); ?></option><option value="lot"><?php esc_html_e( 'Pre-existing shares', 'ig-trading-journal' ); ?></option></select></label>
+	<label><?php esc_html_e( 'Opening date', 'ig-trading-journal' ); ?><input name="effective_date" type="date" required></label>
+	<label data-opening-cash><?php esc_html_e( 'Starting cash amount', 'ig-trading-journal' ); ?><input name="cash_amount" inputmode="decimal" required pattern="[0-9]+([.][0-9]+)?"></label>
+	<label data-opening-lot hidden><?php esc_html_e( 'Asset', 'ig-trading-journal' ); ?><select name="asset_id"></select></label>
+	<label data-opening-lot hidden><?php esc_html_e( 'Original acquisition date', 'ig-trading-journal' ); ?><input name="acquired_on" type="date"></label>
+	<label data-opening-lot hidden><?php esc_html_e( 'Quantity held at opening', 'ig-trading-journal' ); ?><input name="quantity" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label data-opening-lot hidden><?php esc_html_e( 'Cost basis status', 'ig-trading-journal' ); ?><select name="basis_status"><option value="complete"><?php esc_html_e( 'Known', 'ig-trading-journal' ); ?></option><option value="unresolved"><?php esc_html_e( 'Unknown, resolve before selling', 'ig-trading-journal' ); ?></option></select></label>
+	<label data-opening-lot hidden><?php esc_html_e( 'Total cost basis in account currency', 'ig-trading-journal' ); ?><input name="basis_amount" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Source note (statement or record reference)', 'ig-trading-journal' ); ?><input name="source_note" required maxlength="190"></label>
+	<button type="submit" class="button button-primary"><?php esc_html_e( 'Record opening balance', 'ig-trading-journal' ); ?></button>
+	</form>
+	</section>
 	<section id="tgit-entry" hidden><h2><?php esc_html_e( 'Record transaction', 'ig-trading-journal' ); ?></h2>
 	<form id="tgit-transaction-form" class="tgit-form tgit-grid">
 		<label><?php esc_html_e( 'Account', 'ig-trading-journal' ); ?><select name="account_id" required></select></label>

@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.2.0
+# REST contract: tgit/v1, build 0.5.0
 
 All routes are private. Use a WordPress cookie session plus `X-WP-Nonce` from `wp_create_nonce('wp_rest')`, or WordPress application-password authentication over HTTPS. Production and staging require HTTPS; only explicitly local/development environments allow HTTP. Every service checks current membership; site administrator status cannot bypass workspace authorization.
 
@@ -13,6 +13,7 @@ Base path: `/wp-json/tgit/v1`.
 | `/workspaces/{workspace}/assets` | GET, POST | Read: active member; create: owner/manager |
 | `/workspaces/{workspace}/transactions` | GET, POST | Read: active member; post: owner/manager; draft: owner/manager/contributor |
 | `/workspaces/{workspace}/holdings` | GET | Active member |
+| `/workspaces/{workspace}/opening-balances` | POST | Owner/manager; documented starting cash or pre-existing asset lot |
 
 GET accounts/assets/transactions use `after` (numeric ID cursor, default 0) and `limit` (1-100, default 100). Response `data.items`, `data.next_cursor`; continue until cursor is null. An exact full last page may give one extra empty request. Holdings cursor is an asset ID; it groups that page's asset/account positions. It does not support historical as-of queries yet. GET workspaces/members are setup lists.
 
@@ -63,7 +64,7 @@ All routes are relative to `/tgit/v1/workspaces/{workspace}` and use the existin
 | --- | --- | --- |
 | /trades | GET, POST | Cursor after/limit (max 100); create full trade/journal facts |
 | /trades/{id} | GET, POST | Current trade/fills/captured strategy and latest 20 journal revisions; full replacement with expected_revision |
-| /trades/{id}/revisions | GET | Immutable history with exclusive before revision cursor; limit 1–20 |
+| /trades/{id}/revisions | GET | Immutable history with exclusive before revision cursor; limit 1â€“20 |
 | /strategies | GET, POST | Cursor list; create strategy version |
 | /strategies/{id} | GET, POST | Current strategy/latest 20 versions; full replacement with expected_revision |
 | /strategies/{id}/versions | GET | Older immutable versions with before/limit |
@@ -79,12 +80,21 @@ All routes are relative to `/tgit/v1/workspaces/{workspace}` and use the existin
 
 Trade input: asset_id, title, state (planned/open/closed/archived), optional opened_on/closed_on, optional nullable strategy_version_id, transaction_ids (up to 200), journal object, and expected_revision for edits. Linked transactions must be workspace buy/sell fills for the asset and cannot belong to another trade. Promoted source drafts are replaced by their posted fill while preserving journal revisions.
 
-Journal fields: thesis, entry_rationale, exit_rationale, emotions, lessons, notes, confluence_text, original_confluences, tags, confluences, confidence; optional premarket_low/high, previous_day_low/high, planned_stop/target. Level values are decimal strings or blank/null. Confidence is optional integer 0–100. Confluences accept up to 50 `{label,checked}` items with boolean checked state (plain string labels are normalized as checked for compatibility). Text is bounded to 20000 bytes/field; tags/labels to 50 items and 190 bytes/item. Original confluence text remains plain data, not executable content.
+Journal fields: thesis, entry_rationale, exit_rationale, emotions, lessons, notes, confluence_text, original_confluences, tags, confluences, confidence; optional premarket_low/high, previous_day_low/high, planned_stop/target. Level values are decimal strings or blank/null. Confidence is optional integer 0â€“100. Confluences accept up to 50 `{label,checked}` items with boolean checked state (plain string labels are normalized as checked for compatibility). Text is bounded to 20000 bytes/field; tags/labels to 50 items and 190 bytes/item. Original confluence text remains plain data, not executable content.
 
 Strategy input: name, status (active/archived), description, rules, tags and expected_revision for edits. Rich text uses a basic allowlist without remote image embeds. A trade's captured strategy version remains unchanged unless explicitly changed through a new journal revision.
 
 Media reserve requires SHA-256 input hash, integer size, filename and optional caption/alt_text/stage/timeframe/sort_order. Metadata fields default blank/review/order 0. File names are display metadata only. Gallery responses omit internal keys and expected input hashes; content_hash is the normalized original hash. Thumbnail/original byte access rechecks membership and the trade relationship. Deleted/not-ready bytes return 404; anonymous/revoked/foreign requests are denied through the normal permission/object contracts.
 
-Limits: max_images 1–100; max_file_bytes 1–10485760; max_pixels 1–40000000; quota_bytes 1–107374182400; trash_days 1–365. Existing usage cannot exceed a newly selected quota. Trash and pending/failed reservations count until purged. Settings increases cannot bypass reservation/quota revalidation during finalize.
+Limits: max_images 1â€“100; max_file_bytes 1â€“10485760; max_pixels 1â€“40000000; quota_bytes 1â€“107374182400; trash_days 1â€“365. Existing usage cannot exceed a newly selected quota. Trash and pending/failed reservations count until purged. Settings increases cannot bypass reservation/quota revalidation during finalize.
 
 History pages return items in ascending order within the newest page and next_cursor pointing to the exclusive before value. Trade detail uses revisions_cursor; strategy detail uses versions_cursor. Stale edits, wrong retry identity, double finalize and attempts to replace ready images return conflict. Ordinary upload/decoder/DB failures preserve a saved journal and independent ready images. See private-images.md for hosting and operational boundaries.
+
+
+## Documented opening balances (0.5.0)
+
+POST `/workspaces/{workspace}/opening-balances` requires `Idempotency-Key` and owner/manager membership. It atomically creates an immutable posted opening event, revision, ledger leg, source record and audit event. Cash adds to the account balance; a pre-existing lot adds FIFO inventory without deducting cash. All opening entries for an account share one opening date and must precede ordinary posted transactions. Retroactive opening entries require the future historical replay workflow.
+
+Cash JSON: `{"account_id":1,"kind":"cash","effective_date":"2026-01-01","amount":"2000","source_note":"Broker statement reference"}`. One opening cash entry per account. The amount must be positive.
+
+Lot JSON: `{"account_id":1,"asset_id":2,"kind":"lot","effective_date":"2026-01-01","acquired_on":"2021-06-01","quantity":"10","basis_status":"complete","amount":"1000","source_note":"Original lot statement"}`. A documented known zero basis is accepted. For unknown basis, set `basis_status` to `unresolved` and omit `amount`. Holdings then return `basis_status: unresolved` and `remaining_basis: null`; sales of that account/asset are blocked until basis resolution is supported.

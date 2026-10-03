@@ -73,6 +73,7 @@ final class Controller {
 		self::route( $base . '/transactions/(?P<transaction>[1-9][0-9]*)', 'GET', 'transaction' );
 		self::route( $base . '/transactions/(?P<transaction>[1-9][0-9]*)/draft', 'POST', 'edit_draft' );
 		self::route( $base . '/transactions/(?P<transaction>[1-9][0-9]*)/post', 'POST', 'promote_draft' );
+		self::route( $base . '/opening-balances', 'POST', 'opening_balance' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
 	}
 
@@ -170,6 +171,8 @@ final class Controller {
 				$result = $service->create_object( $workspace, substr( $operation, 7 ), $data );
 			} elseif ( 'create_transactions' === $operation ) {
 				$result = $service->post( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'opening_balance' === $operation ) {
+				$result = $service->opening_balance( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'transaction' === $operation ) {
 				$result = $service->transaction( $workspace, (int) $request->get_url_params()['transaction'] );
 			} elseif ( in_array( $operation, array( 'edit_draft', 'promote_draft' ), true ) ) {

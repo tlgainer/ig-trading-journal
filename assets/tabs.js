@@ -12,7 +12,7 @@
   transactions: [document.getElementById('tgit-entry'), section('transactions')],
   journal: [document.getElementById('tgit-journal-section')],
   strategies: [document.getElementById('tgit-strategy-section')],
-  settings: ['management', 'members-section', 'media-settings-section'].map((id) => document.getElementById(`tgit-${id}`))
+  settings: ['management', 'opening-section', 'members-section', 'media-settings-section'].map((id) => document.getElementById(`tgit-${id}`))
  };
  for (const tab of tabs) {
   const panel = document.createElement('div');

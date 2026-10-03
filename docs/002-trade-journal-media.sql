@@ -1,6 +1,6 @@
 -- Schema version 2: journals, strategy snapshots and private images.
 -- Back up first. Replace {{prefix}} with your WordPress prefix (wp_ on your host).
--- Reactivation installs both bundled SQL files and verifies version 2.
+-- Schema 2 originally required this file; schema 3 activation also reads 003-opening-balances.sql.
 CREATE TABLE {{prefix}}tgit_strategies (
  id bigint unsigned NOT NULL AUTO_INCREMENT,
  workspace_id bigint unsigned NOT NULL,

@@ -35,7 +35,7 @@ Run `composer audit --locked` when changing the lockfile. Tool licenses are reco
 
 - REST HTTP authentication/CSRF and broader malicious payload fixtures (internal REST dispatch and concurrent/fault-injection database cases have passed).
 - Fresh activation, partial schema repair and minimum/runtime matrix; MariaDB.
-- Desktop/mobile form behavior and independent accessibility review; no full E2E release gate is claimed.
+- Broader desktop/mobile form behavior and independent accessibility review; targeted opening and journal browser workflows passed, but no full E2E release gate is claimed.
 - Complete correction/replay/media/import/export/restore acceptance tests as those features land.
 - Current minimum WordPress and benchmark/performance hosting validation.
 
@@ -44,4 +44,4 @@ Current executed results are recorded in `docs/implementation-status.md`.
 REST URL regressions cover pretty permalinks, plain query routing and subdirectory/index.php installations, including paginated requests. These are URL-construction tests, not claims of remote-host HTTP access or HTTPS verification.
 
 
-The integration suite includes tests/draft-integration.php: revision conflicts, contributor/manager permissions, promotion retries, source linkage, rollback, exact quantities, REST isolation and simultaneous promotion. Run it through wordpress-integration.php in the disposable site; never directly on production. Current totals: 31 domain/permission, 22 integration and 6 REST URL checks.
+The integration suite includes tests/draft-integration.php and tests/opening-integration.php: revision conflicts, promotion retries, source linkage, rollback, exact quantities, REST isolation, simultaneous promotion, schema 2-to-3 repair, opening source evidence, known/unknown basis and cash/lot atomicity. Run them through wordpress-integration.php in the disposable site; never directly on production. Current totals: 31 domain/permission, 48 integration and 6 REST URL checks. The localhost HTTP and browser fixtures additionally exercise 11 media cases, desktop/mobile journals, and an opening cash/lot followed by a FIFO sale.

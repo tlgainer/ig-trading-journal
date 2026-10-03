@@ -12,7 +12,7 @@ Development-only dependencies are pinned in `composer.lock`:
 | phpcsstandards/phpcsextra | 1.5.1 | LGPL-3.0-or-later |
 | dealerdirect/phpcodesniffer-composer-installer | 1.2.1 | MIT |
 
-Keep upstream license files with any redistributed development tooling. Omit `vendor`, `tmp`, tests and development tools from the WordPress package. Include `src`, `includes`, `assets`, plugin bootstrap and both `docs/001-ledger-foundation.sql` and `docs/002-trade-journal-media.sql`. Both SQL files are required at runtime by the activation installer.
+Keep upstream license files with any redistributed development tooling. Omit `vendor`, `tmp`, tests and development tools from the WordPress package. Include `src`, `includes`, `assets`, plugin bootstrap and all three bundled SQL files: `docs/001-ledger-foundation.sql`, `docs/002-trade-journal-media.sql`, and `docs/003-opening-balances.sql`. All three are required at runtime by the activation installer.
 
 Composer advisory audit on October 2, 2026 reported no advisories for these locked packages. Recheck when updating dependencies; this is not a security review of the product.
 

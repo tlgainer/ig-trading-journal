@@ -405,6 +405,176 @@ final class Tracker {
 		return $data;
 	}
 
+	/** Record documented starting cash or a pre-existing asset lot before ordinary posting.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Opening facts and source evidence.
+	 * @param string $key Idempotency identity.
+	 * @return array
+	 * @throws \InvalidArgumentException When opening facts are invalid.
+	 */
+	public function opening_balance( int $workspace, array $input, string $key ): array {
+		self::fields( $input, array( 'account_id', 'asset_id', 'kind', 'effective_date', 'acquired_on', 'amount', 'quantity', 'basis_status', 'source_note' ), array( 'account_id', 'kind', 'effective_date', 'source_note' ) );
+		$account_id = self::id( $input['account_id'] );
+		$kind       = $input['kind'];
+		if ( ! in_array( $kind, array( 'cash', 'lot' ), true ) ) {
+			throw new \InvalidArgumentException( 'Opening balance kind must be cash or lot.' );
+		}
+		$date = is_string( $input['effective_date'] ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $input['effective_date'] ) : false;
+		if ( ! $date || $date->format( 'Y-m-d' ) !== $input['effective_date'] ) {
+			throw new \InvalidArgumentException( 'Opening date must be a valid YYYY-MM-DD value.' );
+		}
+		$source = self::text( $input['source_note'], 190 );
+		$facts  = array(
+			'account_id'     => $account_id,
+			'kind'           => $kind,
+			'effective_date' => $input['effective_date'],
+			'source_note'    => $source,
+		);
+		if ( 'cash' === $kind ) {
+			if ( array_intersect( array( 'asset_id', 'acquired_on', 'quantity', 'basis_status' ), array_keys( $input ) ) ) {
+				throw new \InvalidArgumentException( 'Opening cash accepts only an amount and source note.' );
+			}
+			$facts['amount']       = Decimal::input( $input['amount'] ?? null, 12, true );
+			$facts['basis_status'] = 'complete';
+		} else {
+			$facts['asset_id'] = self::id( $input['asset_id'] ?? null );
+			$acquired          = is_string( $input['acquired_on'] ?? null ) ? \DateTimeImmutable::createFromFormat( '!Y-m-d', $input['acquired_on'] ) : false;
+			if ( ! $acquired || $acquired->format( 'Y-m-d' ) !== $input['acquired_on'] || $input['acquired_on'] > $input['effective_date'] ) {
+				throw new \InvalidArgumentException( 'Acquisition date must be valid and no later than the opening date.' );
+			}
+			$facts['acquired_on']  = $input['acquired_on'];
+			$facts['quantity']     = Decimal::input( $input['quantity'] ?? null, 18, true );
+			$facts['basis_status'] = $input['basis_status'] ?? 'complete';
+			if ( ! in_array( $facts['basis_status'], array( 'complete', 'unresolved' ), true ) ) {
+				throw new \InvalidArgumentException( 'Invalid opening basis status.' );
+			}
+			if ( 'unresolved' === $facts['basis_status'] ) {
+				if ( array_key_exists( 'amount', $input ) ) {
+					throw new \InvalidArgumentException( 'Unresolved basis must not include an invented amount.' );
+				}
+				$facts['amount'] = '0';
+			} else {
+				$facts['amount'] = Decimal::input( $input['amount'] ?? null, 12 );
+			}
+		}
+		return $this->mutation(
+			$workspace,
+			'tgit_post',
+			'opening.create',
+			$key,
+			$facts,
+			function () use ( $workspace, $facts ) {
+				$account = $this->db->object( 'accounts', $workspace, $facts['account_id'] );
+				if ( null !== $account['archived_at'] ) {
+					throw new \InvalidArgumentException( 'Opening balance requires an active account.' );
+				}
+				$existing = $this->db->rows( 'SELECT action,effective_date FROM ' . $this->db->table( 'transactions' ) . ' WHERE workspace_id = %d AND account_id = %d AND state = %s ORDER BY id', array( $workspace, $facts['account_id'], 'posted' ) );
+				foreach ( $existing as $event ) {
+					if ( ! in_array( $event['action'], array( 'opening_cash', 'opening_lot' ), true ) || $event['effective_date'] !== $facts['effective_date'] ) {
+						throw new \UnexpectedValueException( 'Opening balances must precede ordinary posting and share one opening date for the account.' );
+					}
+					if ( 'cash' === $facts['kind'] && 'opening_cash' === $event['action'] ) {
+						throw new \UnexpectedValueException( 'This account already has opening cash.' );
+					}
+				}
+				if ( 'cash' === $facts['kind'] && ! $existing && Decimal::compare( $account['cash_balance'], '0' ) !== 0 ) {
+					throw new \UnexpectedValueException( 'Account balance does not match an empty opening history.' );
+				}
+				$asset_id = $facts['asset_id'] ?? null;
+				if ( null !== $asset_id ) {
+					$asset = $this->db->object( 'assets', $workspace, $asset_id );
+					if ( $asset['quote_currency'] !== $account['native_currency'] ) {
+						throw new \InvalidArgumentException( 'Opening lot and account currencies must match.' );
+					}
+				}
+				$action   = 'cash' === $facts['kind'] ? 'opening_cash' : 'opening_lot';
+				$quantity = $facts['quantity'] ?? '0';
+				$id       = $this->db->insert(
+					'transactions',
+					array(
+						'workspace_id'   => $workspace,
+						'uuid'           => wp_generate_uuid4(),
+						'account_id'     => $facts['account_id'],
+						'asset_id'       => $asset_id,
+						'action'         => $action,
+						'effective_date' => $facts['effective_date'],
+						'state'          => 'posted',
+						'quantity'       => $quantity,
+						'unit_price'     => '0',
+						'fees'           => '0',
+						'amount'         => $facts['amount'],
+						'currency'       => $account['native_currency'],
+						'realized_gain'  => '0',
+						'created_by'     => $this->actor,
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'transaction_revisions',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $id,
+						'revision'       => 1,
+						'payload'        => wp_json_encode( $facts ),
+						'actor_id'       => $this->actor,
+						'reason'         => 'Documented opening balance',
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$leg     = $this->db->insert(
+					'transaction_legs',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $id,
+						'account_id'     => $facts['account_id'],
+						'asset_id'       => $asset_id,
+						'quantity_delta' => $quantity,
+						'cash_delta'     => 'cash' === $facts['kind'] ? $facts['amount'] : '0',
+						'currency'       => $account['native_currency'],
+						'role'           => $action,
+					)
+				);
+				$opening = $this->db->insert(
+					'opening_balances',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $id,
+						'account_id'     => $facts['account_id'],
+						'asset_id'       => $asset_id,
+						'acquired_on'    => $facts['acquired_on'] ?? null,
+						'basis_status'   => $facts['basis_status'],
+						'source_note'    => $facts['source_note'],
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				if ( 'cash' === $facts['kind'] ) {
+					$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( Decimal::money( Decimal::add( $account['cash_balance'], $facts['amount'] ) ), $workspace, $facts['account_id'] ) );
+				} else {
+					$this->db->insert(
+						'lots',
+						array(
+							'workspace_id'       => $workspace,
+							'account_id'         => $facts['account_id'],
+							'asset_id'           => $asset_id,
+							'acquisition_leg_id' => $leg,
+							'quantity_initial'   => $quantity,
+							'quantity_remaining' => $quantity,
+							'basis_initial'      => $facts['amount'],
+							'basis_remaining'    => $facts['amount'],
+							'acquired_on'        => $facts['acquired_on'],
+						)
+					);
+				}
+				$this->audit( $workspace, 'opening.created', 'transaction', $id );
+				return array(
+					'transaction' => $this->db->object( 'transactions', $workspace, $id ),
+					'opening'     => $this->db->object( 'opening_balances', $workspace, $opening ),
+				);
+			}
+		);
+	}
+
 	/**
 	 * Execute a workspace mutation atomically with a saved retry result.
 	 *
@@ -702,6 +872,10 @@ final class Tracker {
 			if ( 'buy' === $data['action'] ) {
 				$effects = Ledger::buy( $data['quantity'], $data['unit_price'], $data['fees'] ) + $effects;
 			} elseif ( 'sell' === $data['action'] ) {
+				$unresolved = $this->db->row( 'SELECT o.id FROM ' . $this->db->table( 'lots' ) . ' l INNER JOIN ' . $this->db->table( 'transaction_legs' ) . ' leg ON leg.workspace_id = l.workspace_id AND leg.id = l.acquisition_leg_id INNER JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = leg.workspace_id AND o.transaction_id = leg.transaction_id WHERE l.workspace_id = %d AND l.account_id = %d AND l.asset_id = %d AND l.quantity_remaining > 0 AND o.basis_status = %s LIMIT 1', array( $workspace, $data['account_id'], $data['asset_id'], 'unresolved' ) );
+				if ( $unresolved ) {
+					throw new \UnexpectedValueException( 'Resolve the opening lot basis before posting a sale of this asset.' );
+				}
 						$lots    = $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'lots' ) . ' WHERE workspace_id = %d AND account_id = %d AND asset_id = %d AND quantity_remaining > 0 ORDER BY acquired_on,id', array( $workspace, $data['account_id'], $data['asset_id'] ) );
 						$effects = Ledger::sell( $lots, $data['quantity'], $data['unit_price'], $data['fees'] );
 			} else {
@@ -806,10 +980,16 @@ final class Tracker {
 		$assets    = $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'assets' ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
 		$positions = array();
 		foreach ( $assets as $asset ) {
-			$rows = $this->db->rows( 'SELECT account_id, SUM(quantity_remaining) AS quantity, SUM(basis_remaining) AS remaining_basis FROM ' . $this->db->table( 'lots' ) . ' WHERE workspace_id = %d AND asset_id = %d GROUP BY account_id', array( $workspace, $asset['id'] ) );
+			$rows = $this->db->rows( 'SELECT l.account_id, SUM(l.quantity_remaining) AS quantity, SUM(l.basis_remaining) AS remaining_basis, SUM(CASE WHEN o.basis_status = %s AND l.quantity_remaining > 0 THEN 1 ELSE 0 END) AS unresolved_count FROM ' . $this->db->table( 'lots' ) . ' l LEFT JOIN ' . $this->db->table( 'transaction_legs' ) . ' leg ON leg.workspace_id = l.workspace_id AND leg.id = l.acquisition_leg_id LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = leg.workspace_id AND o.transaction_id = leg.transaction_id WHERE l.workspace_id = %d AND l.asset_id = %d GROUP BY l.account_id', array( 'unresolved', $workspace, $asset['id'] ) );
 			foreach ( $rows as $row ) {
+				$unresolved = (int) $row['unresolved_count'] > 0;
+				unset( $row['unresolved_count'] );
+				if ( $unresolved ) {
+					$row['remaining_basis'] = null;
+				}
 				$realized    = $this->db->row( 'SELECT COALESCE(SUM(realized_gain),0) AS realized_gain FROM ' . $this->db->table( 'transactions' ) . ' WHERE workspace_id = %d AND account_id = %d AND asset_id = %d AND state = %s', array( $workspace, $row['account_id'], $asset['id'], 'posted' ) );
 				$positions[] = $row + array(
+					'basis_status'    => $unresolved ? 'unresolved' : 'complete',
 					'asset_id'        => $asset['id'],
 					'symbol'          => $asset['symbol'],
 					'currency'        => $asset['quote_currency'],
