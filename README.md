@@ -14,7 +14,7 @@ Activation/reactivation installs schema version 2, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.4.3
+## Current build: 0.4.4
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.
@@ -30,7 +30,7 @@ This is a staged ledger and journal build, not the complete MVP. Historical corr
 
 See the [remaining-work checklist](docs/remaining-work.md) for the prioritized implementation sequence and hosting/pilot prerequisites.
 
-The admin screen groups existing forms into Overview, Transactions, Trade Journal, Strategies and Settings tabs. Switching tabs preserves unsaved inputs; Settings is available to owners and managers. Image controls now include contextual tooltips and a clearly labelled stage dropdown. Quote currency now explains valid examples and the matching cash account rule. Version 0.4.3 does not change the database schema.
+The admin screen groups existing forms into Overview, Transactions, Trade Journal, Strategies and Settings tabs. Switching tabs preserves unsaved inputs; Settings is available to owners and managers. Image controls now include contextual tooltips and a clearly labelled stage dropdown. Quote currency now explains valid examples and the matching cash account rule. Image upload health and per-file errors now identify missing host prerequisites and upload rejections. Version 0.4.4 does not change the database schema.
 
 ## Development
 

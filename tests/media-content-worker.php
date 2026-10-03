@@ -8,5 +8,6 @@ require_once dirname(__DIR__) . '/ig-trading-journal.php';
 global $wpdb;
 $service = new \GainerInteractive\IGTradingJournal\Application\Media(new \GainerInteractive\IGTradingJournal\Infrastructure\Database($wpdb), (int) $argv[2], wp_generate_uuid4());
 $content = $service->content((int) $argv[3], (int) $argv[4], 'original');
-if ($service->settings((int) $argv[3])['storage_ready'] || !is_file($content['path'])) exit(3);
+$settings = $service->settings((int) $argv[3]);
+if ($settings['storage_ready'] || $settings['storage_status'] !== 'gd_unavailable' || !is_file($content['path'])) exit(3);
 echo 'available';

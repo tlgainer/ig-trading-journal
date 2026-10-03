@@ -50,20 +50,25 @@ final class Media {
 	 */
 	public function settings( int $workspace ): array {
 		$this->commands->authorize( $workspace );
-		$settings      = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'media_settings' ) . ' WHERE workspace_id = %d', array( $workspace ) );
-		$storage_ready = true;
+		$settings       = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'media_settings' ) . ' WHERE workspace_id = %d', array( $workspace ) );
+		$storage_status = 'ready';
 		try {
 			PrivateImages::root( true );
-			$storage_ready = extension_loaded( 'gd' );
 		} catch ( \RuntimeException $error ) {
-			$storage_ready = false;
+			$storage_status = 'private_directory_unavailable';
+		}
+		if ( ! extension_loaded( 'gd' ) ) {
+			$storage_status = 'gd_unavailable';
+		} elseif ( 'ready' === $storage_status && ( ! function_exists( 'imagetypes' ) || ( imagetypes() & ( IMG_JPG | IMG_PNG | IMG_WEBP ) ) !== ( IMG_JPG | IMG_PNG | IMG_WEBP ) ) ) {
+			$storage_status = 'image_codecs_unavailable';
 		}
 		$usage = $this->db->row( 'SELECT COALESCE(SUM(reserved_bytes),0) AS bytes FROM ' . $this->db->table( 'media' ) . ' WHERE workspace_id = %d', array( $workspace ) );
 		return array(
-			'configured'    => null !== $settings,
-			'storage_ready' => $storage_ready,
-			'used_bytes'    => $usage['bytes'],
-			'limits'        => $settings ?? array(
+			'configured'     => null !== $settings,
+			'storage_ready'  => 'ready' === $storage_status,
+			'storage_status' => $storage_status,
+			'used_bytes'     => $usage['bytes'],
+			'limits'         => $settings ?? array(
 				'max_images'     => 20,
 				'max_file_bytes' => 10485760,
 				'max_pixels'     => 40000000,

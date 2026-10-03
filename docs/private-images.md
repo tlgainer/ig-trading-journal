@@ -22,7 +22,7 @@ Apply an Apache deny rule as defense in depth:
 
 Reload Apache through your normal server-change procedure and verify direct HTTP requests cannot retrieve files. The plugin refuses storage within any known served root, rejects unsafe workspace directories/keys, and never creates public attachments or derivative URLs. Paths and generated keys are not returned in gallery JSON.
 
-Confirm GD support in the **WordPress Apache runtime**, rather than only PHP CLI/phpMyAdmin. Existing screenshots do not confirm GD or BCMath. Storage health appears in the owner's image-settings section without disclosing the private path.
+Confirm GD support in the **WordPress Apache runtime**, rather than only PHP CLI/phpMyAdmin. Existing screenshots do not confirm GD or BCMath. Storage health appears in the owner's image-settings section without disclosing the private path. It distinguishes missing GD, missing image codec support, unavailable private storage and unsaved owner quota policy. Each failed upload also reports its own reason.
 
 ## Owner policy
 

@@ -16,6 +16,13 @@
  const help = (parent, description) => { const tip = text('span', '?', parent); tip.className = 'tgit-help'; tip.tabIndex = 0; tip.setAttribute('role', 'note'); tip.setAttribute('aria-label', description); tip.dataset.tip = description; return tip; };
  const timestamp = (value) => { const date = new Date(value.replace(' ', 'T') + 'Z'); return new Intl.DateTimeFormat(undefined, { timeZone: context.timezone || 'America/New_York', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(date); };
  const labels = (value) => value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+ const storageProblem = () => {
+  if (!limits?.configured) return 'An owner must save Settings ? Image quota and retention before uploads.';
+  if (limits.storage_status === 'gd_unavailable') return 'PHP GD is unavailable in the WordPress web runtime. Ask the host to enable GD with JPEG, PNG and WebP support.';
+  if (limits.storage_status === 'image_codecs_unavailable') return 'PHP GD is missing JPEG, PNG or WebP support in the WordPress web runtime.';
+  if (!limits.storage_ready) return 'Private image storage is unavailable. Configure TGIT_PRIVATE_MEDIA_DIR as a writable directory outside the web root; see docs/private-images.md.';
+  return '';
+ };
  function choices(select, rows, label, blank = false) { select.replaceChildren(); if (blank) { const option = text('option', 'None', select); option.value = ''; } for (const row of rows) { const option = text('option', label(row), select); option.value = row.id; } }
  async function api(target, body, key) {
   const response = await fetch(tgitRestUrl(config.root, target), { method: body ? 'POST' : 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce, ...(body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -94,7 +101,7 @@
   if (!trade) return; await loadSettings(epoch); const expected = epoch, id = String(trade.trade.id);
   const gallery = await api(path(`trades/${id}/images`)); if (expected !== epoch || String(trade?.trade.id) !== id) return;
   releaseImages(); $('gallery').replaceChildren();
-  $('gallery-status').textContent = limits?.storage_ready && limits?.configured ? 'Images are private. Trash retains storage until cleanup.' : 'Uploads require private storage and owner-configured quota. You can save journals without images.';
+  $('gallery-status').textContent = storageProblem() || 'Images are private. Trash retains storage until cleanup.';
   if (!gallery.items.length) text('p', 'No images yet.', $('gallery'));
   for (const row of gallery.items) {
    const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', row.filename, card); text('p', `${row.state} � ${row.stage} � ${row.timeframe}`, card);
@@ -123,18 +130,18 @@
   return new Promise((resolve, reject) => {
    const xhr = new XMLHttpRequest(); xhr.open('POST', tgitRestUrl(config.root, target)); xhr.withCredentials = true; xhr.setRequestHeader('X-WP-Nonce', config.nonce); xhr.setRequestHeader('Idempotency-Key', key);
    xhr.upload.addEventListener('progress', (event) => { if (event.lengthComputable) progress.value = event.loaded / event.total * 100; });
-   xhr.addEventListener('load', () => { try { const result = JSON.parse(xhr.responseText); if (xhr.status < 200 || xhr.status >= 300) throw new Error(result.message || messages.failed); resolve(result.data); } catch (error) { reject(error); } });
+   xhr.addEventListener('load', () => { let result; try { result = JSON.parse(xhr.responseText); } catch (error) { reject(new Error(`Upload returned HTTP ${xhr.status} without a valid response. Check the server upload limit or security rules.`)); return; } if (xhr.status < 200 || xhr.status >= 300) { reject(new Error(result.message || `Upload failed with HTTP ${xhr.status}.`)); return; } resolve(result.data); });
    xhr.addEventListener('error', () => reject(new Error(messages.failed))); xhr.addEventListener('abort', () => reject(new Error('Upload canceled.'))); signal.addEventListener('abort', () => xhr.abort(), { once: true });
    const body = new FormData(); body.append('file', file); xhr.send(body);
   });
  }
  async function uploadFile(file, reservation = null) {
-  if (!limits?.configured || !limits?.storage_ready) throw new Error('Private storage and image quota must be configured before uploads.');
-  if (file.size > Number(limits.limits.max_file_bytes)) throw new Error(`${file.name}: exceeds the file limit.`);
   const container = document.createElement('div'); const message = text('p', `${file.name}: reserving�`, container); const progress = document.createElement('progress'); progress.max = 100; progress.value = 0; progress.setAttribute('aria-label', `Upload progress for ${file.name}`); container.append(progress); $('upload-progress').append(container);
   const controller = new AbortController(); const cancel = button('Cancel upload', () => controller.abort(), container); cancel.dataset.allowBusy = 'true'; cancel.disabled = false;
   let row = reservation;
   try {
+   if (storageProblem()) throw new Error(storageProblem());
+   if (file.size > Number(limits.limits.max_file_bytes)) throw new Error('File exceeds the configured image limit.');
    const hashBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())); const hash = [...hashBytes].map((item) => item.toString(16).padStart(2, '0')).join('');
    if (!row) row = await write(path(`trades/${trade.trade.id}/images`), { filename: file.name, hash, size: file.size });
    else {
@@ -167,9 +174,9 @@
    input.journal.confidence = form.elements.confidence.value === '' ? null : Number(form.elements.confidence.value);
    if (trade) input.expected_revision = Number(trade.trade.revision);
    const result = await write(path(trade ? `trades/${trade.trade.id}` : 'trades'), input); showTrade(result);
-   let failed = 0; for (const file of files) { try { await uploadFile(file); } catch (error) { failed++; } }
+   const failures = []; for (const file of files) { try { await uploadFile(file); } catch (error) { failures.push(`${file.name}: ${error.message}`); } }
    const page = await api(path('trades?limit=100')); renderTrades(page.items); cursor = page.next_cursor; $('more-trades').hidden = cursor === null;
-   await refreshGallery(); notice(failed ? `Journal saved. ${failed} image upload(s) failed; retry each image separately.` : messages.saved, failed > 0);
+   await refreshGallery(); notice(failures.length ? `Journal saved. ${failures.length} image upload(s) failed. ${failures[0]}` : messages.saved, failures.length > 0);
   })();
  });
  $('new-trade').addEventListener('click', () => { if (busy) return; showTrade(null); $('trade-detail').scrollIntoView({ block: 'start' }); $('trade-form').elements.title.focus(); });
@@ -191,7 +198,7 @@
   }
   if (!details.length) text('p', messages.empty, $('strategies'));
  }
- async function loadSettings(expected) { const data = await api(path('media-settings')); if (expected !== epoch) return; limits = data; const form = $('media-settings-form'); for (const name of ['max_images', 'max_file_bytes', 'max_pixels', 'quota_bytes', 'trash_days']) form.elements[name].value = data.limits[name]; $('media-health').textContent = `Retained/reserved bytes: ${data.used_bytes}. ${data.storage_ready ? 'Private storage is ready.' : 'Private storage is unavailable. Configure the server directory and PHP GD.'} ${data.configured ? '' : 'Save owner settings before uploading.'}`; }
+ async function loadSettings(expected) { const data = await api(path('media-settings')); if (expected !== epoch) return; limits = data; const form = $('media-settings-form'); for (const name of ['max_images', 'max_file_bytes', 'max_pixels', 'quota_bytes', 'trash_days']) form.elements[name].value = data.limits[name]; $('media-health').textContent = `Retained/reserved bytes: ${data.used_bytes}. ${storageProblem() || 'Private storage is ready.'}`; }
  $('media-settings-form').addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const input = Object.fromEntries([...new FormData($('media-settings-form'))].map(([key, value]) => [key, Number(value)])); input.expected_revision = Number(limits.limits.revision); await write(path('media-settings'), input); await loadSettings(epoch); notice(messages.saved); })(); });
  $('media-cleanup').addEventListener('click', guarded(async () => { const result = await write(path('media-cleanup'), {}); await loadSettings(epoch); if (trade) await refreshGallery(); notice(`Cleaned up ${result.purged} expired images/reservations.`); }));
  window.addEventListener('tgit-workspace', async (event) => {
