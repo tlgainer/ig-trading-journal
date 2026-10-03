@@ -109,8 +109,11 @@ final class PrivateImages {
 		}
 		$pixels = $header[0] * $header[1];
 		$limit  = wp_convert_hr_to_bytes( ini_get( 'memory_limit' ) );
-		if ( $pixels < 1 || $pixels > (int) $settings['max_pixels'] || ( $limit > 0 && $pixels * 12 + memory_get_usage( true ) + 16777216 > $limit ) ) {
-			throw new \InvalidArgumentException( 'Decoded image exceeds dimension or available-memory limits.' );
+		if ( $pixels < 1 || $pixels > (int) $settings['max_pixels'] ) {
+			throw new \InvalidArgumentException( 'Image dimensions exceed the configured pixel limit. Resize the image and retry this image.' );
+		}
+		if ( $limit > 0 && $pixels * 12 + memory_get_usage( true ) + 16777216 > $limit ) {
+			throw new \InvalidArgumentException( 'Not enough PHP memory to process this image. Resize it to about 1600 pixels on its longest side, or ask the host to raise PHP memory_limit to at least 256M, then retry this image.' );
 		}
 	 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Bounded uploaded file is decoded locally, never fetched from a URL.
 		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Native decoder diagnostics are not safe API output.

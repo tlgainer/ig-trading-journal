@@ -28,7 +28,7 @@ Confirm GD support in the **WordPress Apache runtime**, rather than only PHP CLI
 
 Open Investment Tracker, select the workspace, and save **Image quota and retention**. Proposed PRD defaults are prefilled: 20 images/trade, 10 MiB/file, 40 million decoded pixels, 30-day trash; the initial quota proposal is 1 GiB. These are editable within supported hard bounds and are not enabled until an owner saves them. Managers/contributors cannot change quota policy.
 
-The decoder also enforces available PHP memory, which may reject images below the configured pixel ceiling on the 128 MiB REST runtime. Resize large photographs when needed. Originals are normalized to a maximum 4096-pixel edge; thumbnails to 512. The adapter re-encodes and strips metadata, including EXIF/geolocation, retaining **normalized originals only**. This is not an archival-original feature.
+The decoder also enforces available PHP memory, which may reject images below the configured pixel ceiling on the 128 MiB REST runtime. For a memory-limit rejection, resize the image to about 1600 pixels on its longest side and use the failed image card's Retry button; alternatively have the host raise the WordPress PHP memory_limit to at least 256M. Raising the image quota or changing directory permissions does not address a memory rejection. Originals are normalized to a maximum 4096-pixel edge; thumbnails to 512. The adapter re-encodes and strips metadata, including EXIF/geolocation, retaining **normalized originals only**. This is not an archival-original feature.
 
 ## Upload and access
 

@@ -19,6 +19,14 @@ test('JPEG, PNG and WebP normalize; oversized decoded headers are rejected befor
  $bytes = substr_replace(file_get_contents($jfixture), pack('N2', 100000, 100000), 16, 8); $bytes = substr_replace($bytes, hash('crc32b', substr($bytes, 12, 17), true), 29, 4);
  $bomb = dirname(__DIR__) . '/tmp/oversized-header.png'; file_put_contents($bomb, $bytes);
  rejects(fn() => \GainerInteractive\IGTradingJournal\Infrastructure\PrivateImages::normalize($jw, $bomb, 'oversized.png', $jlimits));
+ $memory_bytes = substr_replace(file_get_contents($jfixture), pack('N2', 2500, 2500), 16, 8); $memory_bytes = substr_replace($memory_bytes, hash('crc32b', substr($memory_bytes, 12, 17), true), 29, 4);
+ $memory_image = dirname(__DIR__) . '/tmp/memory-header.png'; file_put_contents($memory_image, $memory_bytes);
+ $previous_limit = ini_get('memory_limit');
+ try {
+  ini_set('memory_limit', '64M');
+  try { \GainerInteractive\IGTradingJournal\Infrastructure\PrivateImages::normalize($jw, $memory_image, 'memory.png', $jlimits); throw new RuntimeException('Memory limit should reject this image.'); }
+  catch (InvalidArgumentException $error) { equal(str_contains($error->getMessage(), 'Not enough PHP memory'), true); }
+ } finally { ini_set('memory_limit', $previous_limit); }
 });
 test('Pending image replacement reuses its slot and requires the current revision', function () use ($jm, $db, $jw, $jtradeid, $jdescriptor) {
  $row = $jm->reserve($jw, $jtradeid, $jdescriptor, 'replace-reserve'); $db->update_object('media', $jw, (int) $row['id'], ['state' => 'failed', 'revision' => 2]);

@@ -6,7 +6,7 @@
  let context = null, epoch = 0, trade = null, strategy = null, limits = null, cursor = null;
  let confluenceState = new Map();
  let strategyVersions = [], pending = new Map(), imageUrls = [], selected = new Map(), busy = false;
- const messages = { loading: 'Loading�', saved: 'Saved.', failed: 'Request failed. Retry with the same file.', empty: 'No records yet.' };
+ const messages = { loading: 'Loading...', saved: 'Saved.', failed: 'Request failed. Retry with the same file.', empty: 'No records yet.' };
  const notice = (text, error = false) => { $('journal-status').textContent = text; $('journal-status').setAttribute('role', error ? 'alert' : 'status'); };
  const path = (suffix) => `workspaces/${context.workspace}/${suffix}`;
  const isEditor = () => context && ['owner', 'manager', 'contributor'].includes(context.role);
@@ -49,7 +49,7 @@
  function renderTrades(items, append = false) {
   if (!append) $('trades').replaceChildren();
   if (!items.length && !append) text('p', messages.empty, $('trades'));
-  for (const item of items) { const card = document.createElement('article'); card.className = 'tgit-card'; text('h3', item.title, card); text('p', `#${item.id} � ${item.state} � revision ${item.revision}`, card); button('Open journal', guarded(() => openTrade(item.id)), card); $('trades').append(card); }
+  for (const item of items) { const card = document.createElement('article'); card.className = 'tgit-card'; text('h3', item.title, card); text('p', `#${item.id} | ${item.state} | revision ${item.revision}`, card); button('Open journal', guarded(() => openTrade(item.id)), card); $('trades').append(card); }
  }
  function renderConfluences() {
   $('confluence-items').replaceChildren();
@@ -62,10 +62,10 @@
  function showTrade(data) {
   releaseImages(); confluenceState.clear(); trade = data; const form = $('trade-form'); form.reset();
   $('trade-detail').hidden = false; $('trade-heading').textContent = data ? data.trade.title : 'New trade journal';
-  choices(form.elements.asset_id, context.assets, (item) => `${item.symbol} � ${item.exchange}`);
+  choices(form.elements.asset_id, context.assets, (item) => `${item.symbol} | ${item.exchange}`);
   const captured = data?.strategy_version;
   const versions = [...strategyVersions]; if (captured && !versions.some((item) => String(item.id) === String(captured.id))) versions.push({ ...captured, name: JSON.parse(captured.payload).name });
-  choices(form.elements.strategy_version_id, versions, (item) => `${item.name} � version ${item.revision}`, true);
+  choices(form.elements.strategy_version_id, versions, (item) => `${item.name} | version ${item.revision}`, true);
   if (data) {
    for (const name of ['title', 'asset_id', 'state', 'opened_on', 'closed_on', 'strategy_version_id']) form.elements[name].value = data.trade[name] ?? '';
    form.elements.transaction_ids.value = data.fills.map((item) => item.id).join(', ');
@@ -75,11 +75,11 @@
    }
   }
   renderConfluences(); $('trade-summary').replaceChildren();
-  if (captured) { const snapshot = JSON.parse(captured.payload); text('p', `Captured strategy: ${snapshot.name} � version ${captured.revision}`, $('trade-summary')); for (const name of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = snapshot[name]; $('trade-summary').append(content); } }
+  if (captured) { const snapshot = JSON.parse(captured.payload); text('p', `Captured strategy: ${snapshot.name} | version ${captured.revision}`, $('trade-summary')); for (const name of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = snapshot[name]; $('trade-summary').append(content); } }
   $('fill-facts').replaceChildren();
-  for (const fill of data?.fills ?? []) text('p', `Fill #${fill.id}: ${fill.effective_date} � ${fill.action} � ${fill.state} � ${fill.quantity} @ ${fill.unit_price} ${fill.currency} � fees ${fill.fees}`, $('fill-facts'));
+  for (const fill of data?.fills ?? []) text('p', `Fill #${fill.id}: ${fill.effective_date} | ${fill.action} | ${fill.state} | ${fill.quantity} @ ${fill.unit_price} ${fill.currency} | fees ${fill.fees}`, $('fill-facts'));
   $('trade-history').replaceChildren();
-  const history = (items, prepend = false) => { const fragment = document.createDocumentFragment(); for (const revision of items) { const details = document.createElement('details'); text('summary', `Revision ${revision.revision} � user #${revision.actor_id} � ${timestamp(revision.created_at)}`, details); text('pre', JSON.stringify(JSON.parse(revision.payload), null, 2), details); fragment.append(details); } if (prepend) $('trade-history').prepend(fragment); else $('trade-history').append(fragment); };
+  const history = (items, prepend = false) => { const fragment = document.createDocumentFragment(); for (const revision of items) { const details = document.createElement('details'); text('summary', `Revision ${revision.revision} | user #${revision.actor_id} | ${timestamp(revision.created_at)}`, details); text('pre', JSON.stringify(JSON.parse(revision.payload), null, 2), details); fragment.append(details); } if (prepend) $('trade-history').prepend(fragment); else $('trade-history').append(fragment); };
   history(data?.revisions ?? []);
   if (data?.revisions_cursor) { let before = data.revisions_cursor; const older = button('Load older journal revisions', guarded(async () => { const page = await api(path(`trades/${data.trade.id}/revisions?before=${before}&limit=20`)); history(page.items, true); before = page.next_cursor; older.hidden = before === null; }), $('trade-history')); }
   for (const element of form.elements) if (!['button', 'submit'].includes(element.type)) { element.disabled = !isEditor() && (element.tagName === 'SELECT' || ['file', 'checkbox'].includes(element.type)); if ('readOnly' in element) element.readOnly = !isEditor(); }
@@ -104,7 +104,7 @@
   $('gallery-status').textContent = storageProblem() || 'Images are private. Trash retains storage until cleanup.';
   if (!gallery.items.length) text('p', 'No images yet.', $('gallery'));
   for (const row of gallery.items) {
-   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', row.filename, card); text('p', `${row.state} � ${row.stage} � ${row.timeframe}`, card);
+   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', row.filename, card); text('p', `${row.state} | ${row.stage} | ${row.timeframe}`, card);
    if (row.state === 'ready') {
     const image = document.createElement('img'); image.className = 'tgit-thumbnail'; image.alt = row.alt_text || row.caption || row.filename; card.append(image);
     binary(row.id, 'thumbnail', expected).then((url) => { if (url && image.isConnected) image.src = url; }).catch((error) => text('p', error.message, card));
@@ -136,7 +136,7 @@
   });
  }
  async function uploadFile(file, reservation = null) {
-  const container = document.createElement('div'); const message = text('p', `${file.name}: reserving�`, container); const progress = document.createElement('progress'); progress.max = 100; progress.value = 0; progress.setAttribute('aria-label', `Upload progress for ${file.name}`); container.append(progress); $('upload-progress').append(container);
+  const container = document.createElement('div'); const message = text('p', `${file.name}: reserving...`, container); const progress = document.createElement('progress'); progress.max = 100; progress.value = 0; progress.setAttribute('aria-label', `Upload progress for ${file.name}`); container.append(progress); $('upload-progress').append(container);
   const controller = new AbortController(); const cancel = button('Cancel upload', () => controller.abort(), container); cancel.dataset.allowBusy = 'true'; cancel.disabled = false;
   let row = reservation;
   try {
@@ -153,7 +153,7 @@
    if (controller.signal.aborted) throw new Error('Upload canceled.');
    const target = path(`images/${row.id}/upload`), identity = target + ':' + hash;
    if (!pending.has(identity)) pending.set(identity, crypto.randomUUID());
-   message.textContent = `${file.name}: uploading and normalizing�`;
+   message.textContent = `${file.name}: uploading and normalizing...`;
    await uploadBinary(target, file, pending.get(identity), progress, controller.signal); pending.delete(identity); message.textContent = `${file.name}: ready.`;
   } catch (error) {
    message.textContent = `${file.name}: ${error.message}`;
@@ -190,9 +190,9 @@
   const items = await all('strategies', expected); const details = await Promise.all(items.map((item) => api(path(`strategies/${item.id}`)))); if (expected !== epoch) return;
   strategyVersions = []; $('strategies').replaceChildren();
   for (const data of details) {
-   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', data.strategy.name, card); text('p', `${data.strategy.status} � version ${data.strategy.revision}`, card);
-   for (const version of data.versions) { const facts = JSON.parse(version.payload); if (facts.status === 'active') strategyVersions.push({ ...version, name: facts.name }); const revision = document.createElement('details'); text('summary', `Version ${version.revision} � ${timestamp(version.created_at)}`, revision); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; revision.append(content); } text('p', facts.tags.join(', '), revision); card.append(revision); }
-   if (data.versions_cursor) { let before = data.versions_cursor; const older = button('Load older strategy versions', guarded(async () => { const page = await api(path(`strategies/${data.strategy.id}/versions?before=${before}&limit=20`)); for (const version of page.items) { const facts = JSON.parse(version.payload); const details = document.createElement('details'); text('summary', 'Version ' + version.revision + ' � ' + timestamp(version.created_at), details); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; details.append(content); } card.insertBefore(details, older); if (facts.status === 'active' && !strategyVersions.some((item) => item.id === version.id)) strategyVersions.push({ ...version, name: facts.name }); } before = page.next_cursor; older.hidden = before === null; }), card); }
+   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', data.strategy.name, card); text('p', `${data.strategy.status} | version ${data.strategy.revision}`, card);
+   for (const version of data.versions) { const facts = JSON.parse(version.payload); if (facts.status === 'active') strategyVersions.push({ ...version, name: facts.name }); const revision = document.createElement('details'); text('summary', `Version ${version.revision} | ${timestamp(version.created_at)}`, revision); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; revision.append(content); } text('p', facts.tags.join(', '), revision); card.append(revision); }
+   if (data.versions_cursor) { let before = data.versions_cursor; const older = button('Load older strategy versions', guarded(async () => { const page = await api(path(`strategies/${data.strategy.id}/versions?before=${before}&limit=20`)); for (const version of page.items) { const facts = JSON.parse(version.payload); const details = document.createElement('details'); text('summary', 'Version ' + version.revision + ' | ' + timestamp(version.created_at), details); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; details.append(content); } card.insertBefore(details, older); if (facts.status === 'active' && !strategyVersions.some((item) => item.id === version.id)) strategyVersions.push({ ...version, name: facts.name }); } before = page.next_cursor; older.hidden = before === null; }), card); }
    if (isManager()) button('Edit strategy', guarded(async () => { strategy = data; const facts = JSON.parse(data.versions.at(-1).payload); const form = $('strategy-form'); for (const name of ['name', 'status', 'description', 'rules']) form.elements[name].value = facts[name]; form.elements.tags.value = facts.tags.join('\n'); $('strategy-editing').textContent = `Editing #${data.strategy.id}, revision ${data.strategy.revision}`; form.scrollIntoView({ block: 'start' }); }), card);
    $('strategies').append(card);
   }
