@@ -13,6 +13,7 @@
  const isManager = () => context && ['owner', 'manager'].includes(context.role);
  const text = (tag, value, parent) => { const element = document.createElement(tag); element.textContent = value; if (parent) parent.append(element); return element; };
  const button = (label, handler, parent) => { const element = text('button', label, parent); element.type = 'button'; element.className = 'button'; element.disabled = busy; element.addEventListener('click', handler); return element; };
+ const help = (parent, description) => { const tip = text('span', '?', parent); tip.className = 'tgit-help'; tip.tabIndex = 0; tip.setAttribute('role', 'note'); tip.setAttribute('aria-label', description); tip.dataset.tip = description; return tip; };
  const timestamp = (value) => { const date = new Date(value.replace(' ', 'T') + 'Z'); return new Intl.DateTimeFormat(undefined, { timeZone: context.timezone || 'America/New_York', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }).format(date); };
  const labels = (value) => value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
  function choices(select, rows, label, blank = false) { select.replaceChildren(); if (blank) { const option = text('option', 'None', select); option.value = ''; } for (const row of rows) { const option = text('option', label(row), select); option.value = row.id; } }
@@ -33,7 +34,7 @@
  function releaseImages() { for (const url of imageUrls) URL.revokeObjectURL(url); imageUrls = []; selected.clear(); $('compare-images').disabled = true; if ($('image-dialog').open) $('image-dialog').close(); }
  function lock(value) {
   busy = value; window.tgitWriteBusy = value; $('workspace').disabled = value;
-  for (const control of $('journal-section').querySelectorAll('button')) if (!control.dataset.allowBusy && control.id !== 'tgit-close-image') control.disabled = value;
+  for (const control of document.querySelectorAll('#tgit-journal-section button, #tgit-strategy-section button, #tgit-media-settings-section button')) if (!control.dataset.allowBusy && control.id !== 'tgit-close-image') control.disabled = value;
   $('compare-images').disabled = value || selected.size !== 2;
   for (const id of ['workspace-form', 'account-form', 'asset-form', 'transaction-form', 'member-form']) for (const control of $(id).querySelectorAll('button')) control.disabled = value;
  }
@@ -108,8 +109,8 @@
     if (['reserved', 'failed'].includes(row.state)) { const retry = document.createElement('input'); retry.type = 'file'; retry.accept = 'image/jpeg,image/png,image/webp'; retry.setAttribute('aria-label', `Retry or replace the pending file for ${row.filename}`); card.append(retry); button('Retry this image', guarded(async () => { if (!retry.files[0]) throw new Error('Select a replacement or the original file for this image.'); await uploadFile(retry.files[0], row); await refreshGallery(); }), card); }
     if (row.state !== 'deleted') {
      const form = document.createElement('form'); form.className = 'tgit-form';
-     for (const [name, labelText] of [['caption', 'Caption'], ['alt_text', 'Accessible description'], ['timeframe', 'Chart timeframe'], ['sort_order', 'Order']]) { const label = text('label', labelText, form); const input = document.createElement('input'); input.name = name; input.value = row[name]; input.maxLength = name === 'timeframe' ? 64 : 2000; if (name === 'sort_order') { input.type = 'number'; input.min = '0'; input.max = '100000'; } label.append(input); }
-     const label = text('label', 'Stage', form); const stage = document.createElement('select'); stage.name = 'stage'; choices(stage, ['before', 'entry', 'exit', 'review'].map((item) => ({ id: item })), (item) => item.id); stage.value = row.stage; label.append(stage);
+     for (const [name, labelText] of [['caption', 'Caption'], ['alt_text', 'Accessible description'], ['timeframe', 'Chart timeframe'], ['sort_order', 'Order']]) { const label = text('label', labelText, form); const input = document.createElement('input'); input.name = name; input.value = row[name] ?? ''; input.maxLength = name === 'timeframe' ? 64 : 2000; if (name === 'sort_order') { input.type = 'number'; input.min = '0'; input.max = '100000'; } label.append(input); if (name === 'sort_order') help(form, 'Lower numbers appear first in the gallery. Images with the same order use upload order.'); }
+     const label = text('label', 'Image stage', form); const stage = document.createElement('select'); stage.name = 'stage'; stage.required = true; for (const [value, caption] of [['before', 'Before trade'], ['entry', 'Entry'], ['exit', 'Exit'], ['review', 'Review']]) { const option = text('option', caption, stage); option.value = value; } stage.value = row.stage || 'review'; label.append(stage); help(form, 'Choose where this image belongs in the trade journal.');
      const save = text('button', 'Save image details', form); save.type = 'submit'; save.className = 'button';
      form.addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const body = Object.fromEntries(new FormData(form)); body.sort_order = Number(body.sort_order); await mutateImage(row, 'metadata', body); })(); }); card.append(form);
      button('Remove image (recoverable)', guarded(() => mutateImage(row, 'delete')), card);

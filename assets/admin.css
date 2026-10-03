@@ -1,4 +1,7 @@
 .tgit { max-width: 1100px; }
+#tgit-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #c3c4c7; margin: 20px 0; padding-bottom: 6px; }
+#tgit-tabs button { background: #f0f0f1; border: 1px solid #c3c4c7; border-radius: 4px; padding: 10px 14px; color: #1d2327; cursor: pointer; font-size: 14px; }
+#tgit-tabs button[aria-selected="true"] { background: #2271b1; border-color: #2271b1; color: white; }
 .tgit *, .tgit *::before, .tgit *::after { box-sizing: border-box; }
 .tgit [hidden] { display: none !important; }
 .tgit section { margin: 24px 0; }
@@ -19,6 +22,9 @@
 .tgit .tgit-thumbnail { display: block; max-width: 100%; height: auto; max-height: 280px; object-fit: contain; }
 .tgit .tgit-card label { display: block; margin: 8px 0; }
 .tgit .tgit-card input[type="checkbox"] { width: auto; }
+.tgit .tgit-card select { display: block; width: 100%; min-height: 36px; appearance: auto; background: #fff; color: #1d2327; }
+.tgit-help { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #2271b1; border-radius: 50%; color: #135e96; background: #fff; font-weight: 700; cursor: help; }
+.tgit-help:hover::after, .tgit-help:focus::after { content: attr(data-tip); position: absolute; z-index: 20; left: 0; bottom: calc(100% + 7px); width: min(260px, 75vw); padding: 8px 10px; border-radius: 4px; background: #1d2327; color: #fff; font-weight: 400; line-height: 1.4; box-shadow: 0 2px 8px #0003; }
 .tgit dialog { max-width: min(95vw, 1100px); max-height: 90vh; overflow: auto; }
 .tgit dialog::backdrop { background: rgb(0 0 0 / 65%); }
 #tgit-image-view { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }

@@ -32,7 +32,8 @@ final class Screen {
 		}
 		wp_enqueue_style( 'tgit-admin', plugins_url( 'assets/admin.css', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION );
 		wp_enqueue_script( 'tgit-rest-url', plugins_url( 'assets/rest-url.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
-		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tabs', plugins_url( 'assets/tabs.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url', 'tgit-tabs' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
@@ -82,6 +83,19 @@ final class Screen {
 	</section>
 	<label id="tgit-workspace-label" hidden><?php esc_html_e( 'Workspace', 'ig-trading-journal' ); ?><select id="tgit-workspace"></select></label>
 	<div id="tgit-content" hidden>
+	<div id="tgit-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Investment tracker sections', 'ig-trading-journal' ); ?>" hidden>
+		<?php
+		foreach ( array(
+			'overview'     => __( 'Overview', 'ig-trading-journal' ),
+			'transactions' => __( 'Transactions', 'ig-trading-journal' ),
+			'journal'      => __( 'Trade Journal', 'ig-trading-journal' ),
+			'strategies'   => __( 'Strategies', 'ig-trading-journal' ),
+			'settings'     => __( 'Settings', 'ig-trading-journal' ),
+		) as $tab => $label ) :
+			?>
+		<button type="button" id="tgit-tab-<?php echo esc_attr( $tab ); ?>" role="tab" aria-controls="tgit-panel-<?php echo esc_attr( $tab ); ?>" aria-selected="false" tabindex="-1" data-tab="<?php echo esc_attr( $tab ); ?>"><?php echo esc_html( $label ); ?></button>
+		<?php endforeach; ?>
+	</div>
 	<section><h2><?php esc_html_e( 'Cash accounts', 'ig-trading-journal' ); ?></h2><div id="tgit-accounts" class="tgit-cards"></div></section>
 	<div class="tgit-grid" id="tgit-management" hidden>
 	<section><h2><?php esc_html_e( 'Add account', 'ig-trading-journal' ); ?></h2>

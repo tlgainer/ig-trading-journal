@@ -14,6 +14,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await context.addCookies([{ name: session.cookie_name, value: session.cookie_value, url: 'http://127.0.0.1:19308', httpOnly: true }]);
   const page = await context.newPage(); page.setDefaultTimeout(60000); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace));
+  await page.getByRole('tab', { name: 'Strategies', exact: true }).click();
   await page.locator('#tgit-strategies').getByText('Fixture strategy', { exact: true }).waitFor();
   console.log('CHECK Journal workspace loaded.');
   await page.locator('#tgit-strategy-form input[name=name]').fill(strategyName);
@@ -23,6 +24,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.locator('#tgit-strategy-form button[type=submit]').click();
   await page.locator('#tgit-strategies').getByText(strategyName, { exact: true }).waitFor();
   console.log('CHECK Strategy created.');
+  await page.getByRole('tab', { name: 'Trade Journal', exact: true }).click();
   await page.locator('#tgit-new-trade').click();
   const form = page.locator('#tgit-trade-form'); await form.locator('input[name=title]').fill(tradeName);
   await form.locator('textarea[name=thesis]').fill('<strong>Independent journal idea</strong>');
@@ -38,8 +40,8 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   assert.equal(await page.locator('#tgit-gallery article').count(), 3); console.log('CHECK Three-image gallery ready.');
   await page.waitForFunction(() => [...document.querySelectorAll('#tgit-gallery img')].every((image) => image.naturalWidth > 0 && image.src.startsWith('blob:')));
   const first = page.locator('#tgit-gallery article').filter({ has: page.getByText('UI-one.png', { exact: true }) });
-  await first.locator('input[name=caption]').fill('Entry chart caption'); await first.locator('input[name=alt_text]').fill('Blue entry chart fixture'); await first.locator('input[name=sort_order]').fill('22');
-  await first.getByRole('button', { name: 'Save image details' }).click(); await page.locator('#tgit-gallery').getByText('Entry chart caption', { exact: true }).waitFor();
+  await first.locator('input[name=caption]').fill('Entry chart caption'); await first.locator('input[name=alt_text]').fill('Blue entry chart fixture'); await first.locator('input[name=sort_order]').fill('22'); await first.locator('select[name=stage]').selectOption('entry');
+  await first.getByRole('button', { name: 'Save image details' }).click(); await page.locator('#tgit-gallery').getByText('Entry chart caption', { exact: true }).waitFor(); assert.equal(await first.locator('select[name=stage]').inputValue(), 'entry');
   await first.getByRole('button', { name: 'Remove image (recoverable)', exact: true }).click(); await first.getByRole('button', { name: 'Restore image', exact: true }).waitFor();
   await first.getByRole('button', { name: 'Restore image', exact: true }).click(); await first.getByRole('button', { name: 'View original', exact: true }).waitFor();
   await page.locator('#tgit-gallery input[type=checkbox]').nth(0).check(); await page.locator('#tgit-gallery input[type=checkbox]').nth(1).check();
@@ -53,7 +55,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   assert.equal(await form.locator('textarea[name=notes]').inputValue(), 'Feeling calm; no financial effect.');
   assert.equal(await form.locator('input[name=planned_stop]').inputValue(), '0.123456789012345678');
   assert.equal(await page.locator('#tgit-confluence-items input').nth(0).isChecked(), true); assert.equal(await page.locator('#tgit-confluence-items input').nth(1).isChecked(), false);
-  assert.equal(await page.locator('#tgit-gallery article').count(), 3); assert.deepEqual(errors, []);
+  assert.equal(await page.locator('#tgit-gallery article').count(), 3); assert.equal(await page.locator('#tgit-gallery article').filter({ has: page.getByText('UI-one.png', { exact: true }) }).locator('select[name=stage]').inputValue(), 'entry'); assert.deepEqual(errors, []);
   console.log('PASS Desktop/mobile journal: strategy snapshot, exact fields, three uploads, captions/order, delete/restore, comparison and reopening; no JavaScript errors or horizontal mobile overflow.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

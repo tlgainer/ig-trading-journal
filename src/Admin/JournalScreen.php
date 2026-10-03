@@ -70,6 +70,7 @@ final class JournalScreen {
 		}
 		?>
 	<label><?php esc_html_e( 'Optional images (JPEG, PNG, WebP; multiple files)', 'ig-trading-journal' ); ?><input name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+	<span class="tgit-help" tabindex="0" role="note" aria-label="<?php esc_attr_e( 'Choose several files at once. The journal saves first, then uploads each image separately.', 'ig-trading-journal' ); ?>" data-tip="<?php esc_attr_e( 'Choose several files at once. The journal saves first, then uploads each image separately.', 'ig-trading-journal' ); ?>">?</span>
 	<p><?php esc_html_e( 'The journal saves before image uploads. Each image can retry separately. Journal edits do not change cash or lots.', 'ig-trading-journal' ); ?></p>
 	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save journal', 'ig-trading-journal' ); ?></button>
 	<button type="button" id="tgit-close-trade" class="button"><?php esc_html_e( 'Close detail', 'ig-trading-journal' ); ?></button>
@@ -79,6 +80,7 @@ final class JournalScreen {
 	<h3><?php esc_html_e( 'Private images', 'ig-trading-journal' ); ?></h3>
 	<p id="tgit-gallery-status"></p>
 	<button type="button" id="tgit-compare-images" class="button" disabled><?php esc_html_e( 'Compare two selected images', 'ig-trading-journal' ); ?></button>
+	<span class="tgit-help" tabindex="0" role="note" aria-label="<?php esc_attr_e( 'Select exactly two ready images in the gallery to compare them.', 'ig-trading-journal' ); ?>" data-tip="<?php esc_attr_e( 'Select exactly two ready images in the gallery to compare them.', 'ig-trading-journal' ); ?>">?</span>
 	<div id="tgit-upload-progress" aria-live="polite"></div>
 	<div id="tgit-gallery" class="tgit-cards"></div>
 	</section>
@@ -99,6 +101,7 @@ final class JournalScreen {
 </section>
 <details id="tgit-media-settings-section" hidden>
 	<summary><?php esc_html_e( 'Image quota and retention (workspace owner)', 'ig-trading-journal' ); ?></summary>
+	<span class="tgit-help" tabindex="0" role="note" aria-label="<?php esc_attr_e( 'An owner must save this policy before images can be uploaded. Deleted images still use quota until cleanup.', 'ig-trading-journal' ); ?>" data-tip="<?php esc_attr_e( 'An owner must save this policy before images can be uploaded. Deleted images still use quota until cleanup.', 'ig-trading-journal' ); ?>">?</span>
 	<p id="tgit-media-health"></p>
 	<form id="tgit-media-settings-form" class="tgit-form tgit-grid">
 	<label><?php esc_html_e( 'Images per trade, including trash', 'ig-trading-journal' ); ?><input name="max_images" type="number" min="1" max="100" required></label>

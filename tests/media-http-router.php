@@ -8,7 +8,7 @@ require $site . '/wp-load.php';
 if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true || wp_get_environment_type() !== 'development') { http_response_code(403); exit; }
 require_once dirname(__DIR__) . '/ig-trading-journal.php';
 $route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if (preg_match('#^/assets/(admin\.css|admin\.js|journal\.js|rest-url\.js)$#D', $route)) {
+if (preg_match('#^/assets/(admin\.css|admin\.js|journal\.js|tabs\.js|rest-url\.js)$#D', $route)) {
  header('Content-Type: ' . (str_ends_with($route, '.css') ? 'text/css' : 'application/javascript'));
  readfile(dirname(__DIR__) . $route); exit;
 }
@@ -18,7 +18,7 @@ if ($route === '/preview') {
  echo '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Disposable journal preview</title><link rel="stylesheet" href="/assets/admin.css"></head><body>';
  \GainerInteractive\IGTradingJournal\Admin\Screen::render();
  echo '<script>window.tgitConfig=' . wp_json_encode(['root' => 'http://127.0.0.1:19308/?rest_route=/tgit/v1/', 'nonce' => wp_create_nonce('wp_rest'), 'actorId' => get_current_user_id(), 'canCreate' => true, 'i18n' => ['loading' => 'Loading', 'empty' => 'No records yet', 'saved' => 'Saved', 'unknown' => 'Missing price', 'edit' => 'Edit draft', 'post' => 'Post draft', 'editing' => 'Editing draft', 'network' => 'Request failed']]) . ';</script>';
- echo '<script src="/assets/rest-url.js"></script><script src="/assets/admin.js"></script><script src="/assets/journal.js"></script></body></html>'; exit;
+ echo '<script src="/assets/rest-url.js"></script><script src="/assets/tabs.js"></script><script src="/assets/admin.js"></script><script src="/assets/journal.js"></script></body></html>'; exit;
 }
 if (isset($_GET['rest_route'])) { rest_get_server()->serve_request(wp_unslash($_GET['rest_route'])); exit; }
 http_response_code(404);
