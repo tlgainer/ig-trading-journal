@@ -87,6 +87,7 @@ final class JournalScreen {
 </section>
 <section id="tgit-strategy-section">
 	<h3><?php esc_html_e( 'Strategies', 'ig-trading-journal' ); ?></h3>
+	<p id="tgit-strategy-status" role="status" aria-live="polite"></p>
 	<div id="tgit-strategies" class="tgit-cards"></div>
 	<form id="tgit-strategy-form" class="tgit-form" hidden>
 	<p id="tgit-strategy-editing"></p>

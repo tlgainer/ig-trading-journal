@@ -19,10 +19,11 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.getByRole('tab', { name: 'Strategies', exact: true }).click();
   await page.locator('#tgit-strategies').getByText('Fixture strategy', { exact: true }).waitFor();
   console.log('CHECK Journal workspace loaded.');
+  await page.locator('#tgit-new-strategy').click();
   await page.locator('#tgit-strategy-form input[name=name]').fill(strategyName);
   await page.locator('#tgit-strategy-form textarea[name=description]').fill('<p>Plan captured before entry</p>');
   await page.locator('#tgit-strategy-form textarea[name=rules]').fill('<strong>Manual checklist</strong>');
-  await page.locator('#tgit-strategy-form textarea[name=tags]').fill('browser\nfixture');
+  for (const tag of ['browser', 'fixture']) { await page.locator('#tgit-strategy-form').getByRole('textbox', { name: 'New tag', exact: true }).fill(tag); await page.locator('#tgit-strategy-form').getByRole('textbox', { name: 'New tag', exact: true }).press('Enter'); }
   await page.locator('#tgit-strategy-form button[type=submit]').click();
   await page.locator('#tgit-strategies').getByText(strategyName, { exact: true }).waitFor();
   console.log('CHECK Strategy created.');

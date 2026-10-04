@@ -8,7 +8,7 @@
  let galleryGeneration = 0, galleryCollection = null, galleryRows = [];
  let strategyVersions = [], pending = new Map(), imageUrls = [], selected = new Map(), busy = false;
  const messages = { loading: 'Loading...', saved: 'Saved.', failed: 'Request failed. Retry with the same file.', empty: 'No records yet.' };
- const notice = (text, error = false) => { $('journal-status').textContent = text; $('journal-status').setAttribute('role', error ? 'alert' : 'status'); };
+ const notice = (text, error = false) => { for (const id of ['journal-status', 'strategy-status']) { $(id).textContent = text; $(id).setAttribute('role', error ? 'alert' : 'status'); } };
  const path = (suffix) => `workspaces/${context.workspace}/${suffix}`;
  const isEditor = () => context && ['owner', 'manager', 'contributor'].includes(context.role);
  const isManager = () => context && ['owner', 'manager'].includes(context.role);
@@ -49,10 +49,11 @@
   if (!value && candidateCollection) candidateCollection.update(candidateRows);
   if (!value && context && trade) renderLinkedFills();
   if (!value && historyCollection) historyCollection.update(historyRows);
+  if (!value && strategyCollection) renderStrategies();
   if (!value) renderLabelEditors();
   for (const id of ['workspace-form', 'account-form', 'asset-form', 'transaction-form', 'member-form']) for (const control of $(id).querySelectorAll('button')) control.disabled = value;
  }
- function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && trade && !imageDraft) reload.hidden = false; } finally { lock(false); } }; }
+ function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && !strategyForm.hidden && strategy) reloadStrategyButton.hidden = false; else if (error.status === 409 && trade && !imageDraft) reload.hidden = false; } finally { lock(false); } }; }
  let baseline = '', listScroll = 0, tradeRows = [], tradeLoad = 0;
  const list = document.createElement('div'); list.id = 'tgit-trade-list';
  $('new-trade').textContent = 'New trade'; $('new-trade').classList.add('button-primary');
@@ -136,26 +137,26 @@
   previousAsset = journalForm.elements.asset_id.value; linkInput.value = ''; candidateRows = []; candidateCollection = null; tgitResetCollection(fillPicker); fillPicker.hidden = true; renderLinkedFills();
  });
  const labelEditors = new Map();
- for (const [name, singular] of [['tags', 'tag'], ['confluences', 'confluence']]) {
-  const field = journalForm.elements[name]; field.hidden = true; const wrapper = field.closest('label'); wrapper.firstChild.textContent = name === 'tags' ? 'Tags' : 'Confluence checklist';
+ for (const [name, singular] of [['tags', 'tag'], ['confluences', 'confluence'], ['strategyTags', 'tag']]) {
+  const field = (name === 'strategyTags' ? $('strategy-form') : journalForm).elements[name === 'strategyTags' ? 'tags' : name]; const editable = () => name === 'strategyTags' ? isManager() : isEditor(); field.hidden = true; const wrapper = field.closest('label'); wrapper.firstChild.textContent = singular === 'tag' ? 'Tags' : 'Confluence checklist';
   const chips = document.createElement('div'); chips.className = 'tgit-label-list'; chips.id = `tgit-${name}-labels`; wrapper.append(chips);
-  const entry = document.createElement('input'); entry.type = 'text'; entry.id = `tgit-add-${singular}`; entry.maxLength = 190; entry.setAttribute('aria-label', `New ${singular}`); wrapper.append(entry);
+  const entry = document.createElement('input'); entry.type = 'text'; entry.id = `tgit-add-${name === 'strategyTags' ? 'strategy-tag' : singular}`; entry.maxLength = 190; entry.setAttribute('aria-label', `New ${singular}`); wrapper.append(entry);
   const add = () => {
-   if (busy || window.tgitWriteBusy || !isEditor()) return; const value = entry.value.trim(), values = labels(field.value);
+   if (busy || window.tgitWriteBusy || !editable()) return; const value = entry.value.trim(), values = labels(field.value);
    if (!value || new TextEncoder().encode(value).length > 190 || /[\r\n\x00-\x1f]/.test(value)) { notice(`Enter a ${singular} of up to 190 UTF-8 bytes on one line.`, true); entry.focus(); return; }
    if (values.includes(value)) { notice(`This ${singular} already exists.`, true); entry.focus(); return; }
-   if (values.length >= 50) { notice(`Use at most 50 ${name}.`, true); return; }
+   if (values.length >= 50) { notice(`Use at most 50 ${singular}s.`, true); return; }
    field.value = [...values, value].join('\n'); entry.value = ''; if (name === 'confluences') { confluenceState.set(value, false); renderConfluences(); } renderLabelEditors(); notice(`${singular} added.`); entry.focus();
   };
   const addButton = button(`Add ${singular}`, add, wrapper); entry.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); add(); } });
-  labelEditors.set(name, { field, chips, entry, addButton });
+  labelEditors.set(name, { field, chips, entry, addButton, editable });
  }
  function renderLabelEditors() {
   for (const [name, editor] of labelEditors) {
-   editor.chips.replaceChildren(); editor.entry.disabled = !isEditor(); editor.entry.hidden = !isEditor(); editor.addButton.hidden = !isEditor();
+   editor.chips.replaceChildren(); editor.entry.disabled = !editor.editable(); editor.entry.hidden = !editor.editable(); editor.addButton.hidden = !editor.editable();
    for (const value of labels(editor.field.value)) {
     const chip = text('span', value, editor.chips); chip.className = 'tgit-label-chip';
-    if (isEditor()) { const remove = button('Remove', () => { if (busy || window.tgitWriteBusy) return; editor.field.value = labels(editor.field.value).filter((label) => label !== value).join('\n'); if (name === 'confluences') { confluenceState.delete(value); renderConfluences(); } renderLabelEditors(); notice('Label removed.'); editor.entry.focus(); }, chip); remove.setAttribute('aria-label', `Remove ${name === 'tags' ? 'tag' : 'confluence'} ${value}`); }
+    if (editor.editable()) { const remove = button('Remove', () => { if (busy || window.tgitWriteBusy) return; editor.field.value = labels(editor.field.value).filter((label) => label !== value).join('\n'); if (name === 'confluences') { confluenceState.delete(value); renderConfluences(); } renderLabelEditors(); notice('Label removed.'); editor.entry.focus(); }, chip); remove.setAttribute('aria-label', `Remove ${name === 'confluences' ? 'confluence' : 'tag'} ${value}`); }
    }
   }
  }
@@ -198,6 +199,49 @@
   while (next !== null) { const page = await api(path(`trades/${id}/revisions?before=${next}&limit=20`)); if (expected !== epoch || String(trade?.trade.id) !== id) return; rows.unshift(...page.items); next = page.next_cursor; }
   if (expected === epoch && String(trade?.trade.id) === id) renderHistory(rows);
  }
+ let strategyBaseline = '', strategyRows = [], strategyCollection = null;
+ const strategyForm = $('strategy-form'), strategyList = document.createElement('div'); strategyList.id = 'tgit-strategy-list';
+ $('strategies').before(strategyList); const newStrategy = $('new-strategy'); newStrategy.textContent = 'New strategy'; newStrategy.classList.add('button-primary'); strategyList.append(newStrategy, $('strategies'));
+ const strategyView = document.createElement('section'); strategyView.id = 'tgit-strategy-view'; strategyView.hidden = true; strategyForm.after(strategyView);
+ const closeStrategyButton = button('Cancel strategy', () => { if (leaveStrategy()) closeStrategy(); }, strategyForm);
+ const reloadStrategyButton = button('Reload latest strategy', () => { if (leaveStrategy() && strategy) guarded(() => editStrategy(strategy.strategy.id))(); }, strategyForm); reloadStrategyButton.hidden = true;
+ const strategySnapshot = () => JSON.stringify([...new FormData(strategyForm)]) + labelEditors.get('strategyTags').entry.value;
+ const strategyDirty = () => !strategyForm.hidden && isManager() && strategyBaseline !== strategySnapshot();
+ const leaveStrategy = () => !strategyDirty() || window.confirm('Discard unsaved strategy changes?');
+ function closeStrategy() { strategy = null; strategyForm.reset(); renderLabelEditors(); strategyForm.hidden = true; strategyView.hidden = true; strategyView.replaceChildren(); strategyList.hidden = false; strategyBaseline = ''; newStrategy.focus(); }
+ function showStrategy(data) {
+  strategy = data; strategyForm.reset(); strategyForm.hidden = false; strategyList.hidden = true; strategyView.hidden = true; strategyView.replaceChildren(); reloadStrategyButton.hidden = true;
+  if (data) { const facts = JSON.parse(data.versions.at(-1).payload); for (const name of ['name', 'status', 'description', 'rules']) strategyForm.elements[name].value = facts[name]; strategyForm.elements.tags.value = facts.tags.join('\n'); }
+  $('strategy-editing').textContent = data ? `Editing ${data.strategy.name} · version ${data.strategy.revision}` : 'New strategy';
+  strategyForm.querySelector('button[type=submit]').classList.add('button-primary'); strategyForm.querySelector('button[type=submit]').textContent = data ? 'Save new version' : 'Create strategy';
+  closeStrategyButton.textContent = data ? 'Back to strategies' : 'Cancel strategy'; labelEditors.get('strategyTags').entry.value = ''; renderLabelEditors(); strategyBaseline = strategySnapshot(); strategyForm.elements.name.focus();
+ }
+ async function editStrategy(id) { const expected = epoch; const data = await api(path(`strategies/${id}`)); if (expected === epoch) { showStrategy(data); await loadStrategies(expected); } }
+ function renderStrategies() {
+  strategyCollection = tgitCollection($('strategies'), { actor: config.actorId, workspace: context.workspace, key: 'strategies', title: 'Strategies', search: (row) => `${row.name} ${row.tags.join(' ')}`,
+   filters: [{ key: 'status', label: 'Strategy view', default: 'active', values: [['active', 'Active'], ['', 'All'], ['archived', 'Archived']], matches: (row, value) => !value || row.status === value }],
+   columns: [
+    { key: 'name', label: 'Strategy', required: true, identity: true, sort: (a, b) => a.name.localeCompare(b.name), render: (row) => row.name },
+    { key: 'status', label: 'Status', render: (row) => row.status },
+    { key: 'revision', label: 'Latest version', numeric: true, sort: (a, b) => Number(a.revision) - Number(b.revision), render: (row) => String(row.revision) },
+    { key: 'tags', label: 'Tags', render: (row) => row.tags.join(', ') || 'Not set' },
+    { key: 'actions', label: 'Actions', required: true, render: (row) => { const group = document.createElement('div'); button('View versions', () => { if (leaveStrategy()) viewStrategy(row.data); }, group); if (isManager()) button('Edit strategy', () => { if (leaveStrategy()) guarded(() => editStrategy(row.id))(); }, group); return group; } }
+   ] }, strategyRows);
+ }
+ function viewStrategy(data) {
+  strategyForm.hidden = true; strategyBaseline = ''; strategyList.hidden = true; strategyView.hidden = false; strategyView.replaceChildren();
+  text('h3', data.strategy.name, strategyView); text('p', 'Versions are immutable. Trade journals retain their captured strategy version.', strategyView);
+  const table = document.createElement('div'); strategyView.append(table);
+  const preview = document.createElement('section'); strategyView.append(preview);
+  tgitCollection(table, { actor: config.actorId, workspace: `${context.workspace}:${data.strategy.id}`, key: 'strategy-versions', title: 'Strategy versions', defaultSort: 'revision', defaultDescending: true, search: (row) => `${row.revision} ${row.actor_name || row.actor_id} ${JSON.parse(row.payload).name}`,
+   columns: [
+    { key: 'revision', label: 'Version', required: true, identity: true, sort: (a, b) => Number(a.revision) - Number(b.revision), render: (row) => String(row.revision) },
+    { key: 'date', label: 'Saved at', render: (row) => timestamp(row.created_at) },
+    { key: 'author', label: 'Author', render: (row) => row.actor_name || `User #${row.actor_id}` },
+    { key: 'actions', label: 'Actions', required: true, render: (row) => { const group = document.createElement('div'); button('View version', () => { preview.replaceChildren(); const facts = JSON.parse(row.payload); const heading = text('h4', `${facts.name} · version ${row.revision}`, preview); heading.tabIndex = -1; for (const field of ['description', 'rules']) { text('h5', field, preview); const content = document.createElement('div'); content.innerHTML = facts[field]; preview.append(content); } text('p', facts.tags.join(', '), preview); heading.focus(); }, group); return group; } }
+   ] }, data.versions);
+  button('Back to strategies', closeStrategy, strategyView);
+ }
  const actions = document.createElement('div'); actions.className = 'tgit-actions'; $('trade-detail').append(actions);
  const save = $('trade-form').querySelector('button[type="submit"]'); save.id = 'tgit-save-journal'; save.setAttribute('form', 'tgit-trade-form'); actions.append(save, $('close-trade')); $('close-trade').textContent = 'Back to trades';
  const reload = button('Reload latest journal', () => { if (leave()) guarded(() => openTrade(trade.trade.id))(); }, actions); reload.hidden = true;
@@ -207,9 +251,9 @@
   for (const [name, panel] of detailPanels) panel.hidden = name !== id;
   for (const tab of detailTabs.querySelectorAll('button')) { const selected = tab.dataset.detailTab === id; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; }
  }
- function snapshot() { return JSON.stringify([...$('trade-form').elements].filter((field) => field.name).map((field) => [field.name, field.type === 'file' ? [...field.files].map((file) => [file.name, file.size, file.lastModified]) : field.value])) + JSON.stringify([...confluenceState]) + JSON.stringify([...labelEditors.values()].map((editor) => editor.entry.value)); }
- const dirty = () => !$('trade-detail').hidden && isEditor() && (baseline !== snapshot() || imageDirty());
- const leave = () => !dirty() || window.confirm('Discard unsaved journal changes?');
+ function snapshot() { return JSON.stringify([...$('trade-form').elements].filter((field) => field.name).map((field) => [field.name, field.type === 'file' ? [...field.files].map((file) => [file.name, file.size, file.lastModified]) : field.value])) + JSON.stringify([...confluenceState]) + JSON.stringify([...labelEditors.values()].filter((editor) => editor.field.form === journalForm).map((editor) => editor.entry.value)); }
+ const dirty = () => strategyDirty() || (!$('trade-detail').hidden && isEditor() && (baseline !== snapshot() || imageDirty()));
+ const leave = () => !dirty() || window.confirm('Discard unsaved changes?');
  function routeTrade(id, replace = false) {
   const url = new URL(location.href); url.searchParams.set('tgit_section', 'journal'); url.searchParams.set('tgit_workspace', context.workspace);
   if (id) url.searchParams.set('tgit_trade', String(id)); else url.searchParams.delete('tgit_trade');
@@ -245,12 +289,13 @@
   const url = new URL(location.href); url.searchParams.delete('tgit_trade'); url.searchParams.set('tgit_workspace', $('workspace').value); history.replaceState(null, '', url);
  }, true);
  $('tabs').addEventListener('click', (event) => {
-  if (event.target.closest('[role="tab"]')?.dataset.tab === 'journal') return;
-  if (!leave()) { event.preventDefault(); event.stopPropagation(); } else if (!$('trade-detail').hidden) closeTrade(false);
+  const target = event.target.closest('[role="tab"]')?.dataset.tab; if (!target || target === new URL(location.href).searchParams.get('tgit_section')) return;
+  if (!leave()) { event.preventDefault(); event.stopPropagation(); } else { closeStrategy(); if (!$('trade-detail').hidden && target !== 'journal') closeTrade(false); }
  }, true);
  window.addEventListener('popstate', () => {
   if (!context) return; const url = new URL(location.href);
-  if (!leave()) { window.tgitSelectSection('journal'); routeTrade(trade?.trade.id || 'new', true); return; }
+  if (!leave()) { if (strategyDirty()) { window.tgitSelectSection('strategies'); url.searchParams.set('tgit_section', 'strategies'); history.replaceState(null, '', url); return; } window.tgitSelectSection('journal'); routeTrade(trade?.trade.id || 'new', true); return; }
+  if (!strategyForm.hidden || !strategyView.hidden) closeStrategy();
   if (url.searchParams.get('tgit_section') !== 'journal') { if (!$('trade-detail').hidden) closeTrade(false); return; }
   const id = url.searchParams.get('tgit_trade'); if (id === 'new') showTrade(null); else if (/^[1-9][0-9]*$/.test(id || '')) guarded(() => openTrade(id, false))(); else closeTrade(false);
  });
@@ -429,7 +474,7 @@
   } finally { cancel.disabled = true; }
  }
  $('trade-form').addEventListener('submit', (event) => {
-  event.preventDefault(); if ([...labelEditors.values()].some((editor) => editor.entry.value.trim())) { selectDetail('plan'); notice('Add or clear the pending tag or confluence before saving.', true); return; } if (!leaveImage()) return; if (!$('trade-form').checkValidity()) { selectDetail('plan'); $('trade-form').reportValidity(); return; } guarded(async () => {
+  event.preventDefault(); if ([...labelEditors.values()].some((editor) => editor.field.form === journalForm && editor.entry.value.trim())) { selectDetail('plan'); notice('Add or clear the pending tag or confluence before saving.', true); return; } if (!leaveImage()) return; if (!$('trade-form').checkValidity()) { selectDetail('plan'); $('trade-form').reportValidity(); return; } guarded(async () => {
    const form = $('trade-form'), files = [...form.elements.images.files]; const input = {};
    for (const name of ['title', 'state', 'opened_on', 'closed_on']) input[name] = form.elements[name].value;
    input.asset_id = Number(form.elements.asset_id.value); input.strategy_version_id = form.elements.strategy_version_id.value ? Number(form.elements.strategy_version_id.value) : null;
@@ -451,19 +496,20 @@
 
  $('compare-images').addEventListener('click', guarded(() => viewImages([...selected.values()])));
  $('close-image').addEventListener('click', () => $('image-dialog').close());
- $('new-strategy').addEventListener('click', () => { if (busy) return; strategy = null; $('strategy-form').reset(); $('strategy-editing').textContent = 'New strategy'; });
- $('strategy-form').addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const form = $('strategy-form'); const input = Object.fromEntries(new FormData(form)); input.tags = labels(input.tags); if (strategy) input.expected_revision = Number(strategy.strategy.revision); await write(path(strategy ? `strategies/${strategy.strategy.id}` : 'strategies'), input); strategy = null; form.reset(); $('strategy-editing').textContent = 'New strategy'; await loadStrategies(epoch); notice(messages.saved); })(); });
+ $('new-strategy').addEventListener('click', () => { if (!busy && isManager() && leaveStrategy()) showStrategy(null); });
+ $('strategy-form').addEventListener('submit', (event) => { event.preventDefault(); if (labelEditors.get('strategyTags').entry.value.trim()) { notice('Add or clear the pending tag before saving.', true); return; } guarded(async () => {
+  const input = Object.fromEntries(new FormData(strategyForm)); input.tags = labels(input.tags); if (strategy) input.expected_revision = Number(strategy.strategy.revision);
+  await write(path(strategy ? `strategies/${strategy.strategy.id}` : 'strategies'), input); closeStrategy(); await loadStrategies(epoch); notice(messages.saved);
+ })(); });
  async function loadStrategies(expected) {
-  const items = await all('strategies', expected); const details = await Promise.all(items.map((item) => api(path(`strategies/${item.id}`)))); if (expected !== epoch) return;
-  strategyVersions = []; $('strategies').replaceChildren();
-  for (const data of details) {
-   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', data.strategy.name, card); text('p', `${data.strategy.status} | version ${data.strategy.revision}`, card);
-   for (const version of data.versions) { const facts = JSON.parse(version.payload); if (facts.status === 'active') strategyVersions.push({ ...version, name: facts.name }); const revision = document.createElement('details'); text('summary', `Version ${version.revision} | ${timestamp(version.created_at)}`, revision); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; revision.append(content); } text('p', facts.tags.join(', '), revision); card.append(revision); }
-   if (data.versions_cursor) { let before = data.versions_cursor; const older = button('Load older strategy versions', guarded(async () => { const page = await api(path(`strategies/${data.strategy.id}/versions?before=${before}&limit=20`)); for (const version of page.items) { const facts = JSON.parse(version.payload); const details = document.createElement('details'); text('summary', 'Version ' + version.revision + ' | ' + timestamp(version.created_at), details); for (const field of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = facts[field]; details.append(content); } card.insertBefore(details, older); if (facts.status === 'active' && !strategyVersions.some((item) => item.id === version.id)) strategyVersions.push({ ...version, name: facts.name }); } before = page.next_cursor; older.hidden = before === null; }), card); }
-   if (isManager()) button('Edit strategy', guarded(async () => { strategy = data; const facts = JSON.parse(data.versions.at(-1).payload); const form = $('strategy-form'); for (const name of ['name', 'status', 'description', 'rules']) form.elements[name].value = facts[name]; form.elements.tags.value = facts.tags.join('\n'); $('strategy-editing').textContent = `Editing #${data.strategy.id}, revision ${data.strategy.revision}`; form.scrollIntoView({ block: 'start' }); }), card);
-   $('strategies').append(card);
+  const items = await all('strategies', expected), details = [];
+  for (const item of items) {
+   const data = await api(path(`strategies/${item.id}`)); if (expected !== epoch) return; let next = data.versions_cursor;
+   while (next !== null) { const page = await api(path(`strategies/${item.id}/versions?before=${next}&limit=20`)); if (expected !== epoch) return; data.versions.unshift(...page.items); next = page.next_cursor; }
+   details.push(data);
   }
-  if (!details.length) text('p', messages.empty, $('strategies'));
+  if (expected !== epoch) return; strategyVersions = [];
+  strategyRows = details.map((data) => { for (const version of data.versions) { const facts = JSON.parse(version.payload); if (facts.status === 'active') strategyVersions.push({ ...version, name: facts.name }); } return { ...data.strategy, tags: JSON.parse(data.versions.at(-1).payload).tags, data }; }); renderStrategies();
  }
  async function loadSettings(expected) { const data = await api(path('media-settings')); if (expected !== epoch) return; limits = data; const form = $('media-settings-form'); for (const name of ['max_images', 'max_file_bytes', 'max_pixels', 'quota_bytes', 'trash_days']) form.elements[name].value = data.limits[name]; $('media-health').textContent = `Retained/reserved bytes: ${data.used_bytes}. ${storageProblem() || 'Private storage is ready.'}`; }
  $('media-settings-form').addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const input = Object.fromEntries([...new FormData($('media-settings-form'))].map(([key, value]) => [key, Number(value)])); input.expected_revision = Number(limits.limits.revision); await write(path('media-settings'), input); await loadSettings(epoch); notice(messages.saved); })(); });
@@ -476,7 +522,7 @@
   for (const id of ['trade-summary', 'fill-facts', 'trade-history', 'gallery', 'image-view', 'upload-progress']) $(id).replaceChildren();
   choices($('trade-form').elements.asset_id, context.assets, (item) => `${item.symbol} · ${item.exchange}`);
   choices($('trade-form').elements.strategy_version_id, [], (item) => item.name, true);
-  $('new-trade').hidden = !isEditor(); $('strategy-form').hidden = !isManager(); $('strategy-form').reset(); $('media-settings-section').hidden = context.role !== 'owner'; notice(messages.loading);
+  $('new-trade').hidden = !isEditor(); closeStrategy(); newStrategy.hidden = !isManager(); strategyRows = []; strategyCollection = null; tgitResetCollection($('strategies')); $('media-settings-section').hidden = context.role !== 'owner'; notice(messages.loading);
   try { await Promise.all([refreshTrades(expected), loadStrategies(expected), loadSettings(expected)]); if (expected === epoch) { notice(''); if (routeId && routeId === new URL(location.href).searchParams.get('tgit_trade')) { if (routeId === 'new') showTrade(null); else if (/^[1-9][0-9]*$/.test(routeId)) await openTrade(routeId); } } } catch (error) { if (expected === epoch) notice(error.message, true); }
  });
 })();
