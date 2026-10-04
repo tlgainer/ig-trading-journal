@@ -36,7 +36,7 @@ test('Pending image replacement reuses its slot and requires the current revisio
  equal($jm->retry($jw, (int) $row['id'], $input, 'replace-retry'), $replacement);
  try { $jm->retry($jw, (int) $row['id'], $input, 'replace-stale'); } catch (UnexpectedValueException $e) { return; } throw new RuntimeException('Stale replacement accepted.');
 });
-test('Journal revision pages are bounded, stable and workspace scoped', function () use ($tracker, $db, $owner, $w2) {
+test('Journal revision pages are bounded, stable and workspace scoped', function () use ($tracker, $db, $owner, $w2, $viewer) {
  $workspace = $tracker->create_workspace(['name' => 'Revision pages'])['id'];
  $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'PAGES', 'exchange' => 'FIXTURE', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
  $journal = new \GainerInteractive\IGTradingJournal\Application\Journal($db, $owner, wp_generate_uuid4());
@@ -44,6 +44,9 @@ test('Journal revision pages are bounded, stable and workspace scoped', function
  $trade = $journal->save_trade($workspace, 0, $input, 'history-create')['trade'];
  for ($revision = 1; $revision <= 24; $revision++) $journal->save_trade($workspace, (int) $trade['id'], $input + ['expected_revision' => $revision], 'history-edit-' . $revision);
  $current = $journal->trade($workspace, (int) $trade['id']); equal(count($current['revisions']), 20); equal((int) $current['revisions'][0]['revision'], 6);
+ equal($current['revisions'][0]['actor_name'], get_userdata($owner)->display_name); equal((int) $current['revisions'][0]['actor_id'], $owner);
+ $tracker->set_member((int) $workspace, ['wp_user_id' => $viewer, 'role' => 'viewer', 'state' => 'active']);
+ file_put_contents(dirname(__DIR__) . '/tmp/history-ui-fixture.json', wp_json_encode(['workspace' => $workspace, 'trade' => $trade['id']]));
  $older = $journal->history($workspace, 'trades', (int) $trade['id'], (int) $current['revisions_cursor'], 20); equal(array_map('intval', array_column($older['items'], 'revision')), [1, 2, 3, 4, 5]); equal($older['next_cursor'], null);
  rejects(fn() => $journal->history($workspace, 'trades', (int) $trade['id'], 26, 21));
  try { $journal->history($w2, 'trades', (int) $trade['id'], 26, 20); } catch (OutOfBoundsException $e) { return; } throw new RuntimeException('Foreign revision history read.');

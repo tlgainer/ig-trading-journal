@@ -65,13 +65,23 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.screenshot({ path: 'tmp/journal-plan-mobile.png', fullPage: true }); await page.setViewportSize({ width: 1100, height: 900 });
   await form.locator('textarea[name=thesis]').fill('<strong>Independent journal idea</strong>');
   await form.locator('textarea[name=notes]').fill('Feeling calm; no financial effect.');
-  await form.locator('textarea[name=confluences]').fill('Manual level\nVolume context');
+  await page.getByRole('textbox', { name: 'New confluence', exact: true }).fill('Manual level'); await page.getByRole('textbox', { name: 'New confluence', exact: true }).press('Enter');
+  await page.getByRole('textbox', { name: 'New confluence', exact: true }).fill('Volume context'); await page.getByRole('button', { name: 'Add confluence', exact: true }).click();
+  await page.getByRole('textbox', { name: 'New tag', exact: true }).fill('Café review'); await page.getByRole('textbox', { name: 'New tag', exact: true }).press('Enter');
+  await page.getByRole('textbox', { name: 'New tag', exact: true }).fill('Café review'); await page.getByRole('button', { name: 'Add tag', exact: true }).click(); await page.locator('#tgit-journal-status').getByText('This tag already exists.', { exact: true }).waitFor();
+  await page.getByRole('textbox', { name: 'New tag', exact: true }).fill('temporary'); await page.getByRole('button', { name: 'Add tag', exact: true }).click(); await page.getByRole('button', { name: 'Remove tag temporary', exact: true }).click();
+  await page.getByRole('textbox', { name: 'New tag', exact: true }).fill('é'.repeat(100)); await page.getByRole('button', { name: 'Add tag', exact: true }).click(); await page.locator('#tgit-journal-status').getByText('Enter a tag of up to 190 UTF-8 bytes on one line.', { exact: true }).waitFor(); await page.getByRole('textbox', { name: 'New tag', exact: true }).fill('');
   await page.locator('#tgit-confluence-items input').nth(0).check();
+  await page.getByRole('textbox', { name: 'New confluence', exact: true }).fill('Temporary check'); await page.getByRole('button', { name: 'Add confluence', exact: true }).click(); await page.getByRole('button', { name: 'Remove confluence Temporary check', exact: true }).click(); assert.equal(await page.locator('#tgit-confluence-items input').nth(0).isChecked(), true);
   await form.locator('input[name=planned_stop]').fill('0.123456789012345678');
   const versions = await form.locator('select[name=strategy_version_id] option').allTextContents(); const chosen = versions.find((value) => value.includes(strategyName));
   await form.locator('select[name=strategy_version_id]').selectOption({ label: chosen });
   await page.locator('#tgit-save-journal').click();
   await page.locator('#tgit-journal-status').getByText('Saved.', { exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'History', exact: true }).click(); assert((await page.locator('#tgit-trade-history h3').textContent()).startsWith('Journal revisions ('));
+  const latestRevision = page.locator('#tgit-trade-history tbody tr').first(); assert(!(await latestRevision.locator('[data-label=Author]').textContent()).includes('undefined'));
+  await latestRevision.getByRole('button', { name: 'View revision', exact: true }).click(); await page.locator('#tgit-revision-detail dd').filter({ hasText: 'Café review' }).waitFor();
+  await page.locator('#tgit-revision-detail').getByRole('button', { name: 'Close revision', exact: true }).click(); assert.equal(await page.locator('#tgit-revision-detail').isVisible(), false);
   await page.getByRole('tab', { name: 'Images', exact: true }).click();
   const journalRevision = () => page.evaluate(async () => {
    const route = new URL(location.href), target = `workspaces/${route.searchParams.get('tgit_workspace')}/trades/${route.searchParams.get('tgit_trade')}`;
@@ -122,6 +132,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   assert.equal(await form.locator('textarea[name=notes]').inputValue(), 'Feeling calm; no financial effect.');
   assert.equal(await form.locator('input[name=planned_stop]').inputValue(), '0.123456789012345678');
   assert.equal(await page.locator('#tgit-confluence-items input').nth(0).isChecked(), true); assert.equal(await page.locator('#tgit-confluence-items input').nth(1).isChecked(), false);
+  assert((await page.locator('#tgit-tags-labels').textContent()).includes('Café review'));
   await page.getByRole('tab', { name: 'Images', exact: true }).click(); assert.equal(await page.locator('#tgit-gallery tbody tr').count(), 3); assert.equal(await page.locator('#tgit-gallery tbody tr').filter({ has: page.getByText('UI-one.png', { exact: true }) }).locator('[data-label=Stage]').textContent(), 'entry'); assert.deepEqual(errors, []);
   await page.getByRole('tab', { name: 'Plan and journal', exact: true }).click(); await form.locator('textarea[name=notes]').fill('Unsaved navigation fixture');
   await page.getByRole('tab', { name: 'Summary', exact: true }).click();

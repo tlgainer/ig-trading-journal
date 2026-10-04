@@ -35,6 +35,11 @@
 .tgit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
 .tgit .tgit-journal-group { grid-column: 1 / -1; min-width: 0; padding: 16px; margin: 0; border: 1px solid var(--tgit-border); border-radius: 8px; }
 .tgit .tgit-journal-group legend { padding: 0 8px; font-weight: 600; }
+.tgit .tgit-label-list { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.tgit .tgit-label-chip { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 8px; border: 1px solid var(--tgit-border); border-radius: 6px; overflow-wrap: anywhere; font-weight: 400; }
+.tgit #tgit-revision-detail { padding: 16px; border: 1px solid var(--tgit-border); border-radius: 8px; }
+.tgit #tgit-revision-detail dt { font-weight: 600; }
+.tgit #tgit-revision-detail dd { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .tgit .tgit-journal-group #tgit-confluence-checklist { grid-column: 1 / -1; min-width: 0; }
 .tgit #tgit-fill-picker table, .tgit #tgit-fill-facts table { min-width: 1100px; table-layout: auto; }
 .tgit-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }

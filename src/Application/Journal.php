@@ -436,9 +436,19 @@ final class Journal {
 			throw new \InvalidArgumentException( 'Invalid revision page.' );
 		}
 		$this->db->object( $type, $workspace, $id );
-		$table = 'trades' === $type ? 'trade_journals' : 'strategy_versions';
-		$field = 'trades' === $type ? 'trade_id' : 'strategy_id';
-		$items = $this->db->rows( 'SELECT * FROM ' . $this->db->table( $table ) . ' WHERE workspace_id = %d AND ' . $field . ' = %d AND revision < %d ORDER BY revision DESC LIMIT %d', array( $workspace, $id, $before, $limit ) );
+		$table  = 'trades' === $type ? 'trade_journals' : 'strategy_versions';
+		$field  = 'trades' === $type ? 'trade_id' : 'strategy_id';
+		$items  = $this->db->rows( 'SELECT * FROM ' . $this->db->table( $table ) . ' WHERE workspace_id = %d AND ' . $field . ' = %d AND revision < %d ORDER BY revision DESC LIMIT %d', array( $workspace, $id, $before, $limit ) );
+		$actors = array();
+		foreach ( $items as &$item ) {
+			$actor = (int) $item['actor_id'];
+			if ( ! isset( $actors[ $actor ] ) ) {
+				$user             = get_userdata( $actor );
+				$actors[ $actor ] = $user ? $user->display_name : 'User #' . $actor;
+			}
+			$item['actor_name'] = $actors[ $actor ];
+		}
+		unset( $item );
 		return array(
 			'items'       => array_reverse( $items ),
 			'next_cursor' => count( $items ) === $limit ? (string) end( $items )['revision'] : null,

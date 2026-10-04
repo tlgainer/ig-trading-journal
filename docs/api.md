@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.14.0
+# REST contract: tgit/v1, build 0.15.0
 
 ## Manual prices, FX, reports and saved views (schema 8)
 
@@ -161,3 +161,5 @@ Example: `{"expected_revision":1,"reason":"Broker statement corrected","replacem
 ## Journal fill candidates
 
 `GET /workspaces/{workspace}/trades/{trade}/fill-candidates?after=0&limit=100&asset_id=0` requires active viewing membership. `asset_id` defaults to the trade asset; a supplied positive ID must belong to the workspace. Rows include transaction ID, account ID/name, asset ID, effective date, action, state, decimal-string quantity/unit price/fees, currency, and `linked_trade_id` (null or this trade). Only Draft/Posted buys/sells for the selected asset are returned; fills assigned elsewhere and corrected sources are excluded. Cursor and limit follow the other 1–100 ID lists. No mutation occurs. Journal Save still requires journal edit permission, expected revision, exclusive assignment and current eligible facts; corrected-source races return a conflict.
+
+Journal/strategy history pages additionally include `actor_name`, the current WordPress display name or a User #ID fallback for a deleted account. Stored `actor_id`, timestamps and payloads remain immutable. Author labels are returned only after workspace authorization and object scope checks; no email/profile data is returned.
