@@ -5,7 +5,7 @@
  const $ = (id) => document.getElementById(`tgit-${id}`);
  const status = (message, error = false) => { $('status').textContent = message; $('status').dataset.error = String(error); $('status').setAttribute('role', error ? 'alert' : 'status'); };
  let workspaces = [], accounts = [], assets = [], workspace = '', generation = 0;
- let transactionCursor = null, holdingCursor = null;
+ let holdingCursor = null, transactionBaseline = null;
  let pending = null, editingDraft = null;
  const promotionKeys = new Map();
  async function request(path, body, key) {
@@ -42,19 +42,23 @@
   do { const result = await request(path(`${suffix}?after=${cursor}&limit=100`)); if (expected !== generation) return []; rows.push(...result.items); cursor = result.next_cursor; } while (cursor !== null);
   return rows;
  }
- function renderTransactions(items, append) {
-  cards($('transactions'), items, (row) => [`${row.effective_date} · ${row.action} · ${row.state}${row.corrected_by_id ? ' · Corrected' : ''}`, `#${row.id} · Account #${row.account_id}`, row.asset_id ? `Asset #${row.asset_id} · ${row.quantity} @ ${row.unit_price} ${row.currency} · Fees ${row.fees}` : `${row.amount} ${row.currency}`, row.corrected_by_id ? `Superseded by #${row.corrected_by_id}` : `Realized gain: ${row.current_realized_gain} ${row.currency}`], append, (card, row) => {
-   if (row.state !== 'draft') return;
+ function renderTransactions(items) {
+  const accountName = (row) => accounts.find((account) => String(account.id) === String(row.account_id))?.name || `Account #${row.account_id}`;
+  const assetName = (row) => assets.find((asset) => String(asset.id) === String(row.asset_id))?.symbol || (row.asset_id ? `Asset #${row.asset_id}` : 'Cash');
+  const actions = (row) => {
+   const card = document.createElement('div');
+   if (row.state !== 'draft') { card.textContent = row.corrected_by_id ? `Superseded by #${row.corrected_by_id}` : row.state === 'promoted' ? 'Promoted · source retained' : 'Posted · immutable'; return card; }
    const role = workspaces.find((item) => String(item.id) === workspace).role;
    const canPost = ['owner', 'manager'].includes(role);
-   if (!canPost && !(role === 'contributor' && Number(row.created_by) === Number(config.actorId))) return;
+   if (!canPost && !(role === 'contributor' && Number(row.created_by) === Number(config.actorId))) return card;
    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button'; edit.textContent = config.i18n.edit;
    edit.addEventListener('click', () => {
+    if (!leaveTransaction()) return;
     const form = $('transaction-form'); form.reset(); editingDraft = { id: row.id, revision: Number(row.revision) }; pending = null;
     for (const name of ['account_id', 'action', 'effective_date', 'asset_id', 'quantity', 'unit_price', 'fees', 'amount']) if (form.elements[name]) form.elements[name].value = row[name] ?? '';
     form.elements.state.value = 'draft'; form.elements.state.disabled = true; actionFields();
     $('editing').textContent = config.i18n.editing + ' #' + row.id + ' / ' + row.revision; $('editing').hidden = false; $('cancel-edit').hidden = false;
-    form.scrollIntoView({ block: 'start' }); form.elements.effective_date.focus();
+    openTransaction(); form.scrollIntoView({ block: 'start' }); form.elements.effective_date.focus();
    }); card.append(edit);
    if (canPost) {
     const post = document.createElement('button'); post.type = 'button'; post.className = 'button'; post.textContent = config.i18n.post;
@@ -68,30 +72,58 @@
      finally { window.tgitWriteBusy = false; post.disabled = false; $('workspace').disabled = false; }
     }); card.append(post);
    }
-  });
+   return card;
+  };
+  tgitCollection($('transactions'), { actor: config.actorId, workspace, key: 'transactions', title: 'Transactions', defaultSort: 'date', defaultDescending: true,
+   search: (row) => `#${row.id} ${row.effective_date} ${row.action} ${row.state} ${accountName(row)} ${assetName(row)} ${row.currency}`,
+   filters: [{ key: 'state', label: 'Transaction state', values: [['', 'All'], ['draft', 'Draft'], ['posted', 'Posted'], ['promoted', 'Promoted sources']], matches: (row, value) => !value || row.state === value }],
+   columns: [
+    { key: 'id', label: 'ID', identity: true, required: true, render: (row) => `#${row.id}` },
+    { key: 'date', label: 'Effective date', sort: (a, b) => a.effective_date.localeCompare(b.effective_date), render: (row) => row.effective_date },
+    { key: 'account', label: 'Account', sort: (a, b) => accountName(a).localeCompare(accountName(b)), render: accountName },
+    { key: 'action', label: 'Action', sort: (a, b) => a.action.localeCompare(b.action), render: (row) => row.action },
+    { key: 'asset', label: 'Asset', render: assetName },
+    { key: 'state', label: 'State', render: (row) => row.corrected_by_id ? `${row.state} · Corrected` : row.state },
+    { key: 'amount', label: 'Amount / quantity', numeric: true, render: (row) => row.asset_id ? `${row.quantity} @ ${row.unit_price} ${row.currency}; fees ${row.fees}` : `${row.amount} ${row.currency}` },
+    { key: 'gain', label: 'Realized gain', numeric: true, render: (row) => `${row.current_realized_gain} ${row.currency}` },
+    { key: 'actions', label: 'Actions', required: true, render: actions }
+   ] }, items);
  }
  function renderHoldings(items, append) {
   cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, row.basis_status === 'unresolved' ? 'Remaining basis: unresolved' : `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, row.market_value === null ? config.i18n.unknown : `Market value: ${row.market_value} ${row.currency}; unrealized gain: ${row.unrealized_gain ?? 'Unavailable'}`, row.price_observation ? `${row.price_status} price: ${row.price_observation.source} / ${row.price_observation.effective_date}; observed ${row.price_observation.observed_at} UTC` : 'Enter a manual price in Reports.'], append);
  }
  function cancelEdit() {
+  transactionBaseline = null; $('entry').hidden = true; $('transactions').closest('section').hidden = false;
   editingDraft = null; pending = null; const form = $('transaction-form'); form.reset(); form.elements.state.disabled = false;
   const member = workspaces.find((row) => String(row.id) === workspace);
   if (member?.role === 'contributor') form.elements.state.value = 'draft';
   $('editing').hidden = true; $('cancel-edit').hidden = true; actionFields();
  }
- $('cancel-edit').addEventListener('click', cancelEdit);
+ const newTransaction = document.createElement('button'); newTransaction.id = 'tgit-new-transaction'; newTransaction.type = 'button'; newTransaction.className = 'button button-primary'; newTransaction.textContent = 'New transaction';
+ $('transactions').before(newTransaction); $('cancel-edit').textContent = 'Back to transactions';
+ const snapshot = () => JSON.stringify(payload($('transaction-form')));
+ const dirtyTransaction = () => !$('entry').hidden && transactionBaseline !== null && transactionBaseline !== snapshot();
+ function leaveTransaction() { return !window.tgitWriteBusy && (!dirtyTransaction() || confirm('Discard unsaved transaction changes?')); }
+ function openTransaction() { $('entry').hidden = false; $('transactions').closest('section').hidden = true; $('cancel-edit').hidden = false; transactionBaseline = snapshot(); }
+ newTransaction.addEventListener('click', () => { cancelEdit(); openTransaction(); $('transaction-form').elements.effective_date.focus(); });
+ $('cancel-edit').addEventListener('click', () => { if (leaveTransaction()) { cancelEdit(); newTransaction.focus(); } });
+ $('tabs').addEventListener('click', (event) => { const tab = event.target.closest('[data-tab]'); if (!tab || tab.dataset.tab === 'transactions') return; if (!leaveTransaction()) { event.preventDefault(); event.stopImmediatePropagation(); } else cancelEdit(); }, true);
+ $('tabs').addEventListener('keydown', (event) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key) || !event.target.closest('[data-tab]') || $('entry').hidden) return; if (!leaveTransaction()) { event.preventDefault(); event.stopImmediatePropagation(); } else cancelEdit(); }, true);
+ $('workspace').addEventListener('change', (event) => { if (!leaveTransaction()) { $('workspace').value = workspace; event.stopImmediatePropagation(); } }, true);
+ window.addEventListener('beforeunload', (event) => { if (dirtyTransaction()) { event.preventDefault(); event.returnValue = ''; } });
+ window.addEventListener('popstate', () => { if (!dirtyTransaction()) return; if (leaveTransaction()) cancelEdit(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'transactions'); history.pushState(null, '', url); window.tgitSelectSection('transactions'); } });
  async function refresh() {
   cancelEdit();
   const expected = ++generation; status(config.i18n.loading); pending = null;
   const member = workspaces.find((row) => String(row.id) === workspace);
   $('management').hidden = !['owner', 'manager'].includes(member.role);
-  $('entry').hidden = member.role === 'viewer';
+  newTransaction.hidden = member.role === 'viewer';
   $('members-section').hidden = member.role !== 'owner';
   $('content').hidden = true;
   const loaded = await Promise.all([all('accounts', expected), all('assets', expected)]);
   if (expected !== generation) return;
   [accounts, assets] = loaded;
-  const [transactions, holdings] = await Promise.all([request(path('transactions?limit=100')), request(path('holdings?limit=100'))]);
+  const [transactions, holdings] = await Promise.all([all('transactions', expected), request(path('holdings?limit=100'))]);
   if (expected !== generation) return;
   tgitCollection($('accounts'), { actor: config.actorId, workspace, key: 'accounts', title: 'Cash accounts', search: (row) => `${row.name} ${row.broker} ${row.native_currency}`, columns: [
    { key: 'name', label: 'Account', identity: true, required: true, sort: (a, b) => a.name.localeCompare(b.name), render: (row) => row.name },
@@ -104,9 +136,9 @@
   choices(form.elements.asset_id, assets, (row) => `${row.symbol} · ${row.exchange} (${row.quote_currency})`);
   const posted = form.elements.state.querySelector('[value="posted"]'); posted.disabled = member.role === 'contributor';
   if (member.role === 'contributor') form.elements.state.value = 'draft';
-  renderTransactions(transactions.items, false); transactionCursor = transactions.next_cursor;
+  renderTransactions(transactions);
   renderHoldings(holdings.items, false); holdingCursor = holdings.next_cursor;
-  $('more-transactions').hidden = transactionCursor === null; $('more-holdings').hidden = holdingCursor === null;
+  $('more-transactions').hidden = true; $('more-holdings').hidden = holdingCursor === null;
   if (member.role === 'owner') {
    const members = await request(path('members')); if (expected !== generation) return;
    cards($('members'), members.items, (row) => [`User #${row.wp_user_id}`, `${row.role} · ${row.state}`]);
@@ -164,14 +196,13 @@
  $('transaction-form').elements.action.addEventListener('change', actionFields);
  window.addEventListener('tgit-ledger-refresh', () => refresh().catch((error) => status(error.message, true)));
  $('workspace').addEventListener('change', () => { workspace = $('workspace').value; refresh().catch((error) => status(error.message, true)); });
- for (const type of ['transactions', 'holdings']) {
+ for (const type of ['holdings']) {
   $(`more-${type}`).addEventListener('click', async () => {
    const button = $(`more-${type}`); button.disabled = true; const expected = generation;
    try {
-    const cursor = type === 'transactions' ? transactionCursor : holdingCursor;
+    const cursor = holdingCursor;
     const result = await request(path(`${type}?after=${cursor}&limit=100`)); if (expected !== generation) return;
-    if (type === 'transactions') { renderTransactions(result.items, true); transactionCursor = result.next_cursor; }
-    else { renderHoldings(result.items, true); holdingCursor = result.next_cursor; }
+    renderHoldings(result.items, true); holdingCursor = result.next_cursor;
     button.hidden = result.next_cursor === null;
    } catch (error) { status(error.message, true); } finally { button.disabled = false; }
   });

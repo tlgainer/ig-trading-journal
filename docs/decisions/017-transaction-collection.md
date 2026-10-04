@@ -1,0 +1,13 @@
+# Transaction collection and focused entry
+
+Build 0.17.0 applies the shared collection to Transactions, with complete authorized cursor loading before search, supported sorts, state filters, pagination and scoped column/density preferences. Account names and asset symbols replace bare relationship IDs; exact financial strings are retained. Posted rows remain immutable and corrected rows identify their replacement.
+
+Promotion keeps the draft as a Promoted source and creates a separate posted transaction. Both are visible under All, with distinct Draft/Posted/Promoted filters; promoted sources have no Edit/Post actions. This preserves the existing append-only promotion evidence.
+
+New transaction and Edit draft open a focused form. Back returns to the retained collection search/filter context. Unsaved changes are guarded on Back, section/workspace navigation, browser Back and unload. Failed saves retain the entered values and existing idempotency/revision contracts. Owners/managers can promote drafts; contributors can edit only their own drafts and cannot post. Viewers receive no New/Edit/Post controls. The server remains authoritative for all permissions and financial validation.
+
+The existing state selector and Save transaction action are retained in this slice. Separate draft/post creation actions, transaction details, correction eligibility, inline field errors, funding recovery and explicit conflict reload remain subsequent work. No correction/backdating contract or schema change is introduced. Schema remains 8 and no SQL migration is needed. Complete-dataset loading is an interim adapter; scalable server queries and full accessibility/performance acceptance remain pending.
+
+Validation: 41 domain/unit and 81 disposable WordPress/database checks passed, along with Composer coding standards, PHP/JavaScript syntax and six REST URL checks. Real browser fixtures verify exact draft creation/revision values, dirty cancellation/section guards, retained search, separate promoted/posted rows and mobile overflow; a deterministic 101-row HTTP fixture verifies complete cursor loading and search beyond the first API page. Opening cash/lots followed by a sale and 11 real private-media HTTP regressions also passed. Temporary fixtures, sessions, images and screenshots are excluded from packaging and Git.
+
+Journal desktop/mobile linking, images, dirty guards, revision conflicts, Back and deep links passed after scoping the fill-picker test to its own state filter. All eight admin sections passed navigation and overflow checks at 360/768/1440 pixels. These disposable-site results do not establish production-host or full accessibility/performance acceptance.

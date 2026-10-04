@@ -49,7 +49,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.locator('#tgit-fill-picker').getByRole('checkbox', { name: `Link transaction ${fillFixtures.draft}`, exact: true }).check();
   await page.locator('#tgit-fill-picker').getByRole('checkbox', { name: `Link transaction ${fillFixtures.posted}`, exact: true }).check();
   assert((await page.locator('#tgit-fill-facts').textContent()).includes('1.123456789012345678'));
-  await page.getByLabel('Transaction state', { exact: true }).selectOption('posted'); assert.equal(await page.locator('#tgit-fill-picker').getByRole('checkbox', { name: `Link transaction ${fillFixtures.draft}`, exact: true }).count(), 0);
+  await page.locator('#tgit-fill-picker').getByLabel('Transaction state', { exact: true }).selectOption('posted'); assert.equal(await page.locator('#tgit-fill-picker').getByRole('checkbox', { name: `Link transaction ${fillFixtures.draft}`, exact: true }).count(), 0);
   await page.locator('#tgit-save-journal').click(); await page.locator('#tgit-journal-status').getByText('Saved.', { exact: true }).waitFor();
   const cashAfterLinks = await page.evaluate(async () => { const route = new URL(location.href); return (await (await fetch(tgitRestUrl(tgitConfig.root, `workspaces/${route.searchParams.get('tgit_workspace')}/accounts`), { headers: { 'X-WP-Nonce': tgitConfig.nonce } })).json()).data; }); assert.deepEqual(cashAfterLinks, fillFixtures.accounts);
   await page.locator('#tgit-detail-tab-transactions').click(); assert.equal(await page.locator('#tgit-fill-facts tbody tr').count(), 2);

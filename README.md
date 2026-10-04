@@ -14,9 +14,9 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.16.0
+## Current build: 0.17.0
 
-Strategies now use the shared searchable table, focused New/Edit form, tag controls and read-only version collection. Unsaved changes and revision conflicts are protected; Strategy save/error feedback stays visible in its own section. Trade journals retain their captured versions. Existing journal, image and linking patterns remain available. See the [Strategy collection decision](docs/decisions/016-strategy-collection.md). Schema remains version 8; this update adds no SQL migration.
+Transactions now use the shared searchable table and focused New/Edit draft forms, with retained list context, exact values and unsaved-change guards. Draft promotion remains role-controlled and posted history remains immutable. See the [Transaction collection decision](docs/decisions/017-transaction-collection.md). Schema remains version 8; this update adds no SQL migration.
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.
