@@ -141,4 +141,7 @@ require __DIR__ . '/replay-integration.php';
 
 require __DIR__ . '/scenario-integration.php';
 
+require __DIR__ . '/research-integration.php';
+require __DIR__ . '/report-integration.php';
+
 echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

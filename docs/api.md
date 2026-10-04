@@ -1,4 +1,18 @@
-# REST contract: tgit/v1, build 0.8.1
+# REST contract: tgit/v1, build 0.10.0
+
+## Manual prices, FX, reports and saved views (schema 8)
+
+All paths below are relative to `/workspaces/{workspace}`. POST requires an `Idempotency-Key`; numeric financial values must be decimal strings. Reads require active viewing membership. Manual observations require owner/manager settings permission. Any active member may generate reports and maintain their own saved views; these operations cannot post ledger entries.
+
+- `GET /observations?after=0&limit=100`: bounded append-only history, including `superseded_by`.
+- `POST /observations`: price example `{"kind":"price","asset_id":2,"currency":"USD","value":"110","effective_date":"2026-01-03","expires_on":"2026-01-04","source":"Broker close","reason":"Statement reference"}`. A documented zero price is allowed. FX example `{"kind":"fx","currency":"EUR","value":"1.10","effective_date":"2026-01-02","expires_on":"2026-01-02","source":"Historical statement","reason":"Acquisition-date conversion"}` means one EUR is 1.10 workspace base units; FX must be positive. No implicit inverse or triangulated rates. Base-to-base rate is exactly one and cannot be overridden. Add `supersedes_id` to correct an active observation; kind, identity, currency and effective date must remain unchanged. Source/reason and valid-through date are mandatory.
+- `POST /reports`: `{"type":"holdings","from":"2026-01-01","as_of":"2026-01-04","account_id":1}` saves an immutable snapshot with its ID. Types: `activity`, `cash`, `holdings`, `gains`, `income`, `allocation`, `strategy`. Optional filters: `from`, `account_id`, `asset_id`, `currency`, `asset_class`, `action`, `strategy_version_id`, `tags` (array, all requested tags must match), `images` (`yes`/`no` for ready private images). Dates are inclusive workspace dates, year 1000 or later. Holdings/allocation reject action and journal filters. Strategy rejects action filters and counts complete closed groups by closure date, not only selected sale rows.
+- `GET /reports?after=0&limit=100`: saved report metadata. `GET /reports/{id}` retrieves the original snapshot, including exact ledger/observation/trade inputs, filters, coverage, calculation version, selection rules, UTC generation time and watermark. A corrected observation or ledger event changes a new run, never an earlier snapshot.
+- `GET /saved-views?after=0&limit=100`: only the current actor's workspace views. `POST /saved-views`: `{"name":"USD holdings","filters":{"type":"holdings","as_of":"2026-01-04","currency":"USD"}}`. Revision requires `view_id` and `expected_revision` plus the full name/filter replacement. Another member's view is denied; old revisions remain stored. Applying a view restores filters; generating a fresh report remains explicit.
+
+Holdings and cash are replayed through as-of using active corrected history; drafts and superseded entries never double count. Acquired-on FX converts remaining/allocated basis, sale-date FX converts net proceeds, and as-of FX converts market value/cash. Latest effective observation at or before each date is selected, highest ID on ties, excluding superseded records. Expired selections are labeled stale; absent selections are null. Allocation defaults to filtered holdings plus account/currency-filtered cash and becomes null with missing value/FX or a zero denominator. Native gains are grouped by currency. Unknown basis stays null; lifetime purchase spend is a separate field. Economic gain requires an explicit comparable account-level period, complete fresh valuations and no opening entry within the period, otherwise returns a reason and null amount. Reports are marked not reconciled.
+
+Strategy groups require marked-closed status, closure in the period, all fills posted through as-of, at least one buy/sell, balanced net quantity and a single native currency. Canonical FIFO gain includes acquisition/disposal fees; break-even remains in the win-rate denominator and is not a win. Native currencies and captured strategy versions are separate groups. Income returns `unsupported_accounting_actions` and no income rows until dividend/interest posting exists; this is not a zero-income claim. Synchronous input limits are 1,000 accounts and 10,000 events/assets/observations/trades/fills per workspace. No truncation produces a falsely complete financial report.
 
 All routes are private. Use a WordPress cookie session plus `X-WP-Nonce` from `wp_create_nonce('wp_rest')`, or WordPress application-password authentication over HTTPS. Production and staging require HTTPS; only explicitly local/development environments allow HTTP. Every service checks current membership; site administrator status cannot bypass workspace authorization.
 
@@ -15,6 +29,11 @@ Base path: `/wp-json/tgit/v1`.
 | `/workspaces/{workspace}/holdings` | GET | Active member |
 | `/workspaces/{workspace}/calculators/crypto` | POST | Active member; non-posting crypto profit scenario |
 | `/workspaces/{workspace}/calculators/risk` | POST | Active member; non-posting long-position risk scenario |
+| `/workspaces/{workspace}/watchlists` | GET/POST | Read: member; create: owner/manager/contributor |
+| `/workspaces/{workspace}/watchlists/{list}/items` | GET/POST | Identified assets and manual targets/status |
+| `/workspaces/{workspace}/watchlists/{list}/items/{item}/revisions` | GET/POST | Immutable history / expected-revision edit |
+| `/workspaces/{workspace}/research-notes` | GET/POST | User-authored notes, separate from provider data |
+| `/workspaces/{workspace}/research-notes/{note}/revisions` | GET/POST | Immutable history / expected-revision edit |
 | `/workspaces/{workspace}/opening-balances` | POST | Owner/manager; documented starting cash or pre-existing asset lot |
 | `/workspaces/{workspace}/opening-balances/retroactive` | POST | Owner/manager; reviewed opening before posted history |
 | `/workspaces/{workspace}/opening-balances/{id}/basis-resolutions` | POST | Owner/manager; revise evidence for unknown opening lot basis |
@@ -56,6 +75,14 @@ Holdings return `quantity`, `remaining_basis`, `realized_gain`, native `currency
 ## Scenario calculators (0.8.1)
 
 Calculator requests require workspace membership and plain decimal strings. They never mutate ledger or journal records; results return `posted:false` and a calculation version. An optional three-letter `currency` labels all monetary inputs/results, and an optional plain-text `note` is echoed without storage.
+
+## Manual watchlists and authored research (0.9.0)
+
+All rows and asset relationships are workspace-scoped. Members can read; owners, managers and contributors can create or revise. `GET` collections use `after` and `limit` (1–100); revision cursors use revision number. Writes require an `Idempotency-Key`. An item identifies an existing asset by its workspace asset ID, including exchange/network identity; duplicate assets within a list are rejected. Buy/Sell/Hold status is user-entered, not an automated recommendation.
+
+Create a watchlist with `{"name":"Long ideas"}`. Add an item with `{"asset_id":2,"target_buy":"90","target_sell":"120","thesis":"My valuation","tags":["quality"],"status":"watch"}`. Targets are optional plain positive decimal strings; valid statuses are `watch`, `buy`, `sell` and `hold`. Edit by POSTing `{"expected_revision":1,"replacement":{...complete item...}}` to the item's revisions route. The asset and list identity cannot change. Every edit retains an immutable revision payload.
+
+Create an authored note with `{"asset_id":2,"content":"My thesis"}`. Revise with `{"expected_revision":1,"content":"Updated thesis","reason":"New filing"}`. Notes are sanitized plain text with immutable revision history. The notes list accepts an optional `asset` filter. Provider facts and historical prices are not mixed into authored notes; provider integration remains separate.
 
 `POST /workspaces/{workspace}/calculators/crypto`: `{"buy_price":"20","sell_price":"30","investment":"100","buy_fee":"2","sell_fee":"3","currency":"USD","note":"Example"}`. Investment is principal before fees. Units are investment divided by buy price; `position_value` is gross units × proposed sell/current price; `net_exit_value` subtracts the sell fee; `profit_amount` subtracts principal and buy fee; `profit_percentage` divides profit by principal plus buy fee. Omitted fees are zero. These are scenarios, not trade recommendations.
 

@@ -64,6 +64,13 @@ final class Controller {
 		self::route( '/workspaces', 'GET', 'workspaces' );
 		self::route( '/workspaces', 'POST', 'create_workspace' );
 		$base = '/workspaces/(?P<workspace>[1-9][0-9]*)';
+		self::route( $base . '/observations', 'GET', 'observations' );
+		self::route( $base . '/observations', 'POST', 'record_observation' );
+		self::route( $base . '/reports', 'POST', 'generate_report' );
+		self::route( $base . '/reports', 'GET', 'reports' );
+		self::route( $base . '/reports/(?P<report>[1-9][0-9]*)', 'GET', 'report_run' );
+		self::route( $base . '/saved-views', 'GET', 'saved_views' );
+		self::route( $base . '/saved-views', 'POST', 'save_view' );
 		self::route( $base . '/members', 'GET', 'members' );
 		self::route( $base . '/members', 'POST', 'set_member' );
 		foreach ( array( 'accounts', 'assets', 'transactions' ) as $type ) {
@@ -82,6 +89,16 @@ final class Controller {
 		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
 		self::route( $base . '/calculators/(?P<calculator>crypto|risk)', 'POST', 'scenario' );
+		self::route( $base . '/watchlists', 'GET', 'watchlists' );
+		self::route( $base . '/watchlists', 'POST', 'create_watchlist' );
+		self::route( $base . '/watchlists/(?P<list>[1-9][0-9]*)/items', 'GET', 'watchlist_items' );
+		self::route( $base . '/watchlists/(?P<list>[1-9][0-9]*)/items', 'POST', 'add_watchlist_item' );
+		self::route( $base . '/watchlists/(?P<list>[1-9][0-9]*)/items/(?P<item>[1-9][0-9]*)/revisions', 'GET', 'watchlist_item_revisions' );
+		self::route( $base . '/watchlists/(?P<list>[1-9][0-9]*)/items/(?P<item>[1-9][0-9]*)/revisions', 'POST', 'revise_watchlist_item' );
+		self::route( $base . '/research-notes', 'GET', 'research_notes' );
+		self::route( $base . '/research-notes', 'POST', 'create_research_note' );
+		self::route( $base . '/research-notes/(?P<note>[1-9][0-9]*)/revisions', 'GET', 'research_note_revisions' );
+		self::route( $base . '/research-notes/(?P<note>[1-9][0-9]*)/revisions', 'POST', 'revise_research_note' );
 	}
 
 	/**
@@ -123,7 +140,7 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || 'holdings' === $operation ) ? array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'after' => array(
 						'type'    => 'integer',
 						'minimum' => 0,
@@ -134,6 +151,10 @@ final class Controller {
 						'minimum' => 1,
 						'maximum' => 100,
 						'default' => 100,
+					),
+					'asset' => array(
+						'type'    => 'integer',
+						'minimum' => 1,
 					),
 				) : array(),
 			)
@@ -165,7 +186,32 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( str_starts_with( $operation, 'journal_' ) ) {
+			if ( in_array( $operation, array( 'record_observation', 'generate_report', 'save_view' ), true ) ) {
+				$result = $service->$operation( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'observations' === $operation ) {
+				$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];
+				$items  = $service->observations( $workspace, (int) $request['after'], $limit );
+				$result = array(
+					'items'       => $items,
+					'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+				);
+			} elseif ( 'saved_views' === $operation ) {
+				$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];
+				$items  = $service->saved_views( $workspace, (int) $request['after'], $limit );
+				$result = array(
+					'items'       => $items,
+					'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+				);
+			} elseif ( 'reports' === $operation ) {
+				$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];
+				$items  = $service->reports( $workspace, (int) $request['after'], $limit );
+				$result = array(
+					'items'       => $items,
+					'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+				);
+			} elseif ( 'report_run' === $operation ) {
+				$result = $service->report_run( $workspace, (int) $request->get_url_params()['report'] );
+			} elseif ( str_starts_with( $operation, 'journal_' ) ) {
 				$result = JournalRoutes::execute( $request, substr( $operation, 8 ), $data, $correlation );
 			} elseif ( str_starts_with( $operation, 'list_' ) ) {
 				$limit  = (int) $request['limit'];
@@ -196,6 +242,37 @@ final class Controller {
 				$result = $service->holdings( $workspace, (int) $request['after'], (int) $request['limit'] );
 			} elseif ( 'scenario' === $operation ) {
 				$result = $service->scenario( $workspace, (string) $request->get_url_params()['calculator'], $data );
+			} elseif ( in_array( $operation, array( 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) {
+				$after  = (int) $request['after'];
+				$limit  = (int) $request['limit'];
+				$params = $request->get_url_params();
+				if ( 'watchlists' === $operation ) {
+					$items = $service->watchlists( $workspace, $after, $limit );
+				} elseif ( 'watchlist_items' === $operation ) {
+					$items = $service->watchlist_items( $workspace, (int) $params['list'], $after, $limit );
+				} elseif ( 'watchlist_item_revisions' === $operation ) {
+					$items = $service->watchlist_item_revisions( $workspace, (int) $params['list'], (int) $params['item'], $after, $limit );
+				} elseif ( 'research_notes' === $operation ) {
+					$items = $service->research_notes( $workspace, null !== $request['asset'] ? (int) $request['asset'] : null, $after, $limit );
+				} else {
+					$items = $service->research_note_revisions( $workspace, (int) $params['note'], $after, $limit );
+				}
+				$cursor = str_ends_with( $operation, '_revisions' ) ? 'revision' : 'id';
+				$result = array(
+					'items'       => $items,
+					'next_cursor' => count( $items ) === $limit ? (string) end( $items )[ $cursor ] : null,
+				);
+			} elseif ( 'create_watchlist' === $operation ) {
+				$result = $service->create_watchlist( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'add_watchlist_item' === $operation ) {
+				$result = $service->add_watchlist_item( $workspace, (int) $request->get_url_params()['list'], $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'revise_watchlist_item' === $operation ) {
+				$params = $request->get_url_params();
+				$result = $service->revise_watchlist_item( $workspace, (int) $params['list'], (int) $params['item'], $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'create_research_note' === $operation ) {
+				$result = $service->create_research_note( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'revise_research_note' === $operation ) {
+				$result = $service->revise_research_note( $workspace, (int) $request->get_url_params()['note'], $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'workspaces' === $operation ) {
 				$result = array( 'items' => $service->workspaces() );
 			} elseif ( 'create_workspace' === $operation ) {

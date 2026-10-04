@@ -5,11 +5,13 @@ require_once __DIR__ . '/../src/Domain/Decimal.php';
 require_once __DIR__ . '/../src/Domain/Ledger.php';
 require_once __DIR__ . '/../src/Domain/Replay.php';
 require_once __DIR__ . '/../src/Domain/Scenario.php';
+require_once __DIR__ . '/../src/Domain/Valuation.php';
 require_once __DIR__ . '/../src/Application/Access.php';
 use GainerInteractive\IGTradingJournal\Domain\Decimal as D;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
 use GainerInteractive\IGTradingJournal\Domain\Replay;
 use GainerInteractive\IGTradingJournal\Domain\Scenario;
+use GainerInteractive\IGTradingJournal\Domain\Valuation;
 use GainerInteractive\IGTradingJournal\Application\Access;
 
 if (!extension_loaded('bcmath')) { fwrite(STDERR, "BCMath is required.\n"); exit(1); }
@@ -148,5 +150,15 @@ test('Long-position risk scenario respects the absolute stop distance', function
  $risk = Scenario::risk('100', '50', '5'); decimal($risk['stop_price'], '95'); decimal($risk['position_size'], '10'); decimal($risk['capital_required'], '1000'); decimal($risk['risk_used'], '50');
  rejects(fn() => Scenario::risk('100', '50', '100'));
  rejects(fn() => Scenario::risk('100', '0', '5'));
+});
+test('Valuation AC02 preserves exact market value and propagates missing basis and FX', function () {
+ $position = Valuation::position('6', '110', '603'); decimal($position['market_value'], '660'); decimal($position['unrealized_gain'], '57');
+ equal(Valuation::position('6', null, '603')['market_value'], null);
+ equal(Valuation::position('6', '110', null)['unrealized_gain'], null);
+ equal(Valuation::convert('100', null), null); decimal(Valuation::convert('100', '1.10'), '110');
+});
+test('Valuation excludes future observations and deterministically labels stale rates', function () {
+ $rows = [['id'=>1,'effective_date'=>'2026-01-01','expires_on'=>'2026-01-02','value'=>'10'],['id'=>2,'effective_date'=>'2026-01-03','expires_on'=>'2026-01-03','value'=>'20'],['id'=>3,'effective_date'=>'2026-01-03','expires_on'=>'2026-01-04','value'=>'21']];
+ equal(Valuation::select($rows,'2025-12-31')['status'],'missing'); equal(Valuation::select($rows,'2026-01-02')['observation']['id'],1); equal(Valuation::select($rows,'2026-01-04')['observation']['id'],3); equal(Valuation::select($rows,'2026-01-05')['status'],'stale');
 });
 echo "$passed tests passed.\n";

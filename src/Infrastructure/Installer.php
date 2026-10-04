@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '6';
+	public const VERSION = '8';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -92,6 +92,18 @@ final class Installer {
 				throw new \RuntimeException( 'Basis resolution migration is missing.' );
 			}
 			$sql .= $basis_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the bundled additive research migration.
+			$research_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/007-watchlists-research.sql' );
+			if ( false === $research_sql ) {
+				throw new \RuntimeException( 'Research migration is missing.' );
+			}
+			$sql .= $research_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads bundled additive valuation/report migration.
+			$report_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/008-valuations-reports.sql' );
+			if ( false === $report_sql ) {
+				throw new \RuntimeException( 'Valuation/report migration is missing.' );
+			}
+			$sql .= $report_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {

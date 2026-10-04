@@ -12,7 +12,7 @@
 - Deactivation/uninstall preserve data. Schema changes require documented backup and forward repair.
 
 - Owner priority order: trade journals/strategies/multiple private images; remaining ledger revision/replay/opening balances; watchlists/research/calculators/reports; spreadsheet import/reconciliation/export/restore testing.
-- Schema version 6 adds docs/006-opening-basis-resolutions.sql. Keep all six bundled SQL files in production packaging; reactivate explicitly after a backup to upgrade version 1 through 5.
+- Schema version 8 adds docs/008-valuations-reports.sql after the schema-7 research migration. Keep all eight bundled SQL files in production packaging; reactivate explicitly after a backup to upgrade versions 1 through 7.
 - Cash and unlinked security corrections create an immutable replacement linked to the source, retain posted facts, and replay later cash and FIFO. Historical cash and security insertions use dedicated operations. Trade-linked fill corrections remain blocked pending journal/link revision handling.
 - Opening cash and pre-existing asset lots require source provenance. Ordinary opening entry precedes posting; reviewed retroactive entries replay later cash and FIFO. Unresolved basis blocks sales until documented append-only resolution; do not substitute a fabricated zero.
 - Journal edits are non-financial and separately authorized. Strategy versions are immutable; transaction-to-trade links live outside posted financial rows.

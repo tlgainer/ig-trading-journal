@@ -1,5 +1,13 @@
 # Validation evidence and commands
 
+## Build 0.10.0 reporting validation
+
+PHP 8.1.34 with BCMath/GD, WordPress 7.1.2 and disposable MySQL 8.0.26 pass 41 domain and 79 integration checks. `tests/report-integration.php` covers additive schema-7-to-8 repair/repetition, exact AC02 native valuation, cash-inclusive allocation, acquisition/disposal-date AC07 FX, missing/stale values, immutable report retention after a price correction, saved-view actor isolation/revisions, viewer permissions/revocation, documented zero valuation/unknown basis/zero denominators, economic gain excluding funding, and audit failure rollback/retry for observations/reports/views. Run it through the full disposable integration suite, never on production.
+
+`node tests/reports-browser.cjs` passes at 1100 and 360 pixels: manual price/FX entry, correction, earlier report load, saved-filter reapplication, unavailable-income messaging, no JavaScript errors and no horizontal page scrolling. Run with the locked Playwright tools under `tests/browser` or the installed ignored `tmp/browser-tests` tool path. Temporary cookies, credentials and screenshots remain ignored under `tmp`.
+
+Required release checks: `php tests/run.php`, PHP syntax, `composer check-cs`, `node tests/rest-url.cjs`, JavaScript syntax, the full WordPress/database integration suite, `node tests/media-http.cjs`, and the research/opening/journal/report browser workflows. Do not run browser/HTTP mutations concurrently with the integration suite's deliberate database-failure triggers or schema repairs. Local evidence does not establish Apache PHP BCMath/GD configuration, MariaDB/minimum-version compatibility, performance or production backup/restore readiness.
+
 Sanitized fixtures only. Do not run integration tests on a production database.
 
 ## Unit/domain tests

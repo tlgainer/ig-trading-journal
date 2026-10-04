@@ -6,15 +6,15 @@ A private investment tracker and trading journal for WordPress, implementing the
 
 Requires PHP 8.1+ with BCMath, WordPress 6.8+, and MySQL 8.0+/MariaDB 10.6+ with InnoDB and utf8mb4. Use HTTPS outside local/development environments.
 
-Copy the plugin into `wp-content/plugins/`, excluding `tmp`, `tests`, and development tools, and activate **IG Trading Journal**. Keep all six bundled SQL files in `docs` in the package: activation reads them to create/upgrade the custom tables. Then open **Investment Tracker** in WordPress administration and explicitly create a workspace with its base currency and IANA timezone.
+Copy the plugin into `wp-content/plugins/`, excluding `tmp`, `tests`, and development tools, and activate **IG Trading Journal**. Keep all eight bundled SQL files in `docs` in the package: activation reads them to create/upgrade the custom tables. Then open **Investment Tracker** in WordPress administration and explicitly create a workspace with its base currency and IANA timezone.
 
 New workspaces default to **USD** and **America/New_York**, as confirmed by the owner. New York time automatically uses EST or EDT according to the date. Setup fields remain editable; existing workspaces retain their stored settings.
 
-Activation/reactivation installs schema version 6, including the additive journal/media, opening-balance, correction-link, replay-run and opening-basis-resolution tables. Manual SQL is isolated in separate [docs SQL files](docs/operations.md), from [001-ledger-foundation.sql](docs/001-ledger-foundation.sql) through [006-opening-basis-resolutions.sql](docs/006-opening-basis-resolutions.sql); replace `{{prefix}}` with the site's actual table prefix. See [installation and recovery](docs/operations.md) before running it. No SQL was run against an existing WordPress site during development.
+Activation/reactivation installs schema version 8, including the additive journal/media, opening-balance, correction-link, replay-run, opening-basis-resolution, watchlist, research, observation, report and saved-view tables. Manual SQL is isolated in separate [docs SQL files](docs/operations.md), from [001-ledger-foundation.sql](docs/001-ledger-foundation.sql) through [008-valuations-reports.sql](docs/008-valuations-reports.sql); replace `{{prefix}}` with the site's actual table prefix. See [installation and recovery](docs/operations.md) before running it. No SQL was run against an existing WordPress site during development.
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.8.1
+## Current build: 0.10.0
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.
@@ -26,14 +26,18 @@ The creator becomes the workspace owner. Other WordPress administrators do not g
 - Multiple private JPEG/PNG/WebP images, captions, ordering, comparison, retry/replacement, recoverable trash and owner-configured quotas. Image uploads additionally require PHP GD and private local storage; see [setup](docs/private-images.md).
 - Versioned authenticated REST API, atomic posting and audit evidence, workspace-scoped idempotency keys, paginated lists, and a responsive admin screen.
 - Private crypto-profit and long-position risk scenarios with exact decimal arithmetic, explicit fee treatment, and no ledger posting.
+- Manual watchlists with identified assets, user-set targets/status/thesis/tags, and authored research notes with revision history. These are private workspace records, never automated recommendations.
 
-Record funding before purchases. For an account with pre-existing cash or shares, enter its documented opening balances in Settings before ordinary posting; all entries in that account share one opening date. Existing accounts with posted history use the dedicated retroactive-opening API, which validates later cash and lots. Dates are date-only; same-day opening entries precede ordinary events, and corrections keep their source order. Ordinary earlier-dated posting remains blocked; use the dedicated historical APIs for reviewed entries. Account and asset currencies must match; no cross-currency posting, overdraft, shorts or unsupported instruments. Price-dependent values remain unknown, and no consolidated base-currency totals are invented.
+- Manual price/FX observation history and corrections; dated activity, cash, holdings, FIFO gain, allocation and closed-group strategy reports with immutable input evidence. Income remains explicitly unavailable pending income posting.
+- Personal saved report filters with revision checks; saved reports retain their original result after later corrections.
 
-This is a staged ledger and journal build, not the complete MVP. Trade-linked fill corrections remain. Watchlists/research/reports, imports/reconciliation/exports/restore testing, broader accounting/valuation and commercial adapters also remain. Image processing is bounded and synchronous per file; asynchronous processing and crash/orphan reconciliation remain operational release work. See [requirements and phase gates](docs/requirements.md).
+Record funding before purchases. For an account with pre-existing cash or shares, enter its documented opening balances in Settings before ordinary posting; all entries in that account share one opening date. Existing accounts with posted history use the dedicated retroactive-opening API, which validates later cash and lots. Dates are date-only; same-day opening entries precede ordinary events, and corrections keep their source order. Ordinary earlier-dated posting remains blocked; use the dedicated historical APIs for reviewed entries. Account and asset currencies must match; no cross-currency posting, overdraft, shorts or unsupported instruments. Manual prices and FX in Reports provide dated valuation. Missing values remain null; stale observations are labeled. Foreign basis and proceeds use their historical FX, rather than the current rate.
+
+This is a staged ledger and journal build, not the complete MVP. Trade-linked fill corrections remain. Imports/reconciliation/exports/restore testing, income and other accounting actions, provider integrations and operational release gates remain. Image processing is bounded and synchronous per file; asynchronous processing and crash/orphan reconciliation remain operational release work. See [requirements and phase gates](docs/requirements.md).
 
 See the [remaining-work checklist](docs/remaining-work.md) for the prioritized implementation sequence and hosting/pilot prerequisites.
 
-The admin screen groups forms into Overview, Transactions, Trade Journal, Strategies and Settings tabs. Switching tabs preserves unsaved inputs; Settings is available to owners and managers and now includes opening balances. Image controls include contextual tooltips and a clearly labelled stage dropdown. Quote currency explains valid examples and the matching cash account rule. Image upload health and per-file errors identify missing host prerequisites and upload rejections. Image memory-limit errors give a resize and hosting remedy.
+The admin screen groups forms into Overview, Transactions, Trade Journal, Strategies, Calculators, Research, Reports and Settings tabs. Switching tabs preserves unsaved inputs; Settings is available to owners and managers and now includes opening balances. Image controls include contextual tooltips and a clearly labelled stage dropdown. Quote currency explains valid examples and the matching cash account rule. Image upload health and per-file errors identify missing host prerequisites and upload rejections. Image memory-limit errors give a resize and hosting remedy.
 
 ## Development
 

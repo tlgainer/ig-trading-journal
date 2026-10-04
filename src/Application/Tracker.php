@@ -12,10 +12,13 @@ use GainerInteractive\IGTradingJournal\Domain\Decimal;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
 use GainerInteractive\IGTradingJournal\Domain\Replay;
 use GainerInteractive\IGTradingJournal\Domain\Scenario;
+use GainerInteractive\IGTradingJournal\Domain\JournalInput;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 
 /** Tracker service for the current implementation slice. */
 final class Tracker {
+	use ReportingOperations;
+
 	public const DEFAULT_BASE_CURRENCY = 'USD';
 	public const DEFAULT_TIMEZONE      = 'America/New_York';
 	/**
@@ -1547,6 +1550,407 @@ final class Tracker {
 	}
 
 	/**
+	 * Normalize user-authored watchlist targets and labels.
+	 *
+	 * @param array $input Complete item facts.
+	 * @return array Safe canonical facts.
+	 * @throws \InvalidArgumentException When facts are invalid.
+	 */
+	private static function watchlist_item_input( array $input ): array {
+		self::fields( $input, array( 'asset_id', 'target_buy', 'target_sell', 'thesis', 'tags', 'status' ), array( 'asset_id', 'status' ) );
+		if ( ! in_array( $input['status'], array( 'watch', 'buy', 'sell', 'hold' ), true ) ) {
+			throw new \InvalidArgumentException( 'Invalid manual watchlist status.' );
+		}
+		$tags = JournalInput::labels( $input['tags'] ?? array() );
+		return array(
+			'asset_id'    => self::id( $input['asset_id'] ),
+			'target_buy'  => isset( $input['target_buy'] ) && '' !== $input['target_buy'] ? Decimal::input( $input['target_buy'], 18, true ) : null,
+			'target_sell' => isset( $input['target_sell'] ) && '' !== $input['target_sell'] ? Decimal::input( $input['target_sell'], 18, true ) : null,
+			'thesis'      => sanitize_textarea_field( JournalInput::text( $input['thesis'] ?? '', 5000 ) ),
+			'tags_json'   => wp_json_encode( array_map( 'sanitize_text_field', $tags ) ),
+			'status'      => $input['status'],
+		);
+	}
+
+	/**
+	 * List private manual watchlists within a workspace.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $after List cursor.
+	 * @param int $limit Page size.
+	 * @return array Watchlist rows.
+	 * @throws \InvalidArgumentException When paging is invalid.
+	 */
+	public function watchlists( int $workspace, int $after = 0, int $limit = 100 ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid list parameters.' );
+		}
+		return $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'watchlists' ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
+	}
+
+	/**
+	 * Create a named private manual watchlist.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Name.
+	 * @param string $key Idempotency identity.
+	 * @return array Created watchlist.
+	 * @throws \InvalidArgumentException When input is invalid.
+	 */
+	public function create_watchlist( int $workspace, array $input, string $key ): array {
+		self::fields( $input, array( 'name' ), array( 'name' ) );
+		$name = sanitize_text_field( self::text( $input['name'], 190 ) );
+		return $this->mutation(
+			$workspace,
+			'tgit_edit_journal',
+			'watchlist.create',
+			$key,
+			array( 'name' => $name ),
+			function () use ( $workspace, $name ) {
+				$id = $this->db->insert(
+					'watchlists',
+					array(
+						'workspace_id' => $workspace,
+						'uuid'         => wp_generate_uuid4(),
+						'name'         => $name,
+						'created_by'   => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'watchlist.created', 'watchlist', $id );
+				return $this->db->object( 'watchlists', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * List one watchlist's workspace-scoped items.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $watchlist Watchlist identifier.
+	 * @param int $after Item cursor.
+	 * @param int $limit Page size.
+	 * @return array Item rows.
+	 * @throws \InvalidArgumentException When paging is invalid.
+	 */
+	public function watchlist_items( int $workspace, int $watchlist, int $after = 0, int $limit = 100 ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		$this->db->object( 'watchlists', $workspace, $watchlist );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid list parameters.' );
+		}
+		$rows = $this->db->rows( 'SELECT i.*,a.symbol,a.exchange,a.quote_currency FROM ' . $this->db->table( 'watchlist_items' ) . ' i INNER JOIN ' . $this->db->table( 'assets' ) . ' a ON a.workspace_id = i.workspace_id AND a.id = i.asset_id WHERE i.workspace_id = %d AND i.watchlist_id = %d AND i.id > %d ORDER BY i.id LIMIT %d', array( $workspace, $watchlist, $after, $limit ) );
+		foreach ( $rows as &$row ) {
+			$row['tags'] = json_decode( $row['tags_json'], true );
+			unset( $row['tags_json'] );
+		}
+		unset( $row );
+		return $rows;
+	}
+
+	/**
+	 * Add one identified asset and user-set targets to a watchlist.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $watchlist Watchlist identifier.
+	 * @param array  $input Item facts.
+	 * @param string $key Idempotency identity.
+	 * @return array Created item.
+	 * @throws \UnexpectedValueException When the asset is already listed.
+	 */
+	public function add_watchlist_item( int $workspace, int $watchlist, array $input, string $key ): array {
+		$data = self::watchlist_item_input( $input );
+		return $this->mutation(
+			$workspace,
+			'tgit_edit_journal',
+			'watchlist.item.add.' . $watchlist,
+			$key,
+			$data,
+			function () use ( $workspace, $watchlist, $data ) {
+				$this->db->object( 'watchlists', $workspace, $watchlist );
+				$this->db->object( 'assets', $workspace, $data['asset_id'] );
+				$duplicate = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'watchlist_items' ) . ' WHERE workspace_id = %d AND watchlist_id = %d AND asset_id = %d', array( $workspace, $watchlist, $data['asset_id'] ) );
+				if ( $duplicate ) {
+					throw new \UnexpectedValueException( 'Asset is already on this watchlist.' );
+				}
+				$id = $this->db->insert(
+					'watchlist_items',
+					$data + array(
+						'workspace_id' => $workspace,
+						'watchlist_id' => $watchlist,
+						'revision'     => 1,
+						'updated_by'   => $this->actor,
+						'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'watchlist_item_revisions',
+					array(
+						'workspace_id' => $workspace,
+						'item_id'      => $id,
+						'revision'     => 1,
+						'payload'      => wp_json_encode( $data ),
+						'actor_id'     => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'watchlist.item_added', 'watchlist_item', $id );
+				return $this->db->object( 'watchlist_items', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * Revise a watchlist item without changing its list or asset identity.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $watchlist Watchlist identifier.
+	 * @param int    $id Item identifier.
+	 * @param array  $input Revision and complete replacement.
+	 * @param string $key Idempotency identity.
+	 * @return array Revised item.
+	 * @throws \InvalidArgumentException When replacement facts are invalid.
+	 */
+	public function revise_watchlist_item( int $workspace, int $watchlist, int $id, array $input, string $key ): array {
+		self::fields( $input, array( 'expected_revision', 'replacement' ), array( 'expected_revision', 'replacement' ) );
+		$revision = self::id( $input['expected_revision'] );
+		if ( ! is_array( $input['replacement'] ) ) {
+			throw new \InvalidArgumentException( 'Replacement must be an object.' );
+		}
+		$data = self::watchlist_item_input( $input['replacement'] );
+		return $this->mutation(
+			$workspace,
+			'tgit_edit_journal',
+			'watchlist.item.revise.' . $id,
+			$key,
+			array(
+				'expected_revision' => $revision,
+				'replacement'       => $data,
+			),
+			function () use ( $workspace, $watchlist, $id, $revision, $data ) {
+				$this->db->object( 'watchlists', $workspace, $watchlist );
+				$item = $this->db->object( 'watchlist_items', $workspace, $id );
+				if ( (int) $item['watchlist_id'] !== $watchlist || (int) $item['revision'] !== $revision ) {
+					throw new \UnexpectedValueException( 'Watchlist item revision changed.' );
+				}
+				if ( (int) $item['asset_id'] !== $data['asset_id'] ) {
+					throw new \InvalidArgumentException( 'Asset identity cannot change in a revision.' );
+				}
+				$this->db->update_object(
+					'watchlist_items',
+					$workspace,
+					$id,
+					$data + array(
+						'revision'   => $revision + 1,
+						'updated_by' => $this->actor,
+						'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'watchlist_item_revisions',
+					array(
+						'workspace_id' => $workspace,
+						'item_id'      => $id,
+						'revision'     => $revision + 1,
+						'payload'      => wp_json_encode( $data ),
+						'actor_id'     => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'watchlist.item_revised', 'watchlist_item', $id, $revision + 1 );
+				return $this->db->object( 'watchlist_items', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * Read a bounded page of immutable watchlist-item revisions.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $watchlist Watchlist identifier.
+	 * @param int $id Item identifier.
+	 * @param int $after Revision cursor.
+	 * @param int $limit Page size.
+	 * @return array Revision rows.
+	 * @throws \InvalidArgumentException When paging is invalid.
+	 */
+	public function watchlist_item_revisions( int $workspace, int $watchlist, int $id, int $after = 0, int $limit = 100 ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		$this->db->object( 'watchlists', $workspace, $watchlist );
+		$item = $this->db->object( 'watchlist_items', $workspace, $id );
+		if ( (int) $item['watchlist_id'] !== $watchlist || $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid item relationship or list parameters.' );
+		}
+		return $this->db->rows( 'SELECT revision,payload,actor_id,created_at FROM ' . $this->db->table( 'watchlist_item_revisions' ) . ' WHERE workspace_id = %d AND item_id = %d AND revision > %d ORDER BY revision LIMIT %d', array( $workspace, $id, $after, $limit ) );
+	}
+
+	/**
+	 * Validate one plain-text, user-authored research note.
+	 *
+	 * @param mixed $value Note body.
+	 * @return string Sanitized text.
+	 * @throws \InvalidArgumentException When the note is empty or invalid.
+	 */
+	private static function research_content( $value ): string {
+		$content = sanitize_textarea_field( JournalInput::text( $value, 10000 ) );
+		if ( '' === trim( $content ) ) {
+			throw new \InvalidArgumentException( 'Research note must contain text.' );
+		}
+		return $content;
+	}
+
+	/**
+	 * List private user-authored notes, optionally for one asset.
+	 *
+	 * @param int      $workspace Workspace identifier.
+	 * @param int|null $asset Asset filter.
+	 * @param int      $after Note cursor.
+	 * @param int      $limit Page size.
+	 * @return array Note rows.
+	 * @throws \InvalidArgumentException When paging is invalid.
+	 */
+	public function research_notes( int $workspace, ?int $asset = null, int $after = 0, int $limit = 100 ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid list parameters.' );
+		}
+		if ( null !== $asset ) {
+			$this->db->object( 'assets', $workspace, $asset );
+			return $this->db->rows( 'SELECT n.*,a.symbol,a.exchange FROM ' . $this->db->table( 'research_notes' ) . ' n INNER JOIN ' . $this->db->table( 'assets' ) . ' a ON a.workspace_id = n.workspace_id AND a.id = n.asset_id WHERE n.workspace_id = %d AND n.asset_id = %d AND n.id > %d ORDER BY n.id LIMIT %d', array( $workspace, $asset, $after, $limit ) );
+		}
+		return $this->db->rows( 'SELECT n.*,a.symbol,a.exchange FROM ' . $this->db->table( 'research_notes' ) . ' n INNER JOIN ' . $this->db->table( 'assets' ) . ' a ON a.workspace_id = n.workspace_id AND a.id = n.asset_id WHERE n.workspace_id = %d AND n.id > %d ORDER BY n.id LIMIT %d', array( $workspace, $after, $limit ) );
+	}
+
+	/**
+	 * Create a user-authored note separately from provider observations.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Asset and content.
+	 * @param string $key Idempotency identity.
+	 * @return array Created note.
+	 * @throws \InvalidArgumentException When input is invalid.
+	 */
+	public function create_research_note( int $workspace, array $input, string $key ): array {
+		self::fields( $input, array( 'asset_id', 'content' ), array( 'asset_id', 'content' ) );
+		$data = array(
+			'asset_id' => self::id( $input['asset_id'] ),
+			'content'  => self::research_content( $input['content'] ),
+		);
+		return $this->mutation(
+			$workspace,
+			'tgit_edit_journal',
+			'research.note.create',
+			$key,
+			$data,
+			function () use ( $workspace, $data ) {
+				$this->db->object( 'assets', $workspace, $data['asset_id'] );
+				$id = $this->db->insert(
+					'research_notes',
+					$data + array(
+						'workspace_id' => $workspace,
+						'revision'     => 1,
+						'created_by'   => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+						'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'research_note_revisions',
+					array(
+						'workspace_id' => $workspace,
+						'note_id'      => $id,
+						'revision'     => 1,
+						'content'      => $data['content'],
+						'reason'       => 'Initial note',
+						'actor_id'     => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'research.note_created', 'research_note', $id );
+				return $this->db->object( 'research_notes', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * Append a revision of user-authored research.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $id Note identifier.
+	 * @param array  $input Expected revision, content and reason.
+	 * @param string $key Idempotency identity.
+	 * @return array Revised note.
+	 * @throws \UnexpectedValueException When revision is stale.
+	 */
+	public function revise_research_note( int $workspace, int $id, array $input, string $key ): array {
+		self::fields( $input, array( 'expected_revision', 'content', 'reason' ), array( 'expected_revision', 'content', 'reason' ) );
+		$revision = self::id( $input['expected_revision'] );
+		$content  = self::research_content( $input['content'] );
+		$reason   = sanitize_text_field( self::text( $input['reason'], 190 ) );
+		return $this->mutation(
+			$workspace,
+			'tgit_edit_journal',
+			'research.note.revise.' . $id,
+			$key,
+			array(
+				'expected_revision' => $revision,
+				'content'           => $content,
+				'reason'            => $reason,
+			),
+			function () use ( $workspace, $id, $revision, $content, $reason ) {
+				$note = $this->db->object( 'research_notes', $workspace, $id );
+				if ( (int) $note['revision'] !== $revision ) {
+					throw new \UnexpectedValueException( 'Research note revision changed.' );
+				}
+				$this->db->update_object(
+					'research_notes',
+					$workspace,
+					$id,
+					array(
+						'content'    => $content,
+						'revision'   => $revision + 1,
+						'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'research_note_revisions',
+					array(
+						'workspace_id' => $workspace,
+						'note_id'      => $id,
+						'revision'     => $revision + 1,
+						'content'      => $content,
+						'reason'       => $reason,
+						'actor_id'     => $this->actor,
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'research.note_revised', 'research_note', $id, $revision + 1 );
+				return $this->db->object( 'research_notes', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * Return a bounded immutable revision page for one note.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $id Note identifier.
+	 * @param int $after Revision cursor.
+	 * @param int $limit Page size.
+	 * @return array Revision rows.
+	 * @throws \InvalidArgumentException When paging is invalid.
+	 */
+	public function research_note_revisions( int $workspace, int $id, int $after = 0, int $limit = 100 ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		$this->db->object( 'research_notes', $workspace, $id );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid list parameters.' );
+		}
+		return $this->db->rows( 'SELECT revision,content,reason,actor_id,created_at FROM ' . $this->db->table( 'research_note_revisions' ) . ' WHERE workspace_id = %d AND note_id = %d AND revision > %d ORDER BY revision LIMIT %d', array( $workspace, $id, $after, $limit ) );
+	}
+
+	/**
 	 * Calculate a private, non-posting scenario for an authorized member.
 	 *
 	 * @param int    $workspace Workspace identifier.
@@ -1646,11 +2050,13 @@ final class Tracker {
 				);
 			}
 		}
+		$positions = $this->value_holdings( $workspace, $positions );
+		$coverage  = in_array( 'missing', array_column( $positions, 'price_status' ), true ) ? 'missing' : ( in_array( 'stale', array_column( $positions, 'price_status' ), true ) ? 'stale' : 'complete' );
 		return array(
 			'items'               => $positions,
 			'next_cursor'         => count( $assets ) === $limit ? (string) end( $assets )['id'] : null,
 			'calculation_version' => Ledger::VERSION,
-			'valuation_coverage'  => 'missing',
+			'valuation_coverage'  => $coverage,
 			'base_totals'         => null,
 			'as_of'               => gmdate( 'c' ),
 		);

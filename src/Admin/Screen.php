@@ -37,6 +37,8 @@ final class Screen {
 		wp_enqueue_script( 'tgit-opening', plugins_url( 'assets/opening.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-calculators', plugins_url( 'assets/calculators.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-research', plugins_url( 'assets/research.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -46,14 +48,15 @@ final class Screen {
 				'actorId'   => get_current_user_id(),
 				'canCreate' => current_user_can( 'manage_options' ),
 				'i18n'      => array(
-					'loading' => __( 'Loading…', 'ig-trading-journal' ),
-					'empty'   => __( 'No records yet.', 'ig-trading-journal' ),
-					'saved'   => __( 'Saved.', 'ig-trading-journal' ),
-					'unknown' => __( 'Missing price', 'ig-trading-journal' ),
-					'edit'    => __( 'Edit draft', 'ig-trading-journal' ),
-					'post'    => __( 'Post draft', 'ig-trading-journal' ),
-					'editing' => __( 'Editing draft', 'ig-trading-journal' ),
-					'network' => __( 'Request failed. Retry to use the same transaction key.', 'ig-trading-journal' ),
+					'loading'      => __( 'Loading…', 'ig-trading-journal' ),
+					'empty'        => __( 'No records yet.', 'ig-trading-journal' ),
+					'saved'        => __( 'Saved.', 'ig-trading-journal' ),
+					'unknown'      => __( 'Missing price', 'ig-trading-journal' ),
+					'edit'         => __( 'Edit draft', 'ig-trading-journal' ),
+					'post'         => __( 'Post draft', 'ig-trading-journal' ),
+					'editing'      => __( 'Editing draft', 'ig-trading-journal' ),
+					'network'      => __( 'Request failed. Retry to use the same transaction key.', 'ig-trading-journal' ),
+					'editResearch' => __( 'Edit', 'ig-trading-journal' ),
 				),
 			)
 		);
@@ -72,7 +75,7 @@ final class Screen {
 		?>
 	<div class="wrap tgit" id="tgit-app">
 	<h1><?php esc_html_e( 'TG Investment Tracker', 'ig-trading-journal' ); ?></h1>
-	<p><?php esc_html_e( 'FIFO ledger · native currencies · chronological entry. Record funding before purchases. Prices and FX are not available in this build.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'FIFO ledger · native currencies. Record funding before purchases. Manual prices, FX and dated reports are available in Reports.', 'ig-trading-journal' ); ?></p>
 	<p id="tgit-status" role="status" aria-live="polite"></p>
 	<section id="tgit-setup" hidden>
 	<h2><?php esc_html_e( 'Create a private workspace', 'ig-trading-journal' ); ?></h2>
@@ -94,12 +97,15 @@ final class Screen {
 			'journal'      => __( 'Trade Journal', 'ig-trading-journal' ),
 			'strategies'   => __( 'Strategies', 'ig-trading-journal' ),
 			'calculators'  => __( 'Calculators', 'ig-trading-journal' ),
+			'research'     => __( 'Research', 'ig-trading-journal' ),
+			'reports'      => __( 'Reports', 'ig-trading-journal' ),
 			'settings'     => __( 'Settings', 'ig-trading-journal' ),
 		) as $tab => $label ) :
 			?>
 		<button type="button" id="tgit-tab-<?php echo esc_attr( $tab ); ?>" role="tab" aria-controls="tgit-panel-<?php echo esc_attr( $tab ); ?>" aria-selected="false" tabindex="-1" data-tab="<?php echo esc_attr( $tab ); ?>"><?php echo esc_html( $label ); ?></button>
 		<?php endforeach; ?>
 	</div>
+		<?php ReportScreen::render(); ?>
 	<section><h2><?php esc_html_e( 'Cash accounts', 'ig-trading-journal' ); ?></h2><div id="tgit-accounts" class="tgit-cards"></div></section>
 	<div class="tgit-grid" id="tgit-management" hidden>
 	<section><h2><?php esc_html_e( 'Add account', 'ig-trading-journal' ); ?></h2>
@@ -185,6 +191,40 @@ final class Screen {
 	<output id="tgit-risk-result" aria-live="polite"></output>
 	</form>
 	</div>
+	</section>
+	<section id="tgit-research-section">
+	<h2><?php esc_html_e( 'Watchlists and research', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Targets and Buy/Sell/Hold labels are your own notes, not automated recommendations. Research notes are separate from provider data.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-research-status" role="status" aria-live="polite"></p>
+	<div class="tgit-grid">
+	<form id="tgit-watchlist-form" class="tgit-form">
+	<h3><?php esc_html_e( 'Create watchlist', 'ig-trading-journal' ); ?></h3>
+	<label><?php esc_html_e( 'Name', 'ig-trading-journal' ); ?><input name="name" required maxlength="190"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Create watchlist', 'ig-trading-journal' ); ?></button>
+	</form>
+	<form id="tgit-watchlist-item-form" class="tgit-form">
+	<h3><?php esc_html_e( 'Watchlist item', 'ig-trading-journal' ); ?></h3>
+	<label><?php esc_html_e( 'Watchlist', 'ig-trading-journal' ); ?><select name="watchlist_id" required></select></label>
+	<label><?php esc_html_e( 'Asset', 'ig-trading-journal' ); ?><select name="asset_id" required></select></label>
+	<label><?php esc_html_e( 'Target buy price', 'ig-trading-journal' ); ?><input name="target_buy" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Target sell price', 'ig-trading-journal' ); ?><input name="target_sell" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Your status', 'ig-trading-journal' ); ?><select name="status"><option value="watch"><?php esc_html_e( 'Watch', 'ig-trading-journal' ); ?></option><option value="buy"><?php esc_html_e( 'Buy', 'ig-trading-journal' ); ?></option><option value="sell"><?php esc_html_e( 'Sell', 'ig-trading-journal' ); ?></option><option value="hold"><?php esc_html_e( 'Hold', 'ig-trading-journal' ); ?></option></select></label>
+	<label><?php esc_html_e( 'Thesis', 'ig-trading-journal' ); ?><textarea name="thesis" maxlength="5000"></textarea></label>
+	<label><?php esc_html_e( 'Tags, comma separated', 'ig-trading-journal' ); ?><input name="tags" maxlength="500"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Save watchlist item', 'ig-trading-journal' ); ?></button>
+	<button type="button" id="tgit-watchlist-cancel" class="button" hidden><?php esc_html_e( 'Cancel editing', 'ig-trading-journal' ); ?></button>
+	</form>
+	</div>
+	<div id="tgit-watchlist-items" class="tgit-cards"></div>
+	<form id="tgit-research-note-form" class="tgit-form">
+	<h3><?php esc_html_e( 'Authored research note', 'ig-trading-journal' ); ?></h3>
+	<label><?php esc_html_e( 'Asset', 'ig-trading-journal' ); ?><select name="asset_id" required></select></label>
+	<label><?php esc_html_e( 'Note', 'ig-trading-journal' ); ?><textarea name="content" required maxlength="10000"></textarea></label>
+	<label id="tgit-research-reason-label" hidden><?php esc_html_e( 'Revision reason', 'ig-trading-journal' ); ?><input name="reason" maxlength="190"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Save research note', 'ig-trading-journal' ); ?></button>
+	<button type="button" id="tgit-research-cancel" class="button" hidden><?php esc_html_e( 'Cancel editing', 'ig-trading-journal' ); ?></button>
+	</form>
+	<div id="tgit-research-notes" class="tgit-cards"></div>
 	</section>
 		<?php JournalScreen::render(); ?>
 	<section id="tgit-members-section" hidden><h2><?php esc_html_e( 'Workspace members', 'ig-trading-journal' ); ?></h2><div id="tgit-members" class="tgit-cards"></div>

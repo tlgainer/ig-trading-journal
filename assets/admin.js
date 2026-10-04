@@ -71,7 +71,7 @@
   });
  }
  function renderHoldings(items, append) {
-  cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, row.basis_status === 'unresolved' ? 'Remaining basis: unresolved' : `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, config.i18n.unknown], append);
+  cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, row.basis_status === 'unresolved' ? 'Remaining basis: unresolved' : `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, row.market_value === null ? config.i18n.unknown : `Market value: ${row.market_value} ${row.currency}; unrealized gain: ${row.unrealized_gain ?? 'Unavailable'}`, row.price_observation ? `${row.price_status} price: ${row.price_observation.source} / ${row.price_observation.effective_date}; observed ${row.price_observation.observed_at} UTC` : 'Enter a manual price in Reports.'], append);
  }
  function cancelEdit() {
   editingDraft = null; pending = null; const form = $('transaction-form'); form.reset(); form.elements.state.disabled = false;
