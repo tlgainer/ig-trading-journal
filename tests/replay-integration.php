@@ -6,10 +6,19 @@ test('Schema 4 correction table repairs from version 3 and repeats safely', func
  $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'];
  update_option('tgit_schema_version', '3');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '4');
+ equal(get_option('tgit_schema_version'), '5');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
  equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'], $before);
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('transaction_corrections') . ' LIKE %s', ['chronology_id'])['Field'], 'chronology_id');
+});
+
+test('Schema 5 replay table repairs from version 4 without losing corrections', function () use ($db) {
+ $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'];
+ update_option('tgit_schema_version', '4');
+ \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
+ equal(get_option('tgit_schema_version'), '5');
+ equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'], $before);
+ equal($db->row('SHOW COLUMNS FROM ' . $db->table('replay_runs') . ' LIKE %s', ['projection_json'])['Field'], 'projection_json');
 });
 
 $rw = (int) $tracker->create_workspace(['name' => 'Replay fixture'])['id'];
@@ -26,6 +35,10 @@ test('Historical preview recalculates affected FIFO gains without writing histor
  $preview = $tracker->replay_preview($rw, $proposal);
  equal($preview['applied'], false); decimal($preview['cash_before'], '1473'); decimal($preview['cash_after'], '1373');
  equal(count($preview['changed_realized_gains']), 1); decimal($preview['changed_realized_gains'][0]['realized_gain_before'], '76'); decimal($preview['changed_realized_gains'][0]['realized_gain_after'], '177');
+ equal(count($preview['changed_allocations']), 1);
+ equal((int) $preview['changed_allocations'][0]['transaction_id'], (int) $sell['transaction']['id']);
+ equal(count($preview['changed_allocations'][0]['before']), 1);
+ equal(count($preview['changed_allocations'][0]['after']), 2);
  decimal($tracker->list_objects($rw, 'accounts')[0]['cash_balance'], '1473');
  equal($tracker->transaction($rw, (int) $sell['transaction']['id']), $before);
  equal(count($tracker->list_objects($rw, 'transactions')), 3);
@@ -83,7 +96,7 @@ test('Correction chains preserve original source and one active cash projection'
 test('Cash correction REST denies viewers and requires matching revision', function () use ($tracker, $rw, $owner, $viewer, $base, $buy) {
  $request = new WP_REST_Request('POST', '/tgit/v1/workspaces/' . $rw . '/transactions/' . $buy['transaction']['id'] . '/corrections');
  $request->set_header('Content-Type', 'application/json'); $request->set_header('Idempotency-Key', 'replay-rest-correction');
- $request->set_body(wp_json_encode(['expected_revision' => 1, 'reason' => 'Invalid security correction', 'replacement' => $base + ['action' => 'deposit', 'effective_date' => '2026-01-01', 'amount' => '1700']]));
+ $request->set_body(wp_json_encode(['expected_revision' => 2, 'reason' => 'Stale security correction', 'replacement' => $base + ['action' => 'deposit', 'effective_date' => '2026-01-01', 'amount' => '1700']]));
  wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(), 403);
  wp_set_current_user($owner); equal(rest_do_request($request)->get_status(), 409);
  equal(count($tracker->list_objects($rw, 'transactions')), 5);
@@ -103,6 +116,7 @@ test('Audit failure rolls back a cash correction and its replacement', function 
  equal($failed, true); equal(count($tracker->list_objects($workspace, 'transactions')), 1);
  decimal($tracker->list_objects($workspace, 'accounts')[0]['cash_balance'], '1000');
  equal(count($tracker->transaction($workspace, (int) $source['transaction']['id'])['revisions']), 1);
+ equal(count($db->rows('SELECT id FROM ' . $db->table('replay_runs') . ' WHERE workspace_id = %d', [$workspace])), 0);
 });
 
 test('Historical cash posting replays later balances and retries once', function () use ($tracker, $rw, $base) {
@@ -136,4 +150,47 @@ test('Same-day correction chains retain the source ordering position', function 
  decimal($second['cash_after'], '25');
  equal((int) $first['correction']['chronology_id'], (int) $deposit['transaction']['id']);
  equal((int) $second['correction']['chronology_id'], (int) $deposit['transaction']['id']);
+});
+
+test('Historical security replay versions allocations and governs later sales', function () use ($tracker, $db) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Security replay fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'FIFO replay', 'native_currency' => 'USD']);
+ $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'FIFOR', 'exchange' => 'TEST', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
+ $base = ['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'asset_id' => (int) $asset['id']];
+ $tracker->post($workspace, ['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'action' => 'deposit', 'effective_date' => '2026-01-01', 'amount' => '1000'], 'security-replay-deposit');
+ $buy = $tracker->post($workspace, $base + ['action' => 'buy', 'effective_date' => '2026-01-03', 'quantity' => '10', 'unit_price' => '10', 'fees' => '0'], 'security-replay-buy');
+ $sell = $tracker->post($workspace, $base + ['action' => 'sell', 'effective_date' => '2026-01-04', 'quantity' => '5', 'unit_price' => '20', 'fees' => '0'], 'security-replay-sell');
+ $original_gain = $sell['transaction']['realized_gain']; decimal($original_gain, '50');
+ $historical = $tracker->post_historical_security($workspace, $base + ['action' => 'buy', 'effective_date' => '2026-01-02', 'quantity' => '5', 'unit_price' => '8', 'fees' => '0'], 'security-replay-historical');
+ equal($tracker->post_historical_security($workspace, $base + ['action' => 'buy', 'effective_date' => '2026-01-02', 'quantity' => '5', 'unit_price' => '8', 'fees' => '0'], 'security-replay-historical'), $historical);
+ decimal($historical['cash_after'], '960');
+ $detail = $tracker->transaction($workspace, (int) $sell['transaction']['id']);
+ decimal($detail['transaction']['realized_gain'], '50'); decimal($detail['current_calculation']['realized_gain'], '60');
+ equal((int) $detail['current_calculation']['allocations'][0]['lot_id'], (int) $historical['transaction']['id']);
+ $position = $tracker->holdings($workspace)['items'][0]; decimal($position['quantity'], '10'); decimal($position['remaining_basis'], '100'); decimal($position['realized_gain'], '60');
+ $later = $tracker->post($workspace, $base + ['action' => 'sell', 'effective_date' => '2026-01-05', 'quantity' => '2', 'unit_price' => '20', 'fees' => '0'], 'security-replay-later');
+ decimal($later['transaction']['realized_gain'], '20'); decimal($tracker->holdings($workspace)['items'][0]['quantity'], '8');
+ $correction = $tracker->correct_cash($workspace, (int) $historical['transaction']['id'], ['expected_revision' => 1, 'reason' => 'Corrected statement price', 'replacement' => $base + ['action' => 'buy', 'effective_date' => '2026-01-02', 'quantity' => '5', 'unit_price' => '9', 'fees' => '0']], 'security-replay-correction');
+ decimal($correction['cash_after'], '995');
+ decimal($tracker->transaction($workspace, (int) $sell['transaction']['id'])['current_calculation']['realized_gain'], '55');
+ equal($tracker->transaction($workspace, (int) $historical['transaction']['id'])['current_calculation'], null);
+ $runs = $db->rows('SELECT * FROM ' . $db->table('replay_runs') . ' WHERE workspace_id = %d AND account_id = %d ORDER BY id', [$workspace, $account['id']]);
+ equal(count($runs), 3); equal($runs[0]['trigger_action'], 'historical_buy'); equal($runs[2]['trigger_action'], 'correction');
+ $count = count($tracker->list_objects($workspace, 'transactions'));
+ rejects(fn() => $tracker->correct_cash($workspace, (int) $buy['transaction']['id'], ['expected_revision' => 1, 'reason' => 'Invalid reduced holding', 'replacement' => $base + ['action' => 'buy', 'effective_date' => '2026-01-03', 'quantity' => '1', 'unit_price' => '10', 'fees' => '0']], 'security-replay-oversell'));
+ equal(count($tracker->list_objects($workspace, 'transactions')), $count);
+ equal(count($db->rows('SELECT id FROM ' . $db->table('replay_runs') . ' WHERE workspace_id = %d AND account_id = %d', [$workspace, $account['id']])), 3);
+});
+
+test('Historical security REST requires posting membership and returns replay evidence', function () use ($tracker, $owner, $viewer) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Security REST fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'REST account', 'native_currency' => 'USD']);
+ $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'RESTF', 'exchange' => 'TEST', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
+ $tracker->post($workspace, ['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'action' => 'deposit', 'effective_date' => '2026-01-01', 'amount' => '500'], 'security-rest-deposit');
+ $request = new WP_REST_Request('POST', '/tgit/v1/workspaces/' . $workspace . '/historical-transactions');
+ $request->set_header('Content-Type', 'application/json'); $request->set_header('Idempotency-Key', 'security-rest-buy');
+ $request->set_body(wp_json_encode(['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'asset_id' => (int) $asset['id'], 'action' => 'buy', 'effective_date' => '2026-01-02', 'quantity' => '2', 'unit_price' => '10', 'fees' => '0']));
+ wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(), 403);
+ wp_set_current_user($owner); $response = rest_do_request($request); equal($response->get_status(), 200);
+ decimal($response->get_data()['data']['cash_after'], '480');
 });

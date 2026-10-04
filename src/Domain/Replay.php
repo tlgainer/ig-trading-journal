@@ -64,6 +64,7 @@ final class Replay {
 				}
 				$lots[ $id ] = array(
 					'id'                 => $id,
+					'order_id'           => (int) ( $event['order_id'] ?? $id ),
 					'asset_id'           => $asset,
 					'quantity_initial'   => $quantity,
 					'quantity_remaining' => $quantity,
@@ -87,7 +88,7 @@ final class Replay {
 					$available,
 					static function ( array $left, array $right ): int {
 						$date_order = strcmp( $left['acquired_on'], $right['acquired_on'] );
-						return 0 !== $date_order ? $date_order : $left['id'] <=> $right['id'];
+						return 0 !== $date_order ? $date_order : $left['order_id'] <=> $right['order_id'];
 					}
 				);
 				$sale  = Ledger::sell( array_values( $available ), $event['quantity'], $event['unit_price'], $event['fees'] );

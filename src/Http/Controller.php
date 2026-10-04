@@ -77,6 +77,7 @@ final class Controller {
 		self::route( $base . '/opening-balances', 'POST', 'opening_balance' );
 		self::route( $base . '/replay-preview', 'POST', 'replay_preview' );
 		self::route( $base . '/historical-cash', 'POST', 'post_historical_cash' );
+		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
 	}
 
@@ -180,6 +181,8 @@ final class Controller {
 				$result = $service->replay_preview( $workspace, $data );
 			} elseif ( 'post_historical_cash' === $operation ) {
 				$result = $service->post_historical_cash( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'post_historical_security' === $operation ) {
+				$result = $service->post_historical_security( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'transaction' === $operation ) {
 				$result = $service->transaction( $workspace, (int) $request->get_url_params()['transaction'] );
 			} elseif ( in_array( $operation, array( 'edit_draft', 'promote_draft', 'correct_cash' ), true ) ) {

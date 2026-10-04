@@ -310,7 +310,17 @@ final class Tracker {
 			throw new \InvalidArgumentException( 'Invalid list parameters.' );
 		}
 		if ( 'transactions' === $table ) {
-			return $this->db->rows( 'SELECT t.*,superseded.replacement_transaction_id AS corrected_by_id,parent.source_transaction_id AS supersedes_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.id > %d ORDER BY t.id LIMIT %d', array( $workspace, $after, $limit ) );
+			$rows        = $this->db->rows( 'SELECT t.*,superseded.replacement_transaction_id AS corrected_by_id,parent.source_transaction_id AS supersedes_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.id > %d ORDER BY t.id LIMIT %d', array( $workspace, $after, $limit ) );
+			$projections = array();
+			foreach ( $rows as &$row ) {
+				$account = (int) $row['account_id'];
+				if ( ! array_key_exists( $account, $projections ) ) {
+					$projections[ $account ] = $this->replay_projection( $workspace, $account );
+				}
+				$row['current_realized_gain'] = null !== $row['corrected_by_id'] ? null : ( $projections[ $account ]['effects'][ (int) $row['id'] ]['realized_gain'] ?? $row['realized_gain'] );
+			}
+			unset( $row );
+			return $rows;
 		}
 		return $this->db->rows( 'SELECT * FROM ' . $this->db->table( $table ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
 	}
@@ -836,11 +846,14 @@ final class Tracker {
 	 */
 	public function transaction( int $workspace, int $id ): array {
 		$this->authorize( $workspace, 'tgit_view' );
+		$transaction = $this->db->object( 'transactions', $workspace, $id );
+		$projection  = $this->replay_projection( $workspace, (int) $transaction['account_id'] );
 		return array(
-			'transaction'      => $this->db->object( 'transactions', $workspace, $id ),
-			'revisions'        => $this->db->rows( 'SELECT revision,payload,actor_id,reason,created_at FROM ' . $this->db->table( 'transaction_revisions' ) . ' WHERE workspace_id = %d AND transaction_id = %d ORDER BY revision', array( $workspace, $id ) ),
-			'correction'       => $this->db->row( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id DESC LIMIT 1', array( $workspace, $id, $id ) ),
-			'correction_links' => $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id', array( $workspace, $id, $id ) ),
+			'transaction'         => $transaction,
+			'current_calculation' => $projection['effects'][ $id ] ?? null,
+			'revisions'           => $this->db->rows( 'SELECT revision,payload,actor_id,reason,created_at FROM ' . $this->db->table( 'transaction_revisions' ) . ' WHERE workspace_id = %d AND transaction_id = %d ORDER BY revision', array( $workspace, $id ) ),
+			'correction'          => $this->db->row( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id DESC LIMIT 1', array( $workspace, $id, $id ) ),
+			'correction_links'    => $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id', array( $workspace, $id, $id ) ),
 		);
 	}
 
@@ -853,6 +866,59 @@ final class Tracker {
 	 */
 	private function active_account_events( int $workspace, int $account ): array {
 		return $this->db->rows( 'SELECT t.*,o.acquired_on,o.basis_status,COALESCE(parent.chronology_id,t.id) AS order_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = t.workspace_id AND o.transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.account_id = %d AND t.state = %s AND superseded.id IS NULL ORDER BY t.effective_date,order_id', array( $workspace, $account, 'posted' ) );
+	}
+
+	/**
+	 * Return the latest immutable projection when replay has been activated.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $account Account identifier.
+	 * @return array|null Versioned projection, or null for a legacy account.
+	 * @throws \RuntimeException When stored evidence is stale or unreadable.
+	 */
+	private function replay_projection( int $workspace, int $account ): ?array {
+		$run = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'replay_runs' ) . ' WHERE workspace_id = %d AND account_id = %d ORDER BY id DESC LIMIT 1', array( $workspace, $account ) );
+		if ( ! $run ) {
+			return null;
+		}
+		$events = $this->active_account_events( $workspace, $account );
+		if ( Ledger::VERSION !== $run['calculation_version'] || ! hash_equals( $run['source_fingerprint'], hash( 'sha256', wp_json_encode( $events ) ) ) ) {
+			throw new \RuntimeException( 'Account replay is stale; forward repair is required before posting or reporting.' );
+		}
+		$projection = json_decode( $run['projection_json'], true );
+		if ( ! is_array( $projection ) || ! isset( $projection['cash_balance'], $projection['lots'], $projection['effects'] ) ) {
+			throw new \RuntimeException( 'Account replay evidence is unreadable.' );
+		}
+		return $projection;
+	}
+
+	/**
+	 * Append a complete calculation and its exact active source fingerprint.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $account Account identifier.
+	 * @param int    $trigger Trigger transaction identifier.
+	 * @param string $action Replay cause.
+	 * @return array New projection.
+	 */
+	private function record_replay( int $workspace, int $account, int $trigger, string $action ): array {
+		$events     = $this->active_account_events( $workspace, $account );
+		$projection = Replay::calculate( $events );
+		$this->db->insert(
+			'replay_runs',
+			array(
+				'workspace_id'           => $workspace,
+				'account_id'             => $account,
+				'trigger_transaction_id' => $trigger,
+				'trigger_action'         => $action,
+				'source_fingerprint'     => hash( 'sha256', wp_json_encode( $events ) ),
+				'calculation_version'    => Ledger::VERSION,
+				'projection_json'        => wp_json_encode( $projection ),
+				'actor_id'               => $this->actor,
+				'created_at'             => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		return $projection;
 	}
 
 	/**
@@ -890,10 +956,11 @@ final class Tracker {
 		if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
 			throw new \RuntimeException( 'Account projection differs from posted history; repair is required before replay.' );
 		}
-		$proposal_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
-		$proposal    = array( 'id' => $proposal_id ) + $data;
-		$after       = Replay::calculate( array_merge( $existing, array( $proposal ) ) );
-		$changed     = array();
+		$proposal_id         = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+		$proposal            = array( 'id' => $proposal_id ) + $data;
+		$after               = Replay::calculate( array_merge( $existing, array( $proposal ) ) );
+		$changed             = array();
+		$allocations_changed = array();
 		foreach ( $existing as $event ) {
 			$id = (int) $event['id'];
 			if ( Decimal::compare( $before['effects'][ $id ]['realized_gain'], $after['effects'][ $id ]['realized_gain'] ) !== 0 ) {
@@ -901,6 +968,13 @@ final class Tracker {
 					'transaction_id'       => $id,
 					'realized_gain_before' => $before['effects'][ $id ]['realized_gain'],
 					'realized_gain_after'  => $after['effects'][ $id ]['realized_gain'],
+				);
+			}
+			if ( $before['effects'][ $id ]['allocations'] !== $after['effects'][ $id ]['allocations'] ) {
+				$allocations_changed[] = array(
+					'transaction_id' => $id,
+					'before'         => $before['effects'][ $id ]['allocations'],
+					'after'          => $after['effects'][ $id ]['allocations'],
 				);
 			}
 		}
@@ -913,19 +987,20 @@ final class Tracker {
 			'proposed_cash_delta'    => $after['effects'][ $proposal_id ]['cash_delta'],
 			'proposed_realized_gain' => $after['effects'][ $proposal_id ]['realized_gain'],
 			'changed_realized_gains' => $changed,
+			'changed_allocations'    => $allocations_changed,
 			'source_fingerprint'     => hash( 'sha256', wp_json_encode( $existing ) ),
 		);
 	}
 
 	/**
-	 * Supersede one posted cash event without rewriting its financial facts.
+	 * Supersede one posted cash or security event without rewriting its facts.
 	 *
 	 * @param int    $workspace Workspace identifier.
-	 * @param int    $id Posted cash transaction identifier.
+	 * @param int    $id Posted transaction identifier.
 	 * @param array  $input Expected revision, reason and replacement facts.
 	 * @param string $key Idempotency identity.
 	 * @return array Source, replacement and correction evidence.
-	 * @throws \InvalidArgumentException When cash correction facts are invalid.
+	 * @throws \InvalidArgumentException When correction facts are invalid.
 	 */
 	public function correct_cash( int $workspace, int $id, array $input, string $key ): array {
 		self::fields( $input, array( 'expected_revision', 'reason', 'replacement' ), array( 'expected_revision', 'reason', 'replacement' ) );
@@ -935,8 +1010,8 @@ final class Tracker {
 			throw new \InvalidArgumentException( 'Replacement must be a JSON object.' );
 		}
 		$replacement = $this->transaction_input( $input['replacement'] );
-		if ( 'posted' !== $replacement['state'] || ! in_array( $replacement['action'], array( 'deposit', 'withdrawal' ), true ) ) {
-			throw new \InvalidArgumentException( 'This correction path accepts posted cash movements only.' );
+		if ( 'posted' !== $replacement['state'] || ! in_array( $replacement['action'], array( 'deposit', 'withdrawal', 'buy', 'sell' ), true ) ) {
+			throw new \InvalidArgumentException( 'Correction requires a posted cash or security movement.' );
 		}
 		$command = array(
 			'expected_revision' => $revision,
@@ -951,11 +1026,21 @@ final class Tracker {
 			$command,
 			function () use ( $workspace, $id, $revision, $reason, $replacement ) {
 				$source = $this->db->object( 'transactions', $workspace, $id );
-				if ( 'posted' !== $source['state'] || ! in_array( $source['action'], array( 'deposit', 'withdrawal' ), true ) || (int) $source['revision'] !== $revision ) {
-					throw new \UnexpectedValueException( 'Posted cash transaction changed or is not correctable.' );
+				if ( 'posted' !== $source['state'] || ! in_array( $source['action'], array( 'deposit', 'withdrawal', 'buy', 'sell' ), true ) || (int) $source['revision'] !== $revision ) {
+					throw new \UnexpectedValueException( 'Posted transaction changed or is not correctable.' );
 				}
 				if ( (int) $source['account_id'] !== $replacement['account_id'] || $source['currency'] !== $replacement['currency'] ) {
-					throw new \InvalidArgumentException( 'Cash correction must retain its account and currency.' );
+					throw new \InvalidArgumentException( 'Correction must retain its account and currency.' );
+				}
+				if ( null !== $replacement['asset_id'] ) {
+					$asset = $this->db->object( 'assets', $workspace, $replacement['asset_id'] );
+					if ( $asset['quote_currency'] !== $replacement['currency'] ) {
+						throw new \InvalidArgumentException( 'Asset and account currencies must match.' );
+					}
+				}
+				$linked_fill = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'trade_fills' ) . ' WHERE workspace_id = %d AND transaction_id = %d LIMIT 1', array( $workspace, $id ) );
+				if ( $linked_fill ) {
+					throw new \InvalidArgumentException( 'Trade-linked fills require a journal revision before correction.' );
 				}
 				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND source_transaction_id = %d', array( $workspace, $id ) );
 				if ( $prior ) {
@@ -966,7 +1051,7 @@ final class Tracker {
 					throw new \InvalidArgumentException( 'Correct an active account only.' );
 				}
 				$existing = $this->active_account_events( $workspace, $replacement['account_id'] );
-				$before   = Replay::calculate( $existing );
+				$before   = $this->replay_projection( $workspace, $replacement['account_id'] ) ?? Replay::calculate( $existing );
 				if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
 					throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
 				}
@@ -996,7 +1081,7 @@ final class Tracker {
 					$replacement + array(
 						'workspace_id'  => $workspace,
 						'uuid'          => wp_generate_uuid4(),
-						'realized_gain' => '0',
+						'realized_gain' => $after['effects'][ $preview_id ]['realized_gain'],
 						'created_by'    => $this->actor,
 						'created_at'    => gmdate( 'Y-m-d H:i:s' ),
 					)
@@ -1020,8 +1105,8 @@ final class Tracker {
 						'workspace_id'   => $workspace,
 						'transaction_id' => $new_id,
 						'account_id'     => $replacement['account_id'],
-						'asset_id'       => null,
-						'quantity_delta' => '0',
+						'asset_id'       => $replacement['asset_id'],
+						'quantity_delta' => 'buy' === $replacement['action'] ? $replacement['quantity'] : ( 'sell' === $replacement['action'] ? Decimal::sub( '0', $replacement['quantity'] ) : '0' ),
 						'cash_delta'     => $delta,
 						'currency'       => $replacement['currency'],
 						'role'           => $replacement['action'],
@@ -1059,6 +1144,7 @@ final class Tracker {
 					)
 				);
 				$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $after['cash_balance'], $workspace, $replacement['account_id'] ) );
+				$this->record_replay( $workspace, $replacement['account_id'], $new_id, 'correction' );
 				$this->audit( $workspace, 'transaction.corrected', 'transaction', $id, $revision + 1 );
 				$this->audit( $workspace, 'transaction.replaced', 'transaction', $new_id );
 				return array(
@@ -1085,10 +1171,41 @@ final class Tracker {
 		if ( 'posted' !== $data['state'] || ! in_array( $data['action'], array( 'deposit', 'withdrawal' ), true ) ) {
 			throw new \InvalidArgumentException( 'Historical cash entry requires a posted deposit or withdrawal.' );
 		}
+		return $this->post_historical( $workspace, $data, $key );
+	}
+
+	/**
+	 * Post a backdated buy or sell after validating all later cash and lots.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Posted buy or sell facts.
+	 * @param string $key Idempotency identity.
+	 * @return array Posted event and current projection.
+	 * @throws \InvalidArgumentException When facts are not a posted security movement.
+	 */
+	public function post_historical_security( int $workspace, array $input, string $key ): array {
+		$data = $this->transaction_input( $input );
+		if ( 'posted' !== $data['state'] || ! in_array( $data['action'], array( 'buy', 'sell' ), true ) ) {
+			throw new \InvalidArgumentException( 'Historical security entry requires a posted buy or sell.' );
+		}
+		return $this->post_historical( $workspace, $data, $key );
+	}
+
+	/**
+	 * Commit a validated historical event with an immutable replay snapshot.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $data Validated posted facts.
+	 * @param string $key Idempotency identity.
+	 * @return array Posted event and current projection.
+	 * @throws \InvalidArgumentException When chronology is invalid.
+	 * @throws \RuntimeException When stored evidence is inconsistent.
+	 */
+	private function post_historical( int $workspace, array $data, string $key ): array {
 		return $this->mutation(
 			$workspace,
 			'tgit_post',
-			'transaction.historical_cash',
+			'transaction.historical_' . $data['action'],
 			$key,
 			$data,
 			function () use ( $workspace, $data ) {
@@ -1096,13 +1213,19 @@ final class Tracker {
 				if ( null !== $account['archived_at'] || $account['native_currency'] !== $data['currency'] ) {
 					throw new \InvalidArgumentException( 'Use an active account in the transaction currency.' );
 				}
+				if ( null !== $data['asset_id'] ) {
+					$asset = $this->db->object( 'assets', $workspace, $data['asset_id'] );
+					if ( $asset['quote_currency'] !== $data['currency'] ) {
+						throw new \InvalidArgumentException( 'Asset and account currencies must match.' );
+					}
+				}
 				$existing = $this->active_account_events( $workspace, $data['account_id'] );
 				foreach ( $existing as $event ) {
 					if ( str_starts_with( $event['action'], 'opening_' ) && $data['effective_date'] < $event['effective_date'] ) {
 						throw new \InvalidArgumentException( 'Historical cash cannot precede the account opening date.' );
 					}
 				}
-				$before = Replay::calculate( $existing );
+				$before = $this->replay_projection( $workspace, $data['account_id'] ) ?? Replay::calculate( $existing );
 				if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
 					throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
 				}
@@ -1113,7 +1236,7 @@ final class Tracker {
 					$data + array(
 						'workspace_id'  => $workspace,
 						'uuid'          => wp_generate_uuid4(),
-						'realized_gain' => '0',
+						'realized_gain' => $after['effects'][ $preview_id ]['realized_gain'],
 						'created_by'    => $this->actor,
 						'created_at'    => gmdate( 'Y-m-d H:i:s' ),
 					)
@@ -1136,15 +1259,16 @@ final class Tracker {
 						'workspace_id'   => $workspace,
 						'transaction_id' => $new_id,
 						'account_id'     => $data['account_id'],
-						'asset_id'       => null,
-						'quantity_delta' => '0',
+						'asset_id'       => $data['asset_id'],
+						'quantity_delta' => 'buy' === $data['action'] ? $data['quantity'] : ( 'sell' === $data['action'] ? Decimal::sub( '0', $data['quantity'] ) : '0' ),
 						'cash_delta'     => $after['effects'][ $preview_id ]['cash_delta'],
 						'currency'       => $data['currency'],
 						'role'           => $data['action'],
 					)
 				);
 				$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $after['cash_balance'], $workspace, $data['account_id'] ) );
-				$this->audit( $workspace, 'transaction.historical_cash', 'transaction', $new_id );
+				$this->record_replay( $workspace, $data['account_id'], $new_id, 'historical_' . $data['action'] );
+				$this->audit( $workspace, 'transaction.historical_' . $data['action'], 'transaction', $new_id );
 				return array(
 					'transaction' => $this->db->object( 'transactions', $workspace, $new_id ),
 					'cash_after'  => $after['cash_balance'],
@@ -1158,6 +1282,7 @@ final class Tracker {
 	 *
 	 * @throws \InvalidArgumentException When account or financial facts are invalid.
 	 * @throws \UnexpectedValueException When chronological posting is unavailable.
+	 * @throws \RuntimeException When an account replay needs forward repair.
 	 *
 	 * @param int   $workspace Workspace identifier.
 	 * @param array $data Normalized transaction facts.
@@ -1174,17 +1299,27 @@ final class Tracker {
 				throw new \InvalidArgumentException( 'Asset and account currencies must match until FX support is implemented.' );
 			}
 		}
-		$effects = array(
+		$effects          = array(
 			'cash_delta'    => '0',
 			'realized_gain' => '0',
 		);
+		$prior_projection = 'posted' === $data['state'] ? $this->replay_projection( $workspace, $data['account_id'] ) : null;
+		$replay_mode      = null !== $prior_projection;
+		if ( $replay_mode && Decimal::compare( $prior_projection['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+			throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+		}
 		if ( 'posted' === $data['state'] ) {
 					// Append-only first slice: block historical inserts until revision/replay exists.
 					$last = $this->db->row( 'SELECT effective_date FROM ' . $this->db->table( 'transactions' ) . ' WHERE workspace_id = %d AND account_id = %d AND state = %s ORDER BY effective_date DESC,id DESC LIMIT 1', array( $workspace, $data['account_id'], 'posted' ) );
 			if ( $last && $data['effective_date'] < $last['effective_date'] ) {
 				throw new \UnexpectedValueException( 'Historical posting requires the future correction/rebuild workflow.' );
 			}
-			if ( 'buy' === $data['action'] ) {
+			if ( $replay_mode ) {
+				$existing   = $this->active_account_events( $workspace, $data['account_id'] );
+				$preview_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+				$projected  = Replay::calculate( array_merge( $existing, array( array( 'id' => $preview_id ) + $data ) ) );
+				$effects    = $projected['effects'][ $preview_id ];
+			} elseif ( 'buy' === $data['action'] ) {
 				$effects = Ledger::buy( $data['quantity'], $data['unit_price'], $data['fees'] ) + $effects;
 			} elseif ( 'sell' === $data['action'] ) {
 				$unresolved = $this->db->row( 'SELECT o.id FROM ' . $this->db->table( 'lots' ) . ' l INNER JOIN ' . $this->db->table( 'transaction_legs' ) . ' leg ON leg.workspace_id = l.workspace_id AND leg.id = l.acquisition_leg_id INNER JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = leg.workspace_id AND o.transaction_id = leg.transaction_id WHERE l.workspace_id = %d AND l.account_id = %d AND l.asset_id = %d AND l.quantity_remaining > 0 AND o.basis_status = %s LIMIT 1', array( $workspace, $data['account_id'], $data['asset_id'], 'unresolved' ) );
@@ -1239,7 +1374,9 @@ final class Tracker {
 					)
 				);
 							$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $cash, $workspace, $data['account_id'] ) );
-			if ( 'buy' === $data['action'] ) {
+			if ( $replay_mode ) {
+				$this->record_replay( $workspace, $data['account_id'], $id, 'append' );
+			} elseif ( 'buy' === $data['action'] ) {
 				$this->db->insert(
 					'lots',
 					array(
@@ -1255,7 +1392,7 @@ final class Tracker {
 					)
 				);
 			}
-			foreach ( $effects['allocations'] ?? array() as $allocation ) {
+			foreach ( $replay_mode ? array() : ( $effects['allocations'] ?? array() ) as $allocation ) {
 				$this->db->query( 'UPDATE ' . $this->db->table( 'lots' ) . ' SET quantity_remaining = %s, basis_remaining = %s WHERE workspace_id = %d AND id = %d', array( bcadd( $allocation['quantity_remaining'], '0', 18 ), $allocation['basis_remaining'], $workspace, $allocation['lot_id'] ) );
 				unset( $allocation['quantity_remaining'], $allocation['basis_remaining'] );
 				$allocation['quantity'] = bcadd( $allocation['quantity'], '0', 18 );
@@ -1285,30 +1422,53 @@ final class Tracker {
 	 * @param int $limit limit input.
 	 * @return array
 	 * @throws \InvalidArgumentException When the operation contract cannot be satisfied.
+	 * @throws \RuntimeException When the stored projection is inconsistent.
 	 */
 	public function holdings( int $workspace, int $after = 0, int $limit = 100 ): array {
 		$this->authorize( $workspace, 'tgit_view' );
 		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
 			throw new \InvalidArgumentException( 'Invalid list parameters.' );
 		}
-		// Asset cursor; cap assets then group their positions. No cross-currency total.
+		// Project each account once so corrected rows never contribute twice.
 		$assets    = $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'assets' ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
+		$accounts  = $this->db->rows( 'SELECT id,cash_balance FROM ' . $this->db->table( 'accounts' ) . ' WHERE workspace_id = %d ORDER BY id', array( $workspace ) );
 		$positions = array();
-		foreach ( $assets as $asset ) {
-			$rows = $this->db->rows( 'SELECT l.account_id, SUM(l.quantity_remaining) AS quantity, SUM(l.basis_remaining) AS remaining_basis, SUM(CASE WHEN o.basis_status = %s AND l.quantity_remaining > 0 THEN 1 ELSE 0 END) AS unresolved_count FROM ' . $this->db->table( 'lots' ) . ' l LEFT JOIN ' . $this->db->table( 'transaction_legs' ) . ' leg ON leg.workspace_id = l.workspace_id AND leg.id = l.acquisition_leg_id LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = leg.workspace_id AND o.transaction_id = leg.transaction_id WHERE l.workspace_id = %d AND l.asset_id = %d GROUP BY l.account_id', array( 'unresolved', $workspace, $asset['id'] ) );
-			foreach ( $rows as $row ) {
-				$unresolved = (int) $row['unresolved_count'] > 0;
-				unset( $row['unresolved_count'] );
-				if ( $unresolved ) {
-					$row['remaining_basis'] = null;
+		foreach ( $accounts as $account ) {
+			$account_id = (int) $account['id'];
+			$events     = $this->active_account_events( $workspace, $account_id );
+			$projection = $this->replay_projection( $workspace, $account_id ) ?? Replay::calculate( $events );
+			if ( Decimal::compare( $projection['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+				throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+			}
+			foreach ( $assets as $asset ) {
+				$asset_id   = (int) $asset['id'];
+				$asset_lots = array_filter( $projection['lots'], static fn( array $lot ): bool => (int) $lot['asset_id'] === $asset_id );
+				if ( ! $asset_lots ) {
+					continue;
 				}
-				$realized    = $this->db->row( 'SELECT COALESCE(SUM(realized_gain),0) AS realized_gain FROM ' . $this->db->table( 'transactions' ) . ' WHERE workspace_id = %d AND account_id = %d AND asset_id = %d AND state = %s', array( $workspace, $row['account_id'], $asset['id'], 'posted' ) );
-				$positions[] = $row + array(
-					'basis_status'    => $unresolved ? 'unresolved' : 'complete',
-					'asset_id'        => $asset['id'],
+				$quantity = '0';
+				$basis    = '0';
+				$gain     = '0';
+				$unknown  = false;
+				foreach ( $asset_lots as $lot ) {
+					$quantity = Decimal::add( $quantity, $lot['quantity_remaining'] );
+					$basis    = Decimal::add( $basis, $lot['basis_remaining'] );
+					$unknown  = $unknown || ( 'unresolved' === $lot['basis_status'] && Decimal::compare( $lot['quantity_remaining'], '0' ) > 0 );
+				}
+				foreach ( $events as $event ) {
+					if ( (int) $event['asset_id'] === $asset_id ) {
+						$gain = Decimal::add( $gain, $projection['effects'][ (int) $event['id'] ]['realized_gain'] );
+					}
+				}
+				$positions[] = array(
+					'account_id'      => $account_id,
+					'quantity'        => bcadd( $quantity, '0', 18 ),
+					'remaining_basis' => $unknown ? null : Decimal::money( $basis ),
+					'basis_status'    => $unknown ? 'unresolved' : 'complete',
+					'asset_id'        => $asset_id,
 					'symbol'          => $asset['symbol'],
 					'currency'        => $asset['quote_currency'],
-					'realized_gain'   => $realized['realized_gain'],
+					'realized_gain'   => Decimal::money( $gain ),
 					'market_value'    => null,
 					'unrealized_gain' => null,
 					'price_status'    => 'missing',

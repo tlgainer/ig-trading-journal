@@ -105,6 +105,17 @@ test('Backdated acquisition changes later FIFO gain deterministically', function
  $events[] = ['id' => 4, 'effective_date' => '2026-01-02', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '5', 'unit_price' => '8', 'fees' => '0'];
  $result = Replay::calculate($events); decimal($result['effects'][3]['realized_gain'], '60'); decimal($result['cash_balance'], '960');
 });
+test('Corrected same-day acquisition retains its original FIFO place', function () {
+ $events = [
+  ['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'deposit', 'amount' => '1000'],
+  ['id' => 3, 'effective_date' => '2026-01-02', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '20', 'fees' => '0'],
+  ['id' => 4, 'effective_date' => '2026-01-03', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '30', 'fees' => '0'],
+  ['id' => 5, 'order_id' => 2, 'effective_date' => '2026-01-02', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '10', 'fees' => '0'],
+ ];
+ $result = Replay::calculate($events);
+ decimal($result['effects'][4]['realized_gain'], '20');
+ equal((int) $result['effects'][4]['allocations'][0]['lot_id'], 5);
+});
 test('Replay rejects a proposed historical overdraft or oversell', function () {
  rejects(fn() => Replay::calculate([['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'withdrawal', 'amount' => '1']]));
  rejects(fn() => Replay::calculate([['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '10', 'fees' => '0']]));

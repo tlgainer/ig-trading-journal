@@ -9,7 +9,7 @@ test('Schema 3 opening table installs idempotently', function () {
  update_option('tgit_schema_version', '2');
  Installer::install();
  equal(Installer::ready(), true);
- equal(get_option('tgit_schema_version'), '4');
+ equal(get_option('tgit_schema_version'), '5');
  Installer::install();
 });
 

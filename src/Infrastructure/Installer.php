@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '4';
+	public const VERSION = '5';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -80,6 +80,12 @@ final class Installer {
 				throw new \RuntimeException( 'Correction migration is missing.' );
 			}
 			$sql .= $correction_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the bundled additive replay migration.
+			$replay_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/005-security-replay.sql' );
+			if ( false === $replay_sql ) {
+				throw new \RuntimeException( 'Replay migration is missing.' );
+			}
+			$sql .= $replay_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {

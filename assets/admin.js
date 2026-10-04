@@ -43,7 +43,7 @@
   return rows;
  }
  function renderTransactions(items, append) {
-  cards($('transactions'), items, (row) => [`${row.effective_date} · ${row.action} · ${row.state}`, `#${row.id} · Account #${row.account_id}`, row.asset_id ? `Asset #${row.asset_id} · ${row.quantity} @ ${row.unit_price} ${row.currency} · Fees ${row.fees}` : `${row.amount} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`], append, (card, row) => {
+  cards($('transactions'), items, (row) => [`${row.effective_date} · ${row.action} · ${row.state}${row.corrected_by_id ? ' · Corrected' : ''}`, `#${row.id} · Account #${row.account_id}`, row.asset_id ? `Asset #${row.asset_id} · ${row.quantity} @ ${row.unit_price} ${row.currency} · Fees ${row.fees}` : `${row.amount} ${row.currency}`, row.corrected_by_id ? `Superseded by #${row.corrected_by_id}` : `Realized gain: ${row.current_realized_gain} ${row.currency}`], append, (card, row) => {
    if (row.state !== 'draft') return;
    const role = workspaces.find((item) => String(item.id) === workspace).role;
    const canPost = ['owner', 'manager'].includes(role);
