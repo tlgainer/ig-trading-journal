@@ -1,0 +1,15 @@
+# Journal transaction picker and grouped form
+
+Build 0.14.0 continues the shared WordPress admin patterns without React. Schema remains 8; no SQL migration is required.
+
+The Transactions detail tab replaces manual ID entry with selected-transaction and eligible-transaction tables. The picker supplies account, effective date, action, Draft/Posted state, exact quantity, native unit price and fees; search, state filtering and pagination use the shared component. Linking/unlinking changes the pending journal selection and requires Save changes. Dirty navigation and revision conflict recovery continue to protect pending selections. Viewers see linked facts without editing controls.
+
+The new authenticated `GET /workspaces/{workspace}/trades/{trade}/fill-candidates` route has a stable ID cursor, 1–100 page size and optional workspace-validated `asset_id` (zero/default uses the trade's asset). It lists only buys/sells in Draft/Posted state for that asset, unassigned or already assigned to this trade, excluding corrected source rows. Workspace-scoped account joins supply labels. The UI follows every cursor before enabling whole-result search and sorting. Saved linked rows continue to display through the existing trade detail contract.
+
+Save revalidates workspace, asset, fill type/state, exclusive assignment and corrected-source status under the existing command transaction. A fill corrected after loading the picker cannot be linked as obsolete evidence. No posted rows, cash or lots are edited by journal linking. Existing correction/lifecycle contracts and the trade-linked fill-correction backlog are unchanged.
+
+Plan and journal uses accessible fieldsets for Trade identity, Plan and rationale, Price levels, Confluences, and Review and tags. Minimal creation still asks only for title, asset and optional strategy. Changing the asset explicitly asks before removing pending links. Existing rich-text sanitization, exact decimal strings, confidence, checked confluences and revision evidence remain intact.
+
+Remaining: tag/confluence editors, history table/actor labels, large-history server query/performance gates, upload queue table, and consistent focused collections/editors on Transactions, Strategies, Settings and Reports. This is a partial UI/UX slice, not complete acceptance.
+
+Validation: 41 unit and 81 disposable WordPress/database checks pass. Picker fixtures cover same-asset eligibility, other-trade exclusion, corrected-source revalidation, exact quantities, cursor continuation, foreign relationships, revoked/viewer membership and unchanged cash/holdings after linking. Real HTTP checks verify bounded responses, private cache headers and anonymous/revoked denial. Desktop/mobile browser checks cover selection, state filtering, persisted links, unlinking and dirty cancellation, grouped forms without page overflow, existing private image actions, Back/deep links and revision recovery. Shared collections and all eight admin sections pass their browser checks; 11 private-media HTTP checks and PHP/JavaScript syntax, coding standards and REST URL checks also pass.

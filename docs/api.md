@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.10.0
+# REST contract: tgit/v1, build 0.14.0
 
 ## Manual prices, FX, reports and saved views (schema 8)
 
@@ -157,3 +157,7 @@ Example: `{"expected_revision":1,"reason":"Broker statement corrected","replacem
 `POST /workspaces/{workspace}/historical-transactions` accepts a complete posted buy or sell and requires `Idempotency-Key`. It validates every subsequent cash balance, FIFO lot and sale basis. A successful historical write appends a full account replay run with a source fingerprint, calculator version, current lots, gains and allocations. Later normal posting on that account appends another run. Prior posted rows and allocations remain immutable evidence; current holdings and gains come from the active projection.
 
 `POST /workspaces/{workspace}/replay-preview` accepts a complete proposed posted transaction body and returns `applied:false`, current/projected cash, proposed cash delta/gain, changed realized gains and allocations for later transactions, and a source fingerprint. It performs no write and is not a reservation or approval to post.
+
+## Journal fill candidates
+
+`GET /workspaces/{workspace}/trades/{trade}/fill-candidates?after=0&limit=100&asset_id=0` requires active viewing membership. `asset_id` defaults to the trade asset; a supplied positive ID must belong to the workspace. Rows include transaction ID, account ID/name, asset ID, effective date, action, state, decimal-string quantity/unit price/fees, currency, and `linked_trade_id` (null or this trade). Only Draft/Posted buys/sells for the selected asset are returned; fills assigned elsewhere and corrected sources are excluded. Cursor and limit follow the other 1–100 ID lists. No mutation occurs. Journal Save still requires journal edit permission, expected revision, exclusive assignment and current eligible facts; corrected-source races return a conflict.

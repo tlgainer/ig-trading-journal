@@ -46,6 +46,8 @@
   $('compare-images').disabled = value || selected.size !== 2;
   if (!value && context) renderTrades(tradeRows);
   if (!value && galleryCollection) galleryCollection.update(galleryRows);
+  if (!value && candidateCollection) candidateCollection.update(candidateRows);
+  if (!value && context && trade) renderLinkedFills();
   for (const id of ['workspace-form', 'account-form', 'asset-form', 'transaction-form', 'member-form']) for (const control of $(id).querySelectorAll('button')) control.disabled = value;
  }
  function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && trade && !imageDraft) reload.hidden = false; } finally { lock(false); } }; }
@@ -73,12 +75,70 @@
  detailPanels.get('transactions').append($('fill-facts'));
  detailPanels.get('images').append($('gallery-section'));
  detailPanels.get('history').append($('trade-history').parentElement);
+ const journalForm = $('trade-form');
+ const linkInput = journalForm.elements.transaction_ids; const oldLinkLabel = linkInput.closest('label'); linkInput.type = 'hidden'; journalForm.append(linkInput); oldLinkLabel.remove();
+ for (const [title, names, minimal] of [
+  ['Trade identity', ['title', 'asset_id', 'strategy_version_id', 'state', 'opened_on', 'closed_on'], true],
+  ['Plan and rationale', ['thesis', 'entry_rationale', 'exit_rationale', 'confidence'], false],
+  ['Price levels', ['premarket_low', 'premarket_high', 'previous_day_low', 'previous_day_high', 'planned_stop', 'planned_target'], false],
+  ['Confluences', ['confluences', 'confluence_text', 'original_confluences'], false],
+  ['Review and tags', ['emotions', 'lessons', 'notes', 'tags'], false]
+ ]) {
+  const group = document.createElement('fieldset'); group.className = 'tgit-journal-group tgit-grid'; group.dataset.minimal = String(minimal); text('legend', title, group);
+  for (const name of names) group.append(journalForm.elements[name].closest('label'));
+  if (title === 'Confluences') group.append($('confluence-checklist'));
+  journalForm.append(group);
+ }
+ const linkHelp = text('p', 'Link existing buys and sells for this asset. Selecting or removing links changes only the journal; posted transactions, cash and lots remain unchanged.', detailPanels.get('transactions'));
+ const pickLinks = button('Link transactions', () => { guarded(loadFillCandidates)(); }, detailPanels.get('transactions')); pickLinks.id = 'tgit-link-transactions';
+ const fillPicker = document.createElement('div'); fillPicker.id = 'tgit-fill-picker'; fillPicker.hidden = true; detailPanels.get('transactions').append(fillPicker);
+ let candidateRows = [], candidateCollection = null, previousAsset = '';
+ const chosenFills = () => new Set(linkInput.value.split(',').map((value) => value.trim()).filter(Boolean));
+ function selectFill(row, selected) {
+  if (busy || window.tgitWriteBusy) { candidateCollection?.update(candidateRows); return; }
+  const ids = chosenFills(); if (selected && ids.size >= 200 && !ids.has(String(row.id))) { notice('A trade can link at most 200 transactions.', true); candidateCollection?.update(candidateRows); return; }
+  if (selected) ids.add(String(row.id)); else ids.delete(String(row.id)); linkInput.value = [...ids].sort((a, b) => Number(a) - Number(b)).join(', ');
+  renderLinkedFills(); candidateCollection?.update(candidateRows); notice(`${ids.size} transaction(s) selected. Save changes to update journal links.`);
+ }
+ function fillColumns(selection = false) {
+  return [
+   { key: 'id', label: 'Transaction', identity: true, required: true, sort: (a, b) => Number(a.id) - Number(b.id), render: (row) => `#${row.id}` },
+   { key: 'date', label: 'Effective date', sort: (a, b) => a.effective_date.localeCompare(b.effective_date), render: (row) => row.effective_date },
+   { key: 'account', label: 'Account', render: (row) => fillAccount(row) },
+   { key: 'action', label: 'Action', render: (row) => row.action },
+   { key: 'state', label: 'State', render: (row) => row.state },
+   { key: 'quantity', label: 'Quantity', numeric: true, render: (row) => tgitDisplayDecimal(row.quantity, 0) },
+   { key: 'price', label: 'Unit price', numeric: true, render: (row) => `${tgitDisplayDecimal(row.unit_price)} ${row.currency}` },
+   { key: 'fees', label: 'Fees', numeric: true, render: (row) => `${tgitDisplayDecimal(row.fees)} ${row.currency}` },
+   { key: 'actions', label: selection ? 'Select' : 'Actions', required: true, render: (row) => {
+    if (!isEditor()) return 'Read only';
+    if (!selection) { const group = document.createElement('div'); button('Remove link', () => { if (!busy && !window.tgitWriteBusy) selectFill(row, false); }, group); return group; }
+    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = chosenFills().has(String(row.id)); checkbox.disabled = busy; checkbox.setAttribute('aria-label', `Link transaction ${row.id}`); checkbox.addEventListener('change', () => selectFill(row, checkbox.checked)); return checkbox;
+   } }
+  ];
+ }
+ const fillAccount = (row) => row.account_name || context.accounts.find((account) => String(account.id) === String(row.account_id))?.name || `#${row.account_id}`;
+ function renderLinkedFills() {
+  const ids = chosenFills(), rows = [...(trade?.fills || []), ...candidateRows]; const unique = new Map(rows.map((row) => [String(row.id), row]));
+  tgitCollection($('fill-facts'), { actor: config.actorId, workspace: `${context.workspace}:${trade?.trade.id || 'new'}`, key: 'linked-fills', title: 'Selected transactions', search: (row) => `${row.id} ${row.effective_date} ${row.action} ${row.state} ${fillAccount(row)}`, columns: fillColumns() }, [...unique.values()].filter((row) => ids.has(String(row.id))));
+ }
+ async function loadFillCandidates() {
+  if (!trade || !isEditor()) return; const expected = epoch, id = String(trade.trade.id), asset = journalForm.elements.asset_id.value; let next = 0; const rows = [];
+  do { const page = await api(path(`trades/${id}/fill-candidates?asset_id=${asset}&after=${next}&limit=100`)); if (expected !== epoch || String(trade?.trade.id) !== id || journalForm.elements.asset_id.value !== asset) return; rows.push(...page.items); next = page.next_cursor; } while (next !== null);
+  candidateRows = rows; fillPicker.hidden = false;
+  candidateCollection = tgitCollection(fillPicker, { actor: config.actorId, workspace: `${context.workspace}:${id}:${asset}`, key: 'fill-candidates', title: 'Eligible transactions', search: (row) => `${row.id} ${row.account_name} ${row.effective_date} ${row.action} ${row.state}`, filters: [{ key: 'state', label: 'Transaction state', default: '', values: [['', 'All'], ['posted', 'Posted'], ['draft', 'Draft']], matches: (row, value) => !value || row.state === value }], columns: fillColumns(true) }, rows);
+  renderLinkedFills(); notice('Select transactions, then Save changes. Already assigned or corrected source transactions are excluded.');
+ }
+ journalForm.elements.asset_id.addEventListener('change', () => {
+  if (chosenFills().size && !window.confirm('Changing the asset removes the selected transaction links. Continue?')) { journalForm.elements.asset_id.value = previousAsset; return; }
+  previousAsset = journalForm.elements.asset_id.value; linkInput.value = ''; candidateRows = []; candidateCollection = null; tgitResetCollection(fillPicker); fillPicker.hidden = true; renderLinkedFills();
+ });
  const actions = document.createElement('div'); actions.className = 'tgit-actions'; $('trade-detail').append(actions);
  const save = $('trade-form').querySelector('button[type="submit"]'); save.id = 'tgit-save-journal'; save.setAttribute('form', 'tgit-trade-form'); actions.append(save, $('close-trade')); $('close-trade').textContent = 'Back to trades';
  const reload = button('Reload latest journal', () => { if (leave()) guarded(() => openTrade(trade.trade.id))(); }, actions); reload.hidden = true;
  $('trade-form').noValidate = true;
  function selectDetail(id) {
-  save.hidden = id !== 'plan' || !isEditor();
+  save.hidden = !['plan', 'transactions'].includes(id) || !isEditor() || (id === 'transactions' && !trade);
   for (const [name, panel] of detailPanels) panel.hidden = name !== id;
   for (const tab of detailTabs.querySelectorAll('button')) { const selected = tab.dataset.detailTab === id; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; }
  }
@@ -91,7 +151,7 @@
   if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url);
  }
  function closeTrade(updateRoute = true) {
-  tradeLoad++;
+  tradeLoad++; candidateRows = []; candidateCollection = null; tgitResetCollection(fillPicker); fillPicker.hidden = true; tgitResetCollection($('fill-facts'));
   closeImageEditor(); galleryCollection = null; galleryRows = []; tgitResetCollection($('gallery')); releaseImages(); trade = null; $('trade-detail').hidden = true; list.hidden = false; baseline = '';
   if (updateRoute) routeTrade(null); window.scrollTo(0, listScroll); $('new-trade').focus();
  }
@@ -137,7 +197,7 @@
  }
  $('trade-form').elements.confluences.addEventListener('input', renderConfluences);
  function showTrade(data) {
-  reload.hidden = true;
+  reload.hidden = true; candidateRows = []; candidateCollection = null; tgitResetCollection(fillPicker); fillPicker.hidden = true; tgitResetCollection($('fill-facts'));
   save.textContent = data ? 'Save changes' : 'Create trade'; $('close-trade').textContent = data ? 'Back to trades' : 'Cancel';
   closeImageEditor(); galleryCollection = null; galleryRows = []; tgitResetCollection($('gallery')); releaseImages(); confluenceState.clear(); trade = data; const form = $('trade-form'); form.reset();
   listScroll = list.hidden ? listScroll : window.scrollY; list.hidden = true; $('trade-detail').hidden = false; $('trade-heading').textContent = data ? data.trade.title : 'New trade journal';
@@ -155,8 +215,7 @@
   }
   renderConfluences(); $('trade-summary').replaceChildren();
   if (captured) { const snapshot = JSON.parse(captured.payload); text('p', `Captured strategy: ${snapshot.name} | version ${captured.revision}`, $('trade-summary')); for (const name of ['description', 'rules']) { const content = document.createElement('div'); content.innerHTML = snapshot[name]; $('trade-summary').append(content); } }
-  $('fill-facts').replaceChildren();
-  for (const fill of data?.fills ?? []) text('p', `Fill #${fill.id}: ${fill.effective_date} | ${fill.action} | ${fill.state} | ${fill.quantity} @ ${fill.unit_price} ${fill.currency} | fees ${fill.fees}`, $('fill-facts'));
+  previousAsset = form.elements.asset_id.value; renderLinkedFills(); pickLinks.hidden = !data || !isEditor(); linkHelp.hidden = !data;
   $('trade-history').replaceChildren();
   const history = (items, prepend = false) => { const fragment = document.createDocumentFragment(); for (const revision of items) { const details = document.createElement('details'); text('summary', `Revision ${revision.revision} | user #${revision.actor_id} | ${timestamp(revision.created_at)}`, details); text('pre', JSON.stringify(JSON.parse(revision.payload), null, 2), details); fragment.append(details); } if (prepend) $('trade-history').prepend(fragment); else $('trade-history').append(fragment); };
   history(data?.revisions ?? []);
@@ -168,7 +227,7 @@
    const label = field.closest('label'); if (label) label.hidden = !data && !['title', 'asset_id', 'strategy_version_id'].includes(field.name);
   }
   $('confluence-checklist').hidden = !data;
-  for (const child of form.children) if (child.tagName !== 'LABEL') child.hidden = !data;
+  for (const child of form.children) if (child.tagName !== 'LABEL') child.hidden = !data && child.dataset.minimal !== 'true';
   text('p', data ? `${data.trade.state} · ${context.assets.find((asset) => String(asset.id) === String(data.trade.asset_id))?.symbol || ''}` : 'Planned trade — no financial effect', $('trade-summary'));
   selectDetail(data ? 'summary' : 'plan'); baseline = snapshot();
   routeTrade(data?.trade.id || 'new', Boolean(data) && new URL(location.href).searchParams.get('tgit_trade') === 'new');
@@ -348,7 +407,7 @@
  window.addEventListener('tgit-workspace', async (event) => {
   const routeId = new URL(location.href).searchParams.get('tgit_trade');
   context = event.detail; const expected = ++epoch; trade = null; strategy = null; strategyVersions = []; tradeRows = []; pending.clear(); closeImageEditor(); galleryCollection = null; galleryRows = []; releaseImages(); $('trade-detail').hidden = true; list.hidden = false; baseline = ''; tgitResetCollection($('trades')); tgitResetCollection($('gallery'));
-  $('trade-form').reset(); confluenceState.clear();
+  $('trade-form').reset(); confluenceState.clear(); candidateRows = []; candidateCollection = null; tgitResetCollection(fillPicker); fillPicker.hidden = true; tgitResetCollection($('fill-facts'));
   for (const id of ['trade-summary', 'fill-facts', 'trade-history', 'gallery', 'image-view', 'upload-progress']) $(id).replaceChildren();
   choices($('trade-form').elements.asset_id, context.assets, (item) => `${item.symbol} · ${item.exchange}`);
   choices($('trade-form').elements.strategy_version_id, [], (item) => item.name, true);

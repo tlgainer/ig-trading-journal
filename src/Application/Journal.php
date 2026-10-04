@@ -80,6 +80,33 @@ final class Journal {
 			'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
 		);
 	}
+	/** List available fills without exposing other trades or changing ledger facts.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $trade Trade being edited.
+	 * @param int $asset Selected asset, or zero for the trade's asset.
+	 * @param int $after Stable ID cursor.
+	 * @param int $limit Bounded page size.
+	 * @return array
+	 * @throws \InvalidArgumentException When pagination is invalid.
+	 */
+	public function fill_candidates( int $workspace, int $trade, int $asset, int $after, int $limit ): array {
+		$this->commands->authorize( $workspace );
+		if ( $after < 0 || $limit < 1 || $limit > 100 || $asset < 0 ) {
+			throw new \InvalidArgumentException( 'Invalid fill candidate page.' );
+		}
+		$record = $this->db->object( 'trades', $workspace, $trade );
+		$asset  = $asset ? $asset : (int) $record['asset_id'];
+		$this->db->object( 'assets', $workspace, $asset );
+		$items = $this->db->rows(
+			'SELECT t.id,t.account_id,a.name AS account_name,t.asset_id,t.effective_date,t.action,t.state,t.quantity,t.unit_price,t.fees,t.currency,f.trade_id AS linked_trade_id FROM ' . $this->db->table( 'transactions' ) . ' t JOIN ' . $this->db->table( 'accounts' ) . ' a ON a.workspace_id = t.workspace_id AND a.id = t.account_id LEFT JOIN ' . $this->db->table( 'trade_fills' ) . ' f ON f.workspace_id = t.workspace_id AND f.transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . " c ON c.workspace_id = t.workspace_id AND c.source_transaction_id = t.id WHERE t.workspace_id = %d AND t.asset_id = %d AND t.id > %d AND t.action IN ('buy','sell') AND t.state IN ('draft','posted') AND c.id IS NULL AND (f.trade_id IS NULL OR f.trade_id = %d) ORDER BY t.id LIMIT %d",
+			array( $workspace, $asset, $after, $trade, $limit )
+		);
+		return array(
+			'items'       => $items,
+			'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+		);
+	}
 	/** Read a strategy and immutable versions.
 	 *
 	 * @param int $workspace Workspace.
@@ -311,6 +338,9 @@ final class Journal {
 					$transaction = $this->db->object( 'transactions', $workspace, $fill );
 					if ( (int) $transaction['asset_id'] !== $facts['asset_id'] || ! in_array( $transaction['action'], array( 'buy', 'sell' ), true ) || ! in_array( $transaction['state'], array( 'posted', 'draft' ), true ) ) {
 						throw new \InvalidArgumentException( 'Fills must be buys or sells for this asset.' );
+					}
+					if ( $this->db->row( 'SELECT id FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND source_transaction_id = %d', array( $workspace, $fill ) ) ) {
+						throw new \UnexpectedValueException( 'Fill was corrected. Reload eligible transactions.' );
 					}
 					$link = $this->db->row( 'SELECT trade_id FROM ' . $this->db->table( 'trade_fills' ) . ' WHERE workspace_id = %d AND transaction_id = %d', array( $workspace, $fill ) );
 					if ( $link && (int) $link['trade_id'] !== $id ) {

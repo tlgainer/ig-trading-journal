@@ -14,9 +14,9 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.13.0
+## Current build: 0.14.0
 
-The shared admin UI includes Trade Journal tables and detail tabs. Private images now use searchable Active/Trash tables with a focused metadata editor, protected unsaved changes, revision-conflict reload and a separate upload action. Private viewing, comparison, retry and restore retain their existing contracts. See the [image collection decision](docs/decisions/013-private-image-collection.md). Schema remains version 8; this update adds no SQL migration.
+Trade Journal details now provide a scoped transaction picker instead of typed fill IDs, with exact quantities/prices, Draft/Posted filtering and revision-checked linking/unlinking. The journal form is organized into shared field groups. Trade/image tables, protected edits and private image upload/viewing remain available. See the [journal picker decision](docs/decisions/014-journal-fill-picker.md). Schema remains version 8; this update adds no SQL migration.
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.

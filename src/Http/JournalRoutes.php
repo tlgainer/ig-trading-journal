@@ -26,6 +26,7 @@ final class JournalRoutes {
 			array( '/trades/(?P<object>[1-9][0-9]*)', 'GET', 'trade' ),
 			array( '/trades/(?P<object>[1-9][0-9]*)', 'POST', 'save_trade' ),
 			array( '/trades/(?P<object>[1-9][0-9]*)/revisions', 'GET', 'trade_history' ),
+			array( '/trades/(?P<object>[1-9][0-9]*)/fill-candidates', 'GET', 'fill_candidates' ),
 			array( '/strategies/(?P<object>[1-9][0-9]*)/versions', 'GET', 'strategy_history' ),
 			array( '/strategies', 'GET', 'strategies' ),
 			array( '/strategies', 'POST', 'save_strategy' ),
@@ -54,13 +55,18 @@ final class JournalRoutes {
 					'callback'            => static function ( $request ) use ( $operation ) {
 						return Controller::dispatch( $request, 'journal_' . $operation );
 					},
-					'args'                => in_array( $operation, array( 'trades', 'strategies' ), true ) ? array(
-						'after' => array(
+					'args'                => in_array( $operation, array( 'trades', 'strategies', 'fill_candidates' ), true ) ? array(
+						'asset_id' => array(
 							'type'    => 'integer',
 							'minimum' => 0,
 							'default' => 0,
 						),
-						'limit' => array(
+						'after'    => array(
+							'type'    => 'integer',
+							'minimum' => 0,
+							'default' => 0,
+						),
+						'limit'    => array(
 							'type'    => 'integer',
 							'minimum' => 1,
 							'maximum' => 100,
@@ -109,6 +115,9 @@ final class JournalRoutes {
 		$journal   = new Journal( $db, get_current_user_id(), $correlation );
 		$media     = new Media( $db, get_current_user_id(), $correlation );
 		$key       = (string) $request->get_header( 'idempotency-key' );
+		if ( 'fill_candidates' === $operation ) {
+			return $journal->fill_candidates( $workspace, $id, (int) $request['asset_id'], (int) $request['after'], (int) $request['limit'] );
+		}
 		if ( in_array( $operation, array( 'trades', 'strategies' ), true ) ) {
 			return $journal->listing( $workspace, $operation, (int) $request['after'], (int) $request['limit'] );
 		}

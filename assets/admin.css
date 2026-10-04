@@ -33,6 +33,10 @@
 .tgit-form label, #tgit-workspace-label { display: grid; gap: 5px; font-weight: 600; }
 .tgit input, .tgit select { width: 100%; min-width: 0; max-width: 100%; }
 .tgit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.tgit .tgit-journal-group { grid-column: 1 / -1; min-width: 0; padding: 16px; margin: 0; border: 1px solid var(--tgit-border); border-radius: 8px; }
+.tgit .tgit-journal-group legend { padding: 0 8px; font-weight: 600; }
+.tgit .tgit-journal-group #tgit-confluence-checklist { grid-column: 1 / -1; min-width: 0; }
+.tgit #tgit-fill-picker table, .tgit #tgit-fill-facts table { min-width: 1100px; table-layout: auto; }
 .tgit-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
 .tgit-card { background: white; border: 1px solid #c3c4c7; border-radius: 6px; padding: 16px; overflow-wrap: anywhere; }
 .tgit-card p { margin: 6px 0; }

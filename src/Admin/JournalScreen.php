@@ -71,7 +71,7 @@ final class JournalScreen {
 		?>
 	<label><?php esc_html_e( 'Optional images (JPEG, PNG, WebP; multiple files)', 'ig-trading-journal' ); ?><input name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
 	<span class="tgit-help" tabindex="0" role="note" aria-label="<?php esc_attr_e( 'Choose several files at once, then select Upload selected images. Each image uploads separately.', 'ig-trading-journal' ); ?>" data-tip="<?php esc_attr_e( 'Choose several files at once, then select Upload selected images. Each image uploads separately.', 'ig-trading-journal' ); ?>">?</span>
-	<p><?php esc_html_e( 'The journal saves before image uploads. Each image can retry separately. Journal edits do not change cash or lots.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Journal edits and transaction links do not change cash or lots. Upload charts in the Images tab.', 'ig-trading-journal' ); ?></p>
 	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save journal', 'ig-trading-journal' ); ?></button>
 	<button type="button" id="tgit-close-trade" class="button"><?php esc_html_e( 'Close detail', 'ig-trading-journal' ); ?></button>
 	</form>

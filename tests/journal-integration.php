@@ -124,6 +124,7 @@ test('Journal REST rejects numeric levels, invalid revisions and foreign images'
 });
 require __DIR__ . '/media-maintenance.php';
 require __DIR__ . '/journal-contracts.php';
+require __DIR__ . '/fill-picker-integration.php';
 // HTTP runner consumes these sanitized fixture references; no credentials or portfolio data.
 file_put_contents(dirname(__DIR__) . '/tmp/journal-http-fixtures.json', wp_json_encode(['owner' => $owner, 'viewer' => $viewer, 'workspace' => $jw, 'foreign_workspace' => $w2, 'trade' => $jtradeid, 'image' => $jreserved['id'], 'image_revision' => 4, 'fixture' => $jfixture]));
 
