@@ -20,8 +20,13 @@
   pending.delete(slot); return envelope.data;
  }
  async function all(suffix) {
-  const rows = []; let after = 0;
-  do { const result = await request(`${suffix}${suffix.includes('?') ? '&' : '?'}after=${after}&limit=100`); rows.push(...result.items); after = result.next_cursor; } while (after !== null);
+  const rows = [], selectedWorkspace = workspace; let after = 0;
+  do {
+   if (workspace !== selectedWorkspace) return [];
+   const result = await request(`${suffix}${suffix.includes('?') ? '&' : '?'}after=${after}&limit=100`);
+   if (workspace !== selectedWorkspace) return [];
+   rows.push(...result.items); after = result.next_cursor;
+  } while (after !== null);
   return rows;
  }
  function options(select, rows, label) {
@@ -29,33 +34,46 @@
   for (const row of rows) { const option = document.createElement('option'); option.value = row.id; option.textContent = label(row); select.append(option); }
   if (rows.some((row) => String(row.id) === selected)) select.value = selected;
  }
- function card(target, lines, edit) {
-  const article = document.createElement('article'); article.className = 'tgit-card';
-  for (const [index, line] of lines.entries()) { const node = document.createElement(index === 0 ? 'strong' : 'p'); node.textContent = line; article.append(node); }
-  if (edit && role !== 'viewer') { const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = config.i18n.editResearch; button.addEventListener('click', edit); article.append(button); }
-  target.append(article);
+ function editAction(handler, label) {
+  if (role === 'viewer') return 'View only';
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = config.i18n.editResearch;
+  button.setAttribute('aria-label', `${config.i18n.editResearch} ${label}`);
+  button.addEventListener('click', handler); return button;
+ }
+ function collection(target, title, rows, columns, search) {
+  tgitCollection($(target), { actor: config.actorId, workspace, key: target, title, columns, search }, rows);
  }
  function clearItem() { editingItem = null; $('watchlist-item-form').reset(); $('watchlist-item-form').elements.watchlist_id.disabled = false; $('watchlist-item-form').elements.asset_id.disabled = false; $('watchlist-cancel').hidden = true; }
  function clearNote() { editingNote = null; $('research-note-form').reset(); $('research-reason-label').hidden = true; $('research-note-form').elements.reason.required = false; $('research-cancel').hidden = true; }
+ function editItem(item) {
+  editingItem = item; const form = $('watchlist-item-form'); form.elements.watchlist_id.value = item.watchlist_id; form.elements.asset_id.value = item.asset_id; form.elements.watchlist_id.disabled = true; form.elements.asset_id.disabled = true;
+  for (const field of ['target_buy', 'target_sell', 'status', 'thesis']) form.elements[field].value = item[field] ?? '';
+  form.elements.tags.value = item.tags.join(', '); $('watchlist-cancel').hidden = false; form.scrollIntoView({ block: 'start' }); form.elements.target_buy.focus();
+ }
  function renderItems() {
-  const target = $('watchlist-items'); target.replaceChildren();
-  if (!items.length) { target.textContent = config.i18n.empty; return; }
-  for (const item of items) card(target, [item.symbol + ' · ' + item.exchange, `Your status: ${item.status}`, `Targets: ${item.target_buy ?? '—'} / ${item.target_sell ?? '—'} ${item.quote_currency}`, item.thesis, `Tags: ${item.tags.join(', ')}`], () => {
-   editingItem = item; const form = $('watchlist-item-form'); form.elements.watchlist_id.value = item.watchlist_id; form.elements.asset_id.value = item.asset_id; form.elements.watchlist_id.disabled = true; form.elements.asset_id.disabled = true;
-   for (const field of ['target_buy', 'target_sell', 'status', 'thesis']) form.elements[field].value = item[field] ?? '';
-   form.elements.tags.value = item.tags.join(', '); $('watchlist-cancel').hidden = false; form.scrollIntoView({ block: 'start' });
-  });
+  collection('watchlist-items', 'Watchlist items', items, [
+   { key: 'asset', label: 'Asset', identity: true, required: true, sort: (a, b) => a.symbol.localeCompare(b.symbol), render: (row) => `${row.symbol} · ${row.exchange}` },
+   { key: 'status', label: 'Your status', sort: (a, b) => a.status.localeCompare(b.status), render: (row) => row.status },
+   { key: 'targets', label: 'Targets', numeric: true, render: (row) => `${row.target_buy === null ? 'Not set' : tgitDisplayDecimal(row.target_buy)} / ${row.target_sell === null ? 'Not set' : tgitDisplayDecimal(row.target_sell)} ${row.quote_currency}` },
+   { key: 'thesis', label: 'Thesis', render: (row) => row.thesis || 'Not set' },
+   { key: 'tags', label: 'Tags', render: (row) => row.tags.join(', ') || 'Not set' },
+   { key: 'actions', label: 'Actions', required: true, render: (row) => editAction(() => editItem(row), `watchlist item ${row.symbol} ${row.exchange}`) }
+  ], (row) => `${row.symbol} ${row.exchange} ${row.status} ${row.thesis} ${row.tags.join(' ')}`);
+ }
+ function editNote(note) {
+  editingNote = note; const form = $('research-note-form'); form.elements.asset_id.value = note.asset_id; form.elements.content.value = note.content;
+  form.elements.reason.value = ''; form.elements.reason.required = true; $('research-reason-label').hidden = false; $('research-cancel').hidden = false; form.scrollIntoView({ block: 'start' }); form.elements.content.focus();
  }
  function renderNotes() {
-  const target = $('research-notes'); target.replaceChildren();
-  if (!notes.length) { target.textContent = config.i18n.empty; return; }
-  for (const note of notes) card(target, [note.symbol + ' · ' + note.exchange, `Revision ${note.revision}`, note.content], () => {
-   editingNote = note; const form = $('research-note-form'); form.elements.asset_id.value = note.asset_id; form.elements.content.value = note.content;
-   form.elements.reason.value = ''; form.elements.reason.required = true; $('research-reason-label').hidden = false; $('research-cancel').hidden = false; form.scrollIntoView({ block: 'start' });
-  });
+  collection('research-notes', 'Research notes', notes, [
+   { key: 'asset', label: 'Asset', identity: true, required: true, sort: (a, b) => a.symbol.localeCompare(b.symbol), render: (row) => `${row.symbol} · ${row.exchange}` },
+   { key: 'note', label: 'Note', render: (row) => row.content },
+   { key: 'revision', label: 'Revision', numeric: true, render: (row) => String(row.revision) },
+   { key: 'actions', label: 'Actions', required: true, render: (row) => editAction(() => editNote(row), `research note ${row.symbol} ${row.exchange}`) }
+  ], (row) => `${row.symbol} ${row.exchange} ${row.content}`);
  }
  async function refresh() {
-  if (!workspace) return; const expected = ++generation;
+  if (!workspace) return; const expected = ++generation; status(config.i18n.loading);
   const loaded = await Promise.all([all('watchlists'), all('research-notes')]);
   if (expected !== generation) return; [lists, notes] = loaded;
   options($('watchlist-item-form').elements.watchlist_id, lists, (row) => row.name);
@@ -66,8 +84,10 @@
   if (expected !== generation) return; renderItems(); renderNotes(); status('');
  }
  $('watchlist-item-form').elements.watchlist_id.addEventListener('change', async () => {
+  const expected = ++generation;
   const listId = $('watchlist-item-form').elements.watchlist_id.value; clearItem(); $('watchlist-item-form').elements.watchlist_id.value = listId;
-  try { items = listId ? await all(`watchlists/${listId}/items`) : []; renderItems(); } catch (error) { status(error.message, true); }
+  status(config.i18n.loading);
+  try { const loaded = listId ? await all(`watchlists/${listId}/items`) : []; if (expected !== generation) return; items = loaded; renderItems(); status(''); } catch (error) { if (expected === generation) status(error.message, true); }
  });
  $('watchlist-cancel').addEventListener('click', clearItem);
  $('research-cancel').addEventListener('click', clearNote);
@@ -95,7 +115,7 @@
   } catch (error) { status(error.message, true); } finally { button.disabled = false; }
  });
  window.addEventListener('tgit-workspace', (event) => {
-  workspace = event.detail.workspace; role = event.detail.role; assets = event.detail.assets; pending.clear(); clearItem(); clearNote();
+  workspace = event.detail.workspace; role = event.detail.role; assets = event.detail.assets; pending.clear(); clearItem(); clearNote(); items = []; notes = []; renderItems(); renderNotes();
   for (const name of ['watchlist-form', 'watchlist-item-form', 'research-note-form']) $(name).hidden = role === 'viewer';
   refresh().catch((error) => status(error.message, true));
  });

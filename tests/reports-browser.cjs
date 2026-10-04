@@ -12,6 +12,8 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
    await context.addCookies([{ name: session.cookie_name, value: session.cookie_value, url: 'http://127.0.0.1:19308', httpOnly: true }]);
    const page = await context.newPage(); page.setDefaultTimeout(30000); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
    await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace));
+   await page.locator('#tgit-content').waitFor({ state: 'visible' });
+   if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
    await page.getByRole('tab', { name: 'Reports', exact: true }).click();
    const form = page.locator('#tgit-observation-form'); await form.locator('select[name=asset_id] option').first().waitFor({ state: 'attached' });
    await form.locator('select[name=asset_id]').selectOption({ index: 0 });

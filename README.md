@@ -14,7 +14,9 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.10.0
+## Current build: 0.11.0
+
+The first UI/UX slice adds consistent controls across all admin sections, desktop section navigation and a mobile Sections menu. Workspace creation becomes a collapsed Settings action after onboarding. Cash accounts, watchlist items and authored research notes share searchable, sortable tables with pagination and workspace/user-scoped column and density preferences. Decimal display removes redundant zeros without changing precision. Trade/detail/image/transaction and remaining collection workflows are subsequent slices; see the [UX foundation decision](docs/decisions/011-admin-ux-foundation.md). Schema remains version 8; this update adds no SQL migration.
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.

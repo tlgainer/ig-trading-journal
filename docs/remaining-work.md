@@ -1,8 +1,8 @@
 # Prioritized remaining work
 
-Current build: 0.10.0, schema 8. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
+Current build: 0.11.0, schema 8. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
-The owner has requested UI/UX work next, after this reporting slice. The remaining original PRD backlog stays listed below.
+UI/UX work is underway after the reporting slice. The first shared-shell/table foundation is implemented; see [screen coverage](ui-ux-coverage.md). The remaining original PRD backlog stays listed below.
 
 ## Owner priority order
 

@@ -14,6 +14,8 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await context.addCookies([{ name: session.cookie_name, value: session.cookie_value, url: 'http://127.0.0.1:19308', httpOnly: true }]);
   const page = await context.newPage(); page.setDefaultTimeout(60000); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace));
+  await page.locator('#tgit-content').waitFor({ state: 'visible' });
+  if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
   await page.getByRole('tab', { name: 'Strategies', exact: true }).click();
   await page.locator('#tgit-strategies').getByText('Fixture strategy', { exact: true }).waitFor();
   console.log('CHECK Journal workspace loaded.');
@@ -24,6 +26,8 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.locator('#tgit-strategy-form button[type=submit]').click();
   await page.locator('#tgit-strategies').getByText(strategyName, { exact: true }).waitFor();
   console.log('CHECK Strategy created.');
+  await page.locator('#tgit-content').waitFor({ state: 'visible' });
+  if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
   await page.getByRole('tab', { name: 'Trade Journal', exact: true }).click();
   await page.locator('#tgit-new-trade').click();
   const form = page.locator('#tgit-trade-form'); await form.locator('input[name=title]').fill(tradeName);

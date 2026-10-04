@@ -34,7 +34,7 @@ final class JournalScreen {
 	<label><?php esc_html_e( 'Opened on (optional)', 'ig-trading-journal' ); ?><input name="opened_on" type="date"></label>
 	<label><?php esc_html_e( 'Closed on (optional)', 'ig-trading-journal' ); ?><input name="closed_on" type="date"></label>
 	<label><?php esc_html_e( 'Entry and exit fill IDs (comma separated)', 'ig-trading-journal' ); ?><input name="transaction_ids" inputmode="numeric" placeholder="12, 15, 18"></label>
-	<label><?php esc_html_e( 'Confidence (0�100, optional)', 'ig-trading-journal' ); ?><input name="confidence" type="number" min="0" max="100" step="1"></label>
+	<label><?php esc_html_e( 'Confidence (0–100, optional)', 'ig-trading-journal' ); ?><input name="confidence" type="number" min="0" max="100" step="1"></label>
 		<?php
 		$fields = array(
 			'thesis'               => __( 'Thesis', 'ig-trading-journal' ),

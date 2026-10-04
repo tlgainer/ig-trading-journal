@@ -31,9 +31,10 @@ final class Screen {
 			return;
 		}
 		wp_enqueue_style( 'tgit-admin', plugins_url( 'assets/admin.css', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION );
+		wp_enqueue_script( 'tgit-collection', plugins_url( 'assets/collection.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-rest-url', plugins_url( 'assets/rest-url.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tabs', plugins_url( 'assets/tabs.js', IG_TRADING_JOURNAL_FILE ), array(), IG_TRADING_JOURNAL_VERSION, true );
-		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url', 'tgit-tabs' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url', 'tgit-tabs', 'tgit-collection' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-opening', plugins_url( 'assets/opening.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-calculators', plugins_url( 'assets/calculators.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -75,7 +76,7 @@ final class Screen {
 		?>
 	<div class="wrap tgit" id="tgit-app">
 	<h1><?php esc_html_e( 'TG Investment Tracker', 'ig-trading-journal' ); ?></h1>
-	<p><?php esc_html_e( 'FIFO ledger · native currencies. Record funding before purchases. Manual prices, FX and dated reports are available in Reports.', 'ig-trading-journal' ); ?></p>
+
 	<p id="tgit-status" role="status" aria-live="polite"></p>
 	<section id="tgit-setup" hidden>
 	<h2><?php esc_html_e( 'Create a private workspace', 'ig-trading-journal' ); ?></h2>

@@ -93,7 +93,12 @@
   [accounts, assets] = loaded;
   const [transactions, holdings] = await Promise.all([request(path('transactions?limit=100')), request(path('holdings?limit=100'))]);
   if (expected !== generation) return;
-  cards($('accounts'), accounts, (row) => [row.name, `${row.cash_balance} ${row.native_currency}`, row.broker]);
+  tgitCollection($('accounts'), { actor: config.actorId, workspace, key: 'accounts', title: 'Cash accounts', search: (row) => `${row.name} ${row.broker} ${row.native_currency}`, columns: [
+   { key: 'name', label: 'Account', identity: true, required: true, sort: (a, b) => a.name.localeCompare(b.name), render: (row) => row.name },
+   { key: 'broker', label: 'Broker', sort: (a, b) => a.broker.localeCompare(b.broker), render: (row) => row.broker || 'Not set' },
+   { key: 'currency', label: 'Currency', sort: (a, b) => a.native_currency.localeCompare(b.native_currency), render: (row) => row.native_currency },
+   { key: 'balance', label: 'Available cash', numeric: true, render: (row) => `${tgitDisplayDecimal(row.cash_balance)} ${row.native_currency}` }
+  ] }, accounts);
   const form = $('transaction-form');
   choices(form.elements.account_id, accounts, (row) => `${row.name} (${row.native_currency})`);
   choices(form.elements.asset_id, assets, (row) => `${row.symbol} · ${row.exchange} (${row.quote_currency})`);
@@ -113,7 +118,15 @@
   workspaces = (await request('workspaces')).items;
   choices($('workspace'), workspaces, (row) => `${row.name} · ${row.base_currency} · ${row.timezone}`);
   $('setup').hidden = !config.canCreate;
-  if (workspaces.length) $('panel-settings').append($('setup')); else $('workspace-label').before($('setup'));
+  if (workspaces.length) {
+   let management = $('workspace-management');
+   if (!management) {
+    management = document.createElement('details'); management.id = 'tgit-workspace-management';
+    const summary = document.createElement('summary'); summary.textContent = 'Create another workspace';
+    management.append(summary); $('panel-settings').append(management);
+   }
+   management.hidden = !config.canCreate; management.append($('setup'));
+  } else $('workspace-label').before($('setup'));
   $('workspace-label').hidden = workspaces.length === 0;
   if (!workspaces.length) { $('content').hidden = true; status(config.i18n.empty); return; }
   if (selected && workspaces.some((row) => String(row.id) === selected)) $('workspace').value = selected;
