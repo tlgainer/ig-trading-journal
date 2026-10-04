@@ -41,6 +41,15 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   assert(!(await page.evaluate(() => JSON.stringify(localStorage))).includes('Café'));
   assert.deepEqual(await page.evaluate(() => [tgitDisplayDecimal('0.000000000000'), tgitDisplayDecimal('123456789012345678.123456789012'), tgitDisplayDecimal('-1.200000'), tgitDisplayDecimal('0.000000000001')]), ['0.00', '123456789012345678.123456789012', '-1.20', '0.000000000001']);
   await page.evaluate(() => window.renderFixture('2', [])); await page.getByText('No records yet.', { exact: true }).waitFor();
+  await page.evaluate(() => tgitCollection(document.getElementById('rows'), {
+   actor: '7', workspace: '4', key: 'trade-filter', title: 'Trade fixtures', search: (row) => row.name,
+   filters: [{ key: 'state', label: 'Trade view', default: 'current', values: [['current', 'Current and potential'], ['', 'All'], ['closed', 'Closed']], matches: (row, value) => !value || (value === 'current' ? row.state !== 'closed' : row.state === value) }],
+   columns: [{ key: 'name', label: 'Name', identity: true, required: true, render: (row) => row.name }]
+  }, window.fixtureRows.map((row, index) => ({ ...row, state: index % 3 === 0 ? 'closed' : 'planned' }))));
+  await page.getByRole('searchbox', { name: 'Search Trade fixtures' }).fill('Asset 001'); assert.equal(await page.locator('tbody tr').count(), 0);
+  await page.getByLabel('Trade view', { exact: true }).selectOption(''); assert.equal(await page.locator('tbody tr').count(), 1);
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click(); assert.equal(await page.locator('tbody tr').count(), 25);
+  await page.getByLabel('Trade view', { exact: true }).selectOption('closed'); await page.getByText('34 records. View: Closed.', { exact: true }).waitFor();
   for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); }
   assert.deepEqual(errors, []);
   console.log('PASS Collections: full-dataset search/sort, stable pagination, scoped preferences, Unicode, exact decimal display, empty state and responsive overflow.');

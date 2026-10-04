@@ -28,6 +28,14 @@ test('Additive schema upgrade retains ledger rows and safely repeats', function 
  update_option('tgit_schema_version', '99');
  try { \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); throw new LogicException('Unknown schema accepted.'); } catch (RuntimeException $e) {} finally { update_option('tgit_schema_version', '8'); }
 });
+test('Trade collection metadata stays scoped and excludes journal prose', function () use ($jt, $jw, $jtradeid) {
+ $page = $jt->listing((int) $jw, 'trades', 0, 1); $row = $page['items'][0];
+ equal((int) $row['id'], $jtradeid); equal($row['symbol'], 'JRTEST'); equal($row['exchange'], 'FIXTURE');
+ equal($row['tags'], ['example']); equal($row['strategy_name'], 'Fixture strategy'); equal((int) $row['image_count'], 0);
+ equal(isset($row['journal_payload']), false); equal(isset($row['strategy_payload']), false);
+ $detail = $jt->trade((int) $jw, $jtradeid); $latest = end($detail['revisions']);
+ equal($row['updated_at'], $latest['created_at']); equal($page['next_cursor'], (string) $jtradeid);
+});
 test('Journal persists with zero images and never changes cash or FIFO', function () use ($jt, $jm, $tracker, $jw, $jtradeid, $jfacts) {
  equal(count($jm->gallery($jw, $jtradeid)['items']), 0);
  $before = $tracker->list_objects($jw, 'accounts'); $lots = $tracker->holdings($jw);

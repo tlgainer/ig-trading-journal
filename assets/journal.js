@@ -3,7 +3,7 @@
  'use strict';
  const config = window.tgitConfig;
  const $ = (id) => document.getElementById(`tgit-${id}`);
- let context = null, epoch = 0, trade = null, strategy = null, limits = null, cursor = null;
+ let context = null, epoch = 0, trade = null, strategy = null, limits = null;
  let confluenceState = new Map();
  let strategyVersions = [], pending = new Map(), imageUrls = [], selected = new Map(), busy = false;
  const messages = { loading: 'Loading...', saved: 'Saved.', failed: 'Request failed. Retry with the same file.', empty: 'No records yet.' };
@@ -43,14 +43,88 @@
   busy = value; window.tgitWriteBusy = value; $('workspace').disabled = value;
   for (const control of document.querySelectorAll('#tgit-journal-section button, #tgit-strategy-section button, #tgit-media-settings-section button')) if (!control.dataset.allowBusy && control.id !== 'tgit-close-image') control.disabled = value;
   $('compare-images').disabled = value || selected.size !== 2;
+  if (!value && context) renderTrades(tradeRows);
   for (const id of ['workspace-form', 'account-form', 'asset-form', 'transaction-form', 'member-form']) for (const control of $(id).querySelectorAll('button')) control.disabled = value;
  }
- function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); } finally { lock(false); } }; }
- function renderTrades(items, append = false) {
-  if (!append) $('trades').replaceChildren();
-  if (!items.length && !append) text('p', messages.empty, $('trades'));
-  for (const item of items) { const card = document.createElement('article'); card.className = 'tgit-card'; text('h3', item.title, card); text('p', `#${item.id} | ${item.state} | revision ${item.revision}`, card); button('Open journal', guarded(() => openTrade(item.id)), card); $('trades').append(card); }
+ function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && trade) reload.hidden = false; } finally { lock(false); } }; }
+ let baseline = '', listScroll = 0, tradeRows = [], tradeLoad = 0;
+ const list = document.createElement('div'); list.id = 'tgit-trade-list';
+ $('new-trade').textContent = 'New trade'; $('new-trade').classList.add('button-primary');
+ $('new-trade').before(list); for (const id of ['new-trade', 'trades', 'more-trades']) list.append($(id));
+ const detailTabs = document.createElement('div'); detailTabs.className = 'tgit-detail-tabs'; detailTabs.setAttribute('role', 'tablist'); detailTabs.setAttribute('aria-label', 'Trade detail sections');
+ $('trade-heading').after(detailTabs);
+ const detailPanels = new Map();
+ for (const name of ['Summary', 'Plan and journal', 'Transactions', 'Images', 'History']) {
+  const id = name.split(' ')[0].toLowerCase(); const tab = button(name, () => selectDetail(id), detailTabs);
+  tab.id = `tgit-detail-tab-${id}`; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `tgit-detail-panel-${id}`); tab.dataset.detailTab = id;
+  const panel = document.createElement('div'); panel.id = `tgit-detail-panel-${id}`; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id); panel.tabIndex = 0;
+  $('trade-detail').append(panel); detailPanels.set(id, panel);
+  tab.addEventListener('keydown', (event) => {
+   const tabs = [...detailTabs.querySelectorAll('button')]; const index = tabs.indexOf(tab); let next;
+   if (event.key === 'ArrowRight') next = tabs[(index + 1) % tabs.length]; if (event.key === 'ArrowLeft') next = tabs[(index + tabs.length - 1) % tabs.length];
+   if (event.key === 'Home') next = tabs[0]; if (event.key === 'End') next = tabs.at(-1);
+   if (next) { event.preventDefault(); selectDetail(next.dataset.detailTab); next.focus(); }
+  });
  }
+ detailPanels.get('summary').append($('trade-summary'));
+ detailPanels.get('plan').append($('trade-form'));
+ detailPanels.get('transactions').append($('fill-facts'));
+ detailPanels.get('images').append($('gallery-section'));
+ detailPanels.get('history').append($('trade-history').parentElement);
+ const actions = document.createElement('div'); actions.className = 'tgit-actions'; $('trade-detail').append(actions);
+ const save = $('trade-form').querySelector('button[type="submit"]'); save.id = 'tgit-save-journal'; save.setAttribute('form', 'tgit-trade-form'); actions.append(save, $('close-trade')); $('close-trade').textContent = 'Back to trades';
+ const reload = button('Reload latest journal', () => { if (leave()) guarded(() => openTrade(trade.trade.id))(); }, actions); reload.hidden = true;
+ $('trade-form').noValidate = true;
+ function selectDetail(id) {
+  for (const [name, panel] of detailPanels) panel.hidden = name !== id;
+  for (const tab of detailTabs.querySelectorAll('button')) { const selected = tab.dataset.detailTab === id; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; }
+ }
+ function snapshot() { return JSON.stringify([...$('trade-form').elements].filter((field) => field.name).map((field) => [field.name, field.type === 'file' ? [...field.files].map((file) => [file.name, file.size, file.lastModified]) : field.value])) + JSON.stringify([...confluenceState]); }
+ const dirty = () => !$('trade-detail').hidden && isEditor() && baseline !== snapshot();
+ const leave = () => !dirty() || window.confirm('Discard unsaved journal changes?');
+ function routeTrade(id, replace = false) {
+  const url = new URL(location.href); url.searchParams.set('tgit_section', 'journal'); url.searchParams.set('tgit_workspace', context.workspace);
+  if (id) url.searchParams.set('tgit_trade', String(id)); else url.searchParams.delete('tgit_trade');
+  if (url.href !== location.href) history[replace ? 'replaceState' : 'pushState'](null, '', url);
+ }
+ function closeTrade(updateRoute = true) {
+  tradeLoad++;
+  releaseImages(); trade = null; $('trade-detail').hidden = true; list.hidden = false; baseline = '';
+  if (updateRoute) routeTrade(null); window.scrollTo(0, listScroll); $('new-trade').focus();
+ }
+ function renderTrades(items) {
+  tradeRows = items;
+  tgitCollection($('trades'), { actor: config.actorId, workspace: context.workspace, key: 'trades', title: 'Trades', defaultSort: 'updated', defaultDescending: true,
+   search: (row) => `${row.title} ${row.symbol} ${row.exchange} ${(row.tags || []).join(' ')}`,
+   filters: [{ key: 'state', label: 'Trade view', default: 'current', values: [['current', 'Current and potential'], ['', 'All'], ['planned', 'Planned'], ['open', 'Open'], ['closed', 'Closed'], ['archived', 'Archived']], matches: (row, value) => !value || (value === 'current' ? ['planned', 'open'].includes(row.state) : row.state === value) }],
+   columns: [
+    { key: 'title', label: 'Trade title', identity: true, required: true, sort: (a, b) => a.title.localeCompare(b.title), render: (row) => { const link = document.createElement('a'); const url = new URL(location.href); url.searchParams.set('tgit_section', 'journal'); url.searchParams.set('tgit_workspace', context.workspace); url.searchParams.set('tgit_trade', row.id); link.href = url; link.textContent = row.title; link.addEventListener('click', (event) => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (leave()) guarded(() => openTrade(row.id))(); }); return link; } },
+    { key: 'asset', label: 'Asset', sort: (a, b) => a.symbol.localeCompare(b.symbol), render: (row) => `${row.symbol} · ${row.exchange}` },
+    { key: 'state', label: 'Status', sort: (a, b) => a.state.localeCompare(b.state), render: (row) => row.state },
+    { key: 'strategy', label: 'Strategy', render: (row) => row.strategy_name || 'Not set' },
+    { key: 'opened', label: 'Opened date', render: (row) => row.opened_on || 'Not set' },
+    { key: 'updated', label: 'Updated', sort: (a, b) => (a.updated_at || a.created_at).localeCompare(b.updated_at || b.created_at), render: (row) => timestamp(row.updated_at || row.created_at) },
+    { key: 'images', label: 'Active images', numeric: true, render: (row) => String(row.image_count) },
+    { key: 'actions', label: 'Actions', required: true, render: (row) => { const group = document.createElement('div'); button('View', () => { if (leave()) guarded(() => openTrade(row.id))(); }, group); if (isEditor()) button('Edit', () => { if (leave()) guarded(async () => { await openTrade(row.id); selectDetail('plan'); })(); }, group); return group; } }
+   ] }, items);
+  $('more-trades').hidden = true;
+ }
+ async function refreshTrades(expected = epoch) { const items = await all('trades', expected); if (expected === epoch) renderTrades(items); }
+ window.addEventListener('beforeunload', (event) => { if (dirty()) { event.preventDefault(); event.returnValue = ''; } });
+ $('workspace').addEventListener('change', (event) => {
+  if (!leave()) { event.stopImmediatePropagation(); $('workspace').value = context.workspace; return; }
+  const url = new URL(location.href); url.searchParams.delete('tgit_trade'); url.searchParams.set('tgit_workspace', $('workspace').value); history.replaceState(null, '', url);
+ }, true);
+ $('tabs').addEventListener('click', (event) => {
+  if (event.target.closest('[role="tab"]')?.dataset.tab === 'journal') return;
+  if (!leave()) { event.preventDefault(); event.stopPropagation(); } else if (!$('trade-detail').hidden) closeTrade(false);
+ }, true);
+ window.addEventListener('popstate', () => {
+  if (!context) return; const url = new URL(location.href);
+  if (!leave()) { window.tgitSelectSection('journal'); routeTrade(trade?.trade.id || 'new', true); return; }
+  if (url.searchParams.get('tgit_section') !== 'journal') { if (!$('trade-detail').hidden) closeTrade(false); return; }
+  const id = url.searchParams.get('tgit_trade'); if (id === 'new') showTrade(null); else if (/^[1-9][0-9]*$/.test(id || '')) guarded(() => openTrade(id, false))(); else closeTrade(false);
+ });
  function renderConfluences() {
   $('confluence-items').replaceChildren();
   for (const labelText of labels($('trade-form').elements.confluences.value)) {
@@ -60,8 +134,10 @@
  }
  $('trade-form').elements.confluences.addEventListener('input', renderConfluences);
  function showTrade(data) {
+  reload.hidden = true;
+  save.textContent = data ? 'Save changes' : 'Create trade'; $('close-trade').textContent = data ? 'Back to trades' : 'Cancel';
   releaseImages(); confluenceState.clear(); trade = data; const form = $('trade-form'); form.reset();
-  $('trade-detail').hidden = false; $('trade-heading').textContent = data ? data.trade.title : 'New trade journal';
+  listScroll = list.hidden ? listScroll : window.scrollY; list.hidden = true; $('trade-detail').hidden = false; $('trade-heading').textContent = data ? data.trade.title : 'New trade journal';
   choices(form.elements.asset_id, context.assets, (item) => `${item.symbol} | ${item.exchange}`);
   const captured = data?.strategy_version;
   const versions = [...strategyVersions]; if (captured && !versions.some((item) => String(item.id) === String(captured.id))) versions.push({ ...captured, name: JSON.parse(captured.payload).name });
@@ -83,10 +159,18 @@
   history(data?.revisions ?? []);
   if (data?.revisions_cursor) { let before = data.revisions_cursor; const older = button('Load older journal revisions', guarded(async () => { const page = await api(path(`trades/${data.trade.id}/revisions?before=${before}&limit=20`)); history(page.items, true); before = page.next_cursor; older.hidden = before === null; }), $('trade-history')); }
   for (const element of form.elements) if (!['button', 'submit'].includes(element.type)) { element.disabled = !isEditor() && (element.tagName === 'SELECT' || ['file', 'checkbox'].includes(element.type)); if ('readOnly' in element) element.readOnly = !isEditor(); }
-  form.querySelector('button[type="submit"]').hidden = !isEditor();
+  save.hidden = !isEditor();
   $('gallery-section').hidden = !data; $('upload-progress').replaceChildren();
+  for (const field of [...form.elements].filter((field) => field.name)) {
+   const label = field.closest('label'); if (label) label.hidden = !data && !['title', 'asset_id', 'strategy_version_id'].includes(field.name);
+  }
+  $('confluence-checklist').hidden = !data;
+  for (const child of form.children) if (child.tagName !== 'LABEL') child.hidden = !data;
+  text('p', data ? `${data.trade.state} · ${context.assets.find((asset) => String(asset.id) === String(data.trade.asset_id))?.symbol || ''}` : 'Planned trade — no financial effect', $('trade-summary'));
+  selectDetail(data ? 'summary' : 'plan'); baseline = snapshot();
+  routeTrade(data?.trade.id || 'new', Boolean(data) && new URL(location.href).searchParams.get('tgit_trade') === 'new');
  }
- async function openTrade(id) { const expected = epoch; notice(messages.loading); const data = await api(path(`trades/${id}`)); if (expected !== epoch) return; showTrade(data); await refreshGallery(); notice(''); $('trade-detail').scrollIntoView({ block: 'start' }); }
+ async function openTrade(id, updateRoute = true) { const expected = epoch, load = ++tradeLoad; notice(messages.loading); const data = await api(path(`trades/${id}`)); if (expected !== epoch || load !== tradeLoad) return; showTrade(data); if (!updateRoute) routeTrade(id, true); await refreshGallery(); if (load !== tradeLoad) return; notice(''); $('trade-detail').scrollIntoView({ block: 'start' }); }
  async function binary(id, variant, expected) {
   const response = await fetch(tgitRestUrl(config.root, path(`images/${id}/content?variant=${variant}`)), { cache: 'no-store', credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce } });
   if (!response.ok) throw new Error('Image is unavailable or access was revoked.');
@@ -96,7 +180,7 @@
   const expected = epoch; $('image-view').replaceChildren(); $('image-dialog').showModal();
   for (const row of rows) { const figure = document.createElement('figure'); const image = document.createElement('img'); image.alt = row.alt_text || row.caption || row.filename; figure.append(image); text('figcaption', row.caption, figure); const url = await binary(row.id, 'original', expected); if (!url || !$('image-dialog').open) return; image.src = url; const link = text('a', 'Download normalized original', figure); link.href = url; link.download = row.filename; $('image-view').append(figure); }
  }
- async function mutateImage(row, operation, extra = {}) { await write(path(`images/${row.id}/${operation}`), { expected_revision: Number(row.revision), ...extra }); await refreshGallery(); }
+ async function mutateImage(row, operation, extra = {}) { await write(path(`images/${row.id}/${operation}`), { expected_revision: Number(row.revision), ...extra }); await refreshGallery(); await refreshTrades(); }
  async function refreshGallery() {
   if (!trade) return; await loadSettings(epoch); const expected = epoch, id = String(trade.trade.id);
   const gallery = await api(path(`trades/${id}/images`)); if (expected !== epoch || String(trade?.trade.id) !== id) return;
@@ -110,7 +194,7 @@
     binary(row.id, 'thumbnail', expected).then((url) => { if (url && image.isConnected) image.src = url; }).catch((error) => text('p', error.message, card));
     text('p', row.caption, card); button('View original', guarded(() => viewImages([row])), card);
     const label = document.createElement('label'); const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; label.append(checkbox, document.createTextNode(' Select for comparison')); card.append(label);
-    checkbox.addEventListener('change', () => { if (checkbox.checked) selected.set(row.id, row); else selected.delete(row.id); $('compare-images').disabled = selected.size !== 2; });
+    checkbox.addEventListener('change', () => { if (checkbox.checked) selected.set(row.id, row); else selected.delete(row.id); $('compare-images').disabled = busy || window.tgitWriteBusy || selected.size !== 2; });
    }
    if (isEditor()) {
     if (['reserved', 'failed'].includes(row.state)) { const retry = document.createElement('input'); retry.type = 'file'; retry.accept = 'image/jpeg,image/png,image/webp'; retry.setAttribute('aria-label', `Retry or replace the pending file for ${row.filename}`); card.append(retry); button('Retry this image', guarded(async () => { if (!retry.files[0]) throw new Error('Select a replacement or the original file for this image.'); await uploadFile(retry.files[0], row); await refreshGallery(); }), card); }
@@ -162,7 +246,7 @@
   } finally { cancel.disabled = true; }
  }
  $('trade-form').addEventListener('submit', (event) => {
-  event.preventDefault(); guarded(async () => {
+  event.preventDefault(); if (!$('trade-form').checkValidity()) { selectDetail('plan'); $('trade-form').reportValidity(); return; } guarded(async () => {
    const form = $('trade-form'), files = [...form.elements.images.files]; const input = {};
    for (const name of ['title', 'state', 'opened_on', 'closed_on']) input[name] = form.elements[name].value;
    input.asset_id = Number(form.elements.asset_id.value); input.strategy_version_id = form.elements.strategy_version_id.value ? Number(form.elements.strategy_version_id.value) : null;
@@ -175,13 +259,13 @@
    if (trade) input.expected_revision = Number(trade.trade.revision);
    const result = await write(path(trade ? `trades/${trade.trade.id}` : 'trades'), input); showTrade(result);
    const failures = []; for (const file of files) { try { await uploadFile(file); } catch (error) { failures.push(`${file.name}: ${error.message}`); } }
-   const page = await api(path('trades?limit=100')); renderTrades(page.items); cursor = page.next_cursor; $('more-trades').hidden = cursor === null;
+   await refreshTrades();
    await refreshGallery(); notice(failures.length ? `Journal saved. ${failures.length} image upload(s) failed. ${failures[0]}` : messages.saved, failures.length > 0);
   })();
  });
- $('new-trade').addEventListener('click', () => { if (busy) return; showTrade(null); $('trade-detail').scrollIntoView({ block: 'start' }); $('trade-form').elements.title.focus(); });
- $('close-trade').addEventListener('click', () => { if (busy) return; releaseImages(); trade = null; $('trade-detail').hidden = true; });
- $('more-trades').addEventListener('click', guarded(async () => { const page = await api(path(`trades?after=${cursor}&limit=100`)); renderTrades(page.items, true); cursor = page.next_cursor; $('more-trades').hidden = cursor === null; }));
+ $('new-trade').addEventListener('click', () => { if (busy || !leave()) return; showTrade(null); $('trade-detail').scrollIntoView({ block: 'start' }); $('trade-form').elements.title.focus(); });
+ $('close-trade').addEventListener('click', () => { if (busy || !leave()) return; closeTrade(); });
+
  $('compare-images').addEventListener('click', guarded(() => viewImages([...selected.values()])));
  $('close-image').addEventListener('click', () => $('image-dialog').close());
  $('new-strategy').addEventListener('click', () => { if (busy) return; strategy = null; $('strategy-form').reset(); $('strategy-editing').textContent = 'New strategy'; });
@@ -202,8 +286,13 @@
  $('media-settings-form').addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const input = Object.fromEntries([...new FormData($('media-settings-form'))].map(([key, value]) => [key, Number(value)])); input.expected_revision = Number(limits.limits.revision); await write(path('media-settings'), input); await loadSettings(epoch); notice(messages.saved); })(); });
  $('media-cleanup').addEventListener('click', guarded(async () => { const result = await write(path('media-cleanup'), {}); await loadSettings(epoch); if (trade) await refreshGallery(); notice(`Cleaned up ${result.purged} expired images/reservations.`); }));
  window.addEventListener('tgit-workspace', async (event) => {
-  context = event.detail; const expected = ++epoch; trade = null; strategy = null; pending.clear(); releaseImages(); $('trade-detail').hidden = true;
+  const routeId = new URL(location.href).searchParams.get('tgit_trade');
+  context = event.detail; const expected = ++epoch; trade = null; strategy = null; strategyVersions = []; tradeRows = []; pending.clear(); releaseImages(); $('trade-detail').hidden = true; list.hidden = false; baseline = ''; $('trades').replaceChildren();
+  $('trade-form').reset(); confluenceState.clear();
+  for (const id of ['trade-summary', 'fill-facts', 'trade-history', 'gallery', 'image-view', 'upload-progress']) $(id).replaceChildren();
+  choices($('trade-form').elements.asset_id, context.assets, (item) => `${item.symbol} · ${item.exchange}`);
+  choices($('trade-form').elements.strategy_version_id, [], (item) => item.name, true);
   $('new-trade').hidden = !isEditor(); $('strategy-form').hidden = !isManager(); $('strategy-form').reset(); $('media-settings-section').hidden = context.role !== 'owner'; notice(messages.loading);
-  try { const page = await api(path('trades?limit=100')); if (expected !== epoch) return; renderTrades(page.items); cursor = page.next_cursor; $('more-trades').hidden = cursor === null; await Promise.all([loadStrategies(expected), loadSettings(expected)]); if (expected === epoch) notice(''); } catch (error) { if (expected === epoch) notice(error.message, true); }
+  try { await Promise.all([refreshTrades(expected), loadStrategies(expected), loadSettings(expected)]); if (expected === epoch) { notice(''); if (routeId && routeId === new URL(location.href).searchParams.get('tgit_trade')) { if (routeId === 'new') showTrade(null); else if (/^[1-9][0-9]*$/.test(routeId)) await openTrade(routeId); } } } catch (error) { if (expected === epoch) notice(error.message, true); }
  });
 })();

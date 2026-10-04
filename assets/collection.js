@@ -5,7 +5,7 @@
  const node = (tag, value, parent) => { const element = document.createElement(tag); if (value !== undefined) element.textContent = value; if (parent) parent.append(element); return element; };
  function create(target, options) {
   target.classList.remove('tgit-cards'); target.classList.add('tgit-collection'); target.replaceChildren();
-  let rows = [], page = 0, query = '', order = '', descending = false;
+  let rows = [], page = 0, query = '', order = options.defaultSort || '', descending = options.defaultDescending === true;
   const key = `tgit-collection:${options.actor}:${options.workspace}:${options.key}`;
   let preferences = {};
   try {
@@ -20,6 +20,19 @@
   const title = node('h3', options.title, toolbar);
   const searchLabel = node('label', 'Search', toolbar); const search = node('input', undefined, searchLabel); search.type = 'search'; search.setAttribute('aria-label', `Search ${options.title}`);
   const clear = node('button', 'Clear search', toolbar); clear.type = 'button'; clear.className = 'button';
+  const filterValues = {}, filterSelects = new Map();
+  for (const filter of options.filters || []) {
+   const label = node('label', filter.label, toolbar); const select = node('select', undefined, label);
+   select.setAttribute('aria-label', filter.label);
+   for (const [value, title] of filter.values) { const option = node('option', title, select); option.value = value; }
+   select.value = filter.default || ''; filterValues[filter.key] = select.value;
+   filterSelects.set(filter.key, select);
+   select.addEventListener('change', () => { filterValues[filter.key] = select.value; page = 0; render(); });
+  }
+  if ((options.filters || []).length) {
+   const reset = node('button', 'Clear filters', toolbar); reset.type = 'button'; reset.className = 'button';
+   reset.addEventListener('click', () => { query = ''; search.value = ''; page = 0; for (const [key, select] of filterSelects) { select.value = ''; filterValues[key] = ''; } render(); });
+  }
   const settings = node('details', undefined, toolbar); node('summary', 'Columns and density', settings);
   const controls = node('div', undefined, settings); controls.className = 'tgit-collection-options';
   const densityLabel = node('label', undefined, controls); const density = node('input', undefined, densityLabel); density.type = 'checkbox'; density.checked = compact; densityLabel.append(document.createTextNode('Compact desktop rows'));
@@ -53,12 +66,13 @@
      sort.addEventListener('click', () => { descending = order === column.key ? !descending : false; order = column.key; page = 0; render(); head.querySelector(`[data-column="${column.key}"]`).focus(); }); sort.dataset.column = column.key;
     } else cell.textContent = column.label;
    }
-   let matches = rows.filter((row) => !query || options.search(row).toLocaleLowerCase().includes(query));
+   let matches = rows.filter((row) => (!query || options.search(row).toLocaleLowerCase().includes(query)) && (options.filters || []).every((filter) => filter.matches(row, filterValues[filter.key])));
    const sorted = options.columns.find((column) => column.key === order);
    if (sorted) matches = [...matches].sort((a, b) => { const difference = sorted.sort(a, b); return (descending ? -difference : difference) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }); });
    const pages = Math.max(1, Math.ceil(matches.length / size)); page = Math.max(0, Math.min(page, pages - 1));
    title.textContent = `${options.title} (${rows.length})`;
-   feedback.textContent = rows.length === 0 ? 'No records yet.' : matches.length === 0 ? 'No records match your search.' : `${matches.length} records${query ? ' match your search' : ''}.`;
+   const filters = [...filterSelects.values()].filter((select) => select.value).map((select) => select.selectedOptions[0].textContent).join(', ');
+   feedback.textContent = rows.length === 0 ? 'No records yet.' : matches.length === 0 ? 'No records match the current search or view.' : `${matches.length} records${query ? ' match your search' : ''}.${filters ? ` View: ${filters}.` : ''}`;
    for (const row of matches.slice(page * size, (page + 1) * size)) {
     const tr = node('tr', undefined, body);
     for (const column of columns) {

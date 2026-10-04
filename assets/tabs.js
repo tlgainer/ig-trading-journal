@@ -63,6 +63,7 @@
   tab.addEventListener('click', () => {
    select(tab.dataset.tab);
    const url = new URL(location.href); url.searchParams.set('tgit_section', active);
+   if (active !== 'journal') url.searchParams.delete('tgit_trade');
    history.pushState(null, '', url);
   });
   tab.addEventListener('keydown', (event) => {
@@ -83,5 +84,6 @@
   select(tabs.find((tab) => tab.dataset.tab === active && !tab.hidden) ? active : 'overview');
  });
  window.addEventListener('popstate', () => select(routeSection()));
+ window.tgitSelectSection = (name) => select(name);
  select(tabs.some((tab) => tab.dataset.tab === active) ? active : 'overview'); nav.hidden = false;
 })();

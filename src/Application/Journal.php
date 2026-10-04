@@ -57,7 +57,24 @@ final class Journal {
 		if ( ! in_array( $type, array( 'trades', 'strategies' ), true ) || $after < 0 || $limit < 1 || $limit > 100 ) {
 			throw new \InvalidArgumentException( 'Invalid journal page.' );
 		}
-		$items = $this->db->rows( 'SELECT * FROM ' . $this->db->table( $type ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
+		$items = array();
+		if ( 'strategies' === $type ) {
+			$items = $this->db->rows( 'SELECT * FROM ' . $this->db->table( $type ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
+		}
+		if ( 'trades' === $type ) {
+			$items = $this->db->rows(
+				'SELECT t.*,a.symbol,a.exchange,j.created_at AS updated_at,j.payload AS journal_payload,v.payload AS strategy_payload,(SELECT COUNT(*) FROM ' . $this->db->table( 'media' ) . " i WHERE i.workspace_id = t.workspace_id AND i.trade_id = t.id AND i.state IN ('reserved','ready','failed')) AS image_count FROM " . $this->db->table( 'trades' ) . ' t JOIN ' . $this->db->table( 'assets' ) . ' a ON a.workspace_id = t.workspace_id AND a.id = t.asset_id LEFT JOIN ' . $this->db->table( 'trade_journals' ) . ' j ON j.workspace_id = t.workspace_id AND j.trade_id = t.id AND j.revision = t.revision LEFT JOIN ' . $this->db->table( 'strategy_versions' ) . ' v ON v.workspace_id = t.workspace_id AND v.id = t.strategy_version_id WHERE t.workspace_id = %d AND t.id > %d ORDER BY t.id LIMIT %d',
+				array( $workspace, $after, $limit )
+			);
+			foreach ( $items as &$item ) {
+				$journal               = json_decode( $item['journal_payload'] ?? '{}', true );
+				$strategy              = json_decode( $item['strategy_payload'] ?? '{}', true );
+				$item['tags']          = $journal['fields']['tags'] ?? array();
+				$item['strategy_name'] = $strategy['name'] ?? null;
+				unset( $item['journal_payload'], $item['strategy_payload'] );
+			}
+			unset( $item );
+		}
 		return array(
 			'items'       => $items,
 			'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,

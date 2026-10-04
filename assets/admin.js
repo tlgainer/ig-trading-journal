@@ -176,5 +176,5 @@
    } catch (error) { status(error.message, true); } finally { button.disabled = false; }
   });
  }
- loadWorkspaces().catch((error) => status(error.message, true));
+ loadWorkspaces(new URL(location.href).searchParams.get('tgit_workspace')).catch((error) => status(error.message, true));
 })();
