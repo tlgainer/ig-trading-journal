@@ -81,6 +81,7 @@ final class Controller {
 		self::route( $base . '/historical-cash', 'POST', 'post_historical_cash' );
 		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
+		self::route( $base . '/calculators/(?P<calculator>crypto|risk)', 'POST', 'scenario' );
 	}
 
 	/**
@@ -193,6 +194,8 @@ final class Controller {
 				$result = $service->$operation( $workspace, (int) $request->get_url_params()['transaction'], $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'holdings' === $operation ) {
 				$result = $service->holdings( $workspace, (int) $request['after'], (int) $request['limit'] );
+			} elseif ( 'scenario' === $operation ) {
+				$result = $service->scenario( $workspace, (string) $request->get_url_params()['calculator'], $data );
 			} elseif ( 'workspaces' === $operation ) {
 				$result = array( 'items' => $service->workspaces() );
 			} elseif ( 'create_workspace' === $operation ) {

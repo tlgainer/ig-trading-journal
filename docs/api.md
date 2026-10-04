@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.8.0
+# REST contract: tgit/v1, build 0.8.1
 
 All routes are private. Use a WordPress cookie session plus `X-WP-Nonce` from `wp_create_nonce('wp_rest')`, or WordPress application-password authentication over HTTPS. Production and staging require HTTPS; only explicitly local/development environments allow HTTP. Every service checks current membership; site administrator status cannot bypass workspace authorization.
 
@@ -13,6 +13,8 @@ Base path: `/wp-json/tgit/v1`.
 | `/workspaces/{workspace}/assets` | GET, POST | Read: active member; create: owner/manager |
 | `/workspaces/{workspace}/transactions` | GET, POST | Read: active member; post: owner/manager; draft: owner/manager/contributor |
 | `/workspaces/{workspace}/holdings` | GET | Active member |
+| `/workspaces/{workspace}/calculators/crypto` | POST | Active member; non-posting crypto profit scenario |
+| `/workspaces/{workspace}/calculators/risk` | POST | Active member; non-posting long-position risk scenario |
 | `/workspaces/{workspace}/opening-balances` | POST | Owner/manager; documented starting cash or pre-existing asset lot |
 | `/workspaces/{workspace}/opening-balances/retroactive` | POST | Owner/manager; reviewed opening before posted history |
 | `/workspaces/{workspace}/opening-balances/{id}/basis-resolutions` | POST | Owner/manager; revise evidence for unknown opening lot basis |
@@ -50,6 +52,14 @@ Every transaction POST requires `Idempotency-Key` (8-128 ASCII letters/digits or
 Success: `{"data": ..., "correlation_id": "uuid"}`. Stable errors: `tgit_validation` (400), `tgit_unauthenticated` (401), `tgit_forbidden`/`tgit_https_required` (403), `tgit_not_found` (404), `tgit_conflict` (409), `tgit_unavailable` (503), `tgit_internal_error` (500). Application errors include a correlation ID; every routed response carries `X-Correlation-ID` and no-store headers. Field-detail error arrays are not yet implemented.
 
 Holdings return `quantity`, `remaining_basis`, `realized_gain`, native `currency`, `calculation_version`, `as_of`, `market_value: null`, `unrealized_gain: null`, `price_status: missing`. This version returns live ledger positions, not historical snapshots; `as_of` is response time. There are no base totals or complete valuation claims.
+
+## Scenario calculators (0.8.1)
+
+Calculator requests require workspace membership and plain decimal strings. They never mutate ledger or journal records; results return `posted:false` and a calculation version. An optional three-letter `currency` labels all monetary inputs/results, and an optional plain-text `note` is echoed without storage.
+
+`POST /workspaces/{workspace}/calculators/crypto`: `{"buy_price":"20","sell_price":"30","investment":"100","buy_fee":"2","sell_fee":"3","currency":"USD","note":"Example"}`. Investment is principal before fees. Units are investment divided by buy price; `position_value` is gross units × proposed sell/current price; `net_exit_value` subtracts the sell fee; `profit_amount` subtracts principal and buy fee; `profit_percentage` divides profit by principal plus buy fee. Omitted fees are zero. These are scenarios, not trade recommendations.
+
+`POST /workspaces/{workspace}/calculators/risk`: `{"entry_price":"100","risk_budget":"50","stop_distance":"5","currency":"USD"}`. For a long position, stop price is entry minus absolute stop distance. Position size is risk budget divided by stop distance, truncated to 18 decimal places so the unit quantity does not exceed the budget. Capital required and risk at stop are shown in the chosen currency. Stop distance must be positive and below entry price.
 
 
 ## Draft revisions (0.3.0)

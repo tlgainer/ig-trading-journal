@@ -36,6 +36,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-admin', plugins_url( 'assets/admin.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-rest-url', 'tgit-tabs' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-opening', plugins_url( 'assets/opening.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-journal', plugins_url( 'assets/journal.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-calculators', plugins_url( 'assets/calculators.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -92,6 +93,7 @@ final class Screen {
 			'transactions' => __( 'Transactions', 'ig-trading-journal' ),
 			'journal'      => __( 'Trade Journal', 'ig-trading-journal' ),
 			'strategies'   => __( 'Strategies', 'ig-trading-journal' ),
+			'calculators'  => __( 'Calculators', 'ig-trading-journal' ),
 			'settings'     => __( 'Settings', 'ig-trading-journal' ),
 		) as $tab => $label ) :
 			?>
@@ -156,6 +158,34 @@ final class Screen {
 	</section>
 	<section><h2><?php esc_html_e( 'Holdings', 'ig-trading-journal' ); ?></h2><div id="tgit-holdings" class="tgit-cards"></div><button id="tgit-more-holdings" class="button" hidden><?php esc_html_e( 'Load more holdings', 'ig-trading-journal' ); ?></button></section>
 	<section><h2><?php esc_html_e( 'Transactions', 'ig-trading-journal' ); ?></h2><div id="tgit-transactions" class="tgit-cards"></div><button id="tgit-more-transactions" class="button" hidden><?php esc_html_e( 'Load more transactions', 'ig-trading-journal' ); ?></button></section>
+	<section id="tgit-calculators-section">
+	<h2><?php esc_html_e( 'Scenario calculators', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Scenarios use the currency you enter and never post transactions. Fees are entered separately from investment principal.', 'ig-trading-journal' ); ?></p>
+	<div class="tgit-grid">
+	<form id="tgit-crypto-calculator" class="tgit-form">
+	<h3><?php esc_html_e( 'Crypto profit', 'ig-trading-journal' ); ?></h3>
+	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
+	<label><?php esc_html_e( 'Buy price per unit', 'ig-trading-journal' ); ?><input name="buy_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Sell or current price per unit', 'ig-trading-journal' ); ?><input name="sell_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Investment principal, excluding fees', 'ig-trading-journal' ); ?><input name="investment" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Buy fee', 'ig-trading-journal' ); ?><input name="buy_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Sell fee', 'ig-trading-journal' ); ?><input name="sell_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Calculate profit', 'ig-trading-journal' ); ?></button>
+	<output id="tgit-crypto-result" aria-live="polite"></output>
+	</form>
+	<form id="tgit-risk-calculator" class="tgit-form">
+	<h3><?php esc_html_e( 'Long-position risk', 'ig-trading-journal' ); ?></h3>
+	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
+	<label><?php esc_html_e( 'Entry price per unit', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Risk budget', 'ig-trading-journal' ); ?><input name="risk_budget" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Stop distance below entry', 'ig-trading-journal' ); ?><input name="stop_distance" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Calculate size', 'ig-trading-journal' ); ?></button>
+	<output id="tgit-risk-result" aria-live="polite"></output>
+	</form>
+	</div>
+	</section>
 		<?php JournalScreen::render(); ?>
 	<section id="tgit-members-section" hidden><h2><?php esc_html_e( 'Workspace members', 'ig-trading-journal' ); ?></h2><div id="tgit-members" class="tgit-cards"></div>
 	<form id="tgit-member-form" class="tgit-form">

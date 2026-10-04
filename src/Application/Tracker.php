@@ -11,6 +11,7 @@ namespace GainerInteractive\IGTradingJournal\Application;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
 use GainerInteractive\IGTradingJournal\Domain\Replay;
+use GainerInteractive\IGTradingJournal\Domain\Scenario;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 
 /** Tracker service for the current implementation slice. */
@@ -1542,6 +1543,45 @@ final class Tracker {
 			'transaction'         => $this->db->object( 'transactions', $workspace, $id ),
 			'calculation_version' => Ledger::VERSION,
 		);
+		return $result;
+	}
+
+	/**
+	 * Calculate a private, non-posting scenario for an authorized member.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param string $type Crypto profit or long-position risk.
+	 * @param array  $input Decimal-string inputs and optional note.
+	 * @return array Calculated scenario, never a ledger event.
+	 * @throws \InvalidArgumentException When inputs are invalid.
+	 */
+	public function scenario( int $workspace, string $type, array $input ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		if ( 'crypto' === $type ) {
+			self::fields( $input, array( 'buy_price', 'sell_price', 'investment', 'buy_fee', 'sell_fee', 'currency', 'note' ), array( 'buy_price', 'sell_price', 'investment' ) );
+			$result = Scenario::crypto(
+				Decimal::input( $input['buy_price'], 18, true ),
+				Decimal::input( $input['sell_price'], 18, true ),
+				Decimal::input( $input['investment'], 12, true ),
+				Decimal::input( $input['buy_fee'] ?? '0', 12 ),
+				Decimal::input( $input['sell_fee'] ?? '0', 12 )
+			);
+		} elseif ( 'risk' === $type ) {
+			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'currency', 'note' ), array( 'entry_price', 'risk_budget', 'stop_distance' ) );
+			$result = Scenario::risk(
+				Decimal::input( $input['entry_price'], 18, true ),
+				Decimal::input( $input['risk_budget'], 12, true ),
+				Decimal::input( $input['stop_distance'], 18, true )
+			);
+		} else {
+			throw new \InvalidArgumentException( 'Unknown scenario type.' );
+		}
+		if ( isset( $input['note'] ) && ! is_string( $input['note'] ) ) {
+			throw new \InvalidArgumentException( 'Scenario note must be text.' );
+		}
+		$result['note']     = isset( $input['note'] ) && '' !== trim( $input['note'] ) ? sanitize_text_field( self::text( $input['note'], 500 ) ) : '';
+		$result['currency'] = isset( $input['currency'] ) ? self::currency( $input['currency'] ) : null;
+		$result['posted']   = false;
 		return $result;
 	}
 

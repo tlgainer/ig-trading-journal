@@ -1,6 +1,6 @@
 # PRD implementation coverage
 
-Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.8.0, schema 6. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
+Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.8.1, schema 6. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
@@ -15,6 +15,7 @@ Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0
 | API 01-04, SEC 01/04 | Authenticated/private versioned API, decimal strings, WP cookie/nonce checks, object/capability checks, strict JSON keys, idempotency/revisions, bounded list/history pages and private binary routes | Detailed field errors, saved filters and broader abuse/rate/host tests |
 | AUD 01-03 | Append-only ledger/journal/strategy revisions, actor/UTC/correlation evidence, media lifecycle/metadata audit; correction links and replay runs retain source/replacement, reason and prior calculations | Stronger old/new role/media payloads, independent digests/export |
 | PF 01, UX 01/03/04/05 | Native holdings/cash/basis/gains, missing valuation is null; desktop/360-pixel journal/gallery workflow; workspace-zone history presentation | Prices/FX/base reports and full WordPress-theme/browser/WCAG audit |
+| CA 01-02 | Exact-decimal crypto profit and long-position risk scenarios, separate fee inputs, optional note, private REST and admin tab; no ledger posting | Broader scenario/strategy analytics and accessibility review |
 | OPS 02, PRI 02 | Deactivation/uninstall preserve data; private retained trash policy; no external telemetry/AI/providers | Closure/privacy/export, consistent DB/media restore and full operational recovery |
 | DEV 01-08 | Contracts, deterministic fixtures, SQL/API/setup/decision docs, locked PHP and browser test tools | CI compatibility matrix, discovery/reconciliation/cutover and release signoff |
 

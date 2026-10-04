@@ -14,7 +14,7 @@ Activation/reactivation installs schema version 6, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.8.0
+## Current build: 0.8.1
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.
@@ -25,10 +25,11 @@ The creator becomes the workspace owner. Other WordPress administrators do not g
 - Versioned strategies captured on trades; later strategy edits preserve the original rationale.
 - Multiple private JPEG/PNG/WebP images, captions, ordering, comparison, retry/replacement, recoverable trash and owner-configured quotas. Image uploads additionally require PHP GD and private local storage; see [setup](docs/private-images.md).
 - Versioned authenticated REST API, atomic posting and audit evidence, workspace-scoped idempotency keys, paginated lists, and a responsive admin screen.
+- Private crypto-profit and long-position risk scenarios with exact decimal arithmetic, explicit fee treatment, and no ledger posting.
 
 Record funding before purchases. For an account with pre-existing cash or shares, enter its documented opening balances in Settings before ordinary posting; all entries in that account share one opening date. Existing accounts with posted history use the dedicated retroactive-opening API, which validates later cash and lots. Dates are date-only; same-day opening entries precede ordinary events, and corrections keep their source order. Ordinary earlier-dated posting remains blocked; use the dedicated historical APIs for reviewed entries. Account and asset currencies must match; no cross-currency posting, overdraft, shorts or unsupported instruments. Price-dependent values remain unknown, and no consolidated base-currency totals are invented.
 
-This is a staged ledger and journal build, not the complete MVP. Trade-linked fill corrections remain. Watchlists/research/calculators/reports, imports/reconciliation/exports/restore testing, broader accounting/valuation and commercial adapters also remain. Image processing is bounded and synchronous per file; asynchronous processing and crash/orphan reconciliation remain operational release work. See [requirements and phase gates](docs/requirements.md).
+This is a staged ledger and journal build, not the complete MVP. Trade-linked fill corrections remain. Watchlists/research/reports, imports/reconciliation/exports/restore testing, broader accounting/valuation and commercial adapters also remain. Image processing is bounded and synchronous per file; asynchronous processing and crash/orphan reconciliation remain operational release work. See [requirements and phase gates](docs/requirements.md).
 
 See the [remaining-work checklist](docs/remaining-work.md) for the prioritized implementation sequence and hosting/pilot prerequisites.
 

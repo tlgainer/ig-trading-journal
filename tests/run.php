@@ -4,10 +4,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Domain/Decimal.php';
 require_once __DIR__ . '/../src/Domain/Ledger.php';
 require_once __DIR__ . '/../src/Domain/Replay.php';
+require_once __DIR__ . '/../src/Domain/Scenario.php';
 require_once __DIR__ . '/../src/Application/Access.php';
 use GainerInteractive\IGTradingJournal\Domain\Decimal as D;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
 use GainerInteractive\IGTradingJournal\Domain\Replay;
+use GainerInteractive\IGTradingJournal\Domain\Scenario;
 use GainerInteractive\IGTradingJournal\Application\Access;
 
 if (!extension_loaded('bcmath')) { fwrite(STDERR, "BCMath is required.\n"); exit(1); }
@@ -136,5 +138,15 @@ test('Retroactive same-day opening lots precede ordinary sales', function () {
   ['id' => 3, 'effective_date' => '2026-01-01', 'action' => 'opening_lot', 'asset_id' => 7, 'acquired_on' => '2020-01-01', 'quantity' => '1', 'amount' => '10', 'basis_status' => 'complete'],
  ];
  $result = Replay::calculate($events); decimal($result['effects'][2]['realized_gain'], '10'); decimal($result['cash_balance'], '120');
+});
+test('Crypto scenario states fee treatment without posting a trade', function () {
+ $plain = Scenario::crypto('20', '30', '100'); decimal($plain['units'], '5'); decimal($plain['position_value'], '150'); decimal($plain['profit_amount'], '50'); decimal($plain['profit_percentage'], '50'); equal($plain['fees_included'], false);
+ $fees = Scenario::crypto('20', '30', '100', '2', '3'); decimal($fees['net_exit_value'], '147'); decimal($fees['profit_amount'], '45'); decimal($fees['profit_percentage'], '44.117647058824'); equal($fees['fees_included'], true);
+ rejects(fn() => Scenario::crypto('0', '30', '100'));
+});
+test('Long-position risk scenario respects the absolute stop distance', function () {
+ $risk = Scenario::risk('100', '50', '5'); decimal($risk['stop_price'], '95'); decimal($risk['position_size'], '10'); decimal($risk['capital_required'], '1000'); decimal($risk['risk_used'], '50');
+ rejects(fn() => Scenario::risk('100', '50', '100'));
+ rejects(fn() => Scenario::risk('100', '0', '5'));
 });
 echo "$passed tests passed.\n";
