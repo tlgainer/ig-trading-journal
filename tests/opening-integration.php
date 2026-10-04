@@ -9,8 +9,15 @@ test('Schema 3 opening table installs idempotently', function () {
  update_option('tgit_schema_version', '2');
  Installer::install();
  equal(Installer::ready(), true);
- equal(get_option('tgit_schema_version'), '5');
+ equal(get_option('tgit_schema_version'), '6');
  Installer::install();
+});
+
+test('Schema 6 basis table repairs from version 5', function () use ($db) {
+ update_option('tgit_schema_version', '5');
+ Installer::install();
+ equal(get_option('tgit_schema_version'), '6');
+ equal($db->row('SHOW COLUMNS FROM ' . $db->table('opening_basis_resolutions') . ' LIKE %s', ['amount'])['Field'], 'amount');
 });
 
 $ow = $tracker->create_workspace(['name' => 'Opening fixture'])['id'];
@@ -92,4 +99,73 @@ test('Opening cash and audit evidence roll back together', function () use ($tra
  decimal($tracker->list_objects($workspace, 'accounts')[0]['cash_balance'], '0');
  equal(count($tracker->list_objects($workspace, 'transactions')), 0);
  equal($db->row('SELECT id FROM ' . $db->table('opening_balances') . ' WHERE workspace_id = %d', [$workspace]), null);
+});
+
+test('Retroactive opening cash and lots replay later FIFO without rewriting sales', function () use ($tracker, $db) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Retroactive opening fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'Prior holdings', 'native_currency' => 'USD']);
+ $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'RETRO', 'exchange' => 'TEST', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
+ $base = ['account_id' => (int) $account['id'], 'asset_id' => (int) $asset['id'], 'currency' => 'USD', 'state' => 'posted'];
+ $tracker->post($workspace, ['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'action' => 'deposit', 'effective_date' => '2026-01-02', 'amount' => '100'], 'retro-deposit');
+ $tracker->post($workspace, $base + ['action' => 'buy', 'effective_date' => '2026-01-03', 'quantity' => '5', 'unit_price' => '10', 'fees' => '0'], 'retro-buy');
+ $sale = $tracker->post($workspace, $base + ['action' => 'sell', 'effective_date' => '2026-01-04', 'quantity' => '2', 'unit_price' => '20', 'fees' => '0'], 'retro-sell');
+ $cash = ['account_id' => (int) $account['id'], 'kind' => 'cash', 'effective_date' => '2026-01-01', 'amount' => '50', 'source_note' => 'Opening statement cash'];
+ $posted = $tracker->retroactive_opening($workspace, $cash, 'retro-cash');
+ equal($tracker->retroactive_opening($workspace, $cash, 'retro-cash'), $posted);
+ decimal($tracker->list_objects($workspace, 'accounts')[0]['cash_balance'], '140');
+ $lot = ['account_id' => (int) $account['id'], 'asset_id' => (int) $asset['id'], 'kind' => 'lot', 'effective_date' => '2026-01-01', 'acquired_on' => '2020-01-01', 'quantity' => '2', 'basis_status' => 'complete', 'amount' => '4', 'source_note' => 'Opening statement lot'];
+ $tracker->retroactive_opening($workspace, $lot, 'retro-lot');
+ $detail = $tracker->transaction($workspace, (int) $sale['transaction']['id']);
+ decimal($detail['transaction']['realized_gain'], '20'); decimal($detail['current_calculation']['realized_gain'], '36');
+ $holding = $tracker->holdings($workspace)['items'][0]; decimal($holding['quantity'], '5'); decimal($holding['remaining_basis'], '50');
+ opening_conflicts(fn() => $tracker->retroactive_opening($workspace, array_replace($cash, ['effective_date' => '2026-01-02']), 'retro-wrong-date'));
+ equal(count($db->rows('SELECT id FROM ' . $db->table('replay_runs') . ' WHERE workspace_id = %d', [$workspace])), 2);
+});
+
+test('Retroactive opening REST enforces membership and source provenance', function () use ($tracker, $owner, $viewer) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Retroactive REST fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'Retro REST account', 'native_currency' => 'USD']);
+ $tracker->post($workspace, ['account_id' => (int) $account['id'], 'currency' => 'USD', 'state' => 'posted', 'action' => 'deposit', 'effective_date' => '2026-01-02', 'amount' => '100'], 'retro-rest-deposit');
+ $request = new WP_REST_Request('POST', '/tgit/v1/workspaces/' . $workspace . '/opening-balances/retroactive');
+ $request->set_header('Content-Type', 'application/json'); $request->set_header('Idempotency-Key', 'retro-rest-opening');
+ $request->set_body(wp_json_encode(['account_id' => (int) $account['id'], 'kind' => 'cash', 'effective_date' => '2026-01-01', 'amount' => '50', 'source_note' => 'Reconciled broker statement']));
+ wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(), 403);
+ wp_set_current_user($owner); $response = rest_do_request($request); equal($response->get_status(), 200);
+ equal($response->get_data()['data']['opening']['source_note'], 'Reconciled broker statement');
+ decimal($tracker->list_objects($workspace, 'accounts')[0]['cash_balance'], '150');
+});
+
+test('Unknown opening basis resolves through immutable revision evidence', function () use ($tracker, $db) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Basis resolution fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'Basis account', 'native_currency' => 'USD']);
+ $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'BASIS', 'exchange' => 'TEST', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
+ $lot = $tracker->opening_balance($workspace, ['account_id' => (int) $account['id'], 'asset_id' => (int) $asset['id'], 'kind' => 'lot', 'effective_date' => '2026-01-01', 'acquired_on' => '2020-01-01', 'quantity' => '5', 'basis_status' => 'unresolved', 'source_note' => 'Units from statement'], 'basis-unresolved-lot');
+ $id = (int) $lot['transaction']['id'];
+ $first = ['expected_revision' => 0, 'amount' => '50', 'reason' => 'Broker cost basis statement'];
+ $resolved = $tracker->resolve_opening_basis($workspace, $id, $first, 'basis-first');
+ equal($tracker->resolve_opening_basis($workspace, $id, $first, 'basis-first'), $resolved);
+ equal((int) $resolved['resolution']['revision'], 1);
+ decimal($tracker->holdings($workspace)['items'][0]['remaining_basis'], '50');
+ equal($tracker->transaction($workspace, $id)['transaction']['amount'], '0.000000000000');
+ opening_conflicts(fn() => $tracker->resolve_opening_basis($workspace, $id, $first, 'basis-stale'));
+ $sale = $tracker->post($workspace, ['account_id' => (int) $account['id'], 'asset_id' => (int) $asset['id'], 'currency' => 'USD', 'state' => 'posted', 'action' => 'sell', 'effective_date' => '2026-01-02', 'quantity' => '2', 'unit_price' => '20', 'fees' => '0'], 'basis-sale');
+ decimal($sale['transaction']['realized_gain'], '20');
+ $tracker->resolve_opening_basis($workspace, $id, ['expected_revision' => 1, 'amount' => '75', 'reason' => 'Corrected broker basis'], 'basis-second');
+ $detail = $tracker->transaction($workspace, (int) $sale['transaction']['id']);
+ decimal($detail['transaction']['realized_gain'], '20'); decimal($detail['current_calculation']['realized_gain'], '10');
+ decimal($tracker->holdings($workspace)['items'][0]['remaining_basis'], '45');
+ equal(count($db->rows('SELECT id FROM ' . $db->table('opening_basis_resolutions') . ' WHERE workspace_id = %d AND opening_transaction_id = %d', [$workspace, $id])), 2);
+});
+
+test('Opening basis REST denies viewers and resolves explicit zero', function () use ($tracker, $owner, $viewer) {
+ $workspace = (int) $tracker->create_workspace(['name' => 'Basis REST fixture'])['id'];
+ $account = $tracker->create_object($workspace, 'accounts', ['name' => 'Basis REST account', 'native_currency' => 'USD']);
+ $asset = $tracker->create_object($workspace, 'assets', ['symbol' => 'BREST', 'exchange' => 'TEST', 'asset_class' => 'stock', 'quote_currency' => 'USD']);
+ $lot = $tracker->opening_balance($workspace, ['account_id' => (int) $account['id'], 'asset_id' => (int) $asset['id'], 'kind' => 'lot', 'effective_date' => '2026-01-01', 'acquired_on' => '2020-01-01', 'quantity' => '1', 'basis_status' => 'unresolved', 'source_note' => 'No original basis'], 'basis-rest-lot');
+ $request = new WP_REST_Request('POST', '/tgit/v1/workspaces/' . $workspace . '/opening-balances/' . $lot['transaction']['id'] . '/basis-resolutions');
+ $request->set_header('Content-Type', 'application/json'); $request->set_header('Idempotency-Key', 'basis-rest-zero');
+ $request->set_body(wp_json_encode(['expected_revision' => 0, 'amount' => '0', 'reason' => 'Statement confirms zero basis']));
+ wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(), 403);
+ wp_set_current_user($owner); $response = rest_do_request($request); equal($response->get_status(), 200);
+ decimal($tracker->holdings($workspace)['items'][0]['remaining_basis'], '0');
 });

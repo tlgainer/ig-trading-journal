@@ -75,6 +75,8 @@ final class Controller {
 		self::route( $base . '/transactions/(?P<transaction>[1-9][0-9]*)/post', 'POST', 'promote_draft' );
 		self::route( $base . '/transactions/(?P<transaction>[1-9][0-9]*)/corrections', 'POST', 'correct_cash' );
 		self::route( $base . '/opening-balances', 'POST', 'opening_balance' );
+		self::route( $base . '/opening-balances/retroactive', 'POST', 'retroactive_opening' );
+		self::route( $base . '/opening-balances/(?P<transaction>[1-9][0-9]*)/basis-resolutions', 'POST', 'resolve_opening_basis' );
 		self::route( $base . '/replay-preview', 'POST', 'replay_preview' );
 		self::route( $base . '/historical-cash', 'POST', 'post_historical_cash' );
 		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
@@ -177,6 +179,8 @@ final class Controller {
 				$result = $service->post( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'opening_balance' === $operation ) {
 				$result = $service->opening_balance( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'retroactive_opening' === $operation ) {
+				$result = $service->retroactive_opening( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'replay_preview' === $operation ) {
 				$result = $service->replay_preview( $workspace, $data );
 			} elseif ( 'post_historical_cash' === $operation ) {
@@ -185,7 +189,7 @@ final class Controller {
 				$result = $service->post_historical_security( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'transaction' === $operation ) {
 				$result = $service->transaction( $workspace, (int) $request->get_url_params()['transaction'] );
-			} elseif ( in_array( $operation, array( 'edit_draft', 'promote_draft', 'correct_cash' ), true ) ) {
+			} elseif ( in_array( $operation, array( 'edit_draft', 'promote_draft', 'correct_cash', 'resolve_opening_basis' ), true ) ) {
 				$result = $service->$operation( $workspace, (int) $request->get_url_params()['transaction'], $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'holdings' === $operation ) {
 				$result = $service->holdings( $workspace, (int) $request['after'], (int) $request['limit'] );

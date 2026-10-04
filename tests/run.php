@@ -129,4 +129,12 @@ test('Replay keeps pre-existing shares separate from starting cash and unknown b
  $result = Replay::calculate($events); decimal($result['cash_balance'], '580'); decimal($result['effects'][3]['realized_gain'], '30');
  $events[1]['basis_status'] = 'unresolved'; unset($events[1]['amount']); rejects(fn() => Replay::calculate($events));
 });
+test('Retroactive same-day opening lots precede ordinary sales', function () {
+ $events = [
+  ['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'deposit', 'amount' => '100'],
+  ['id' => 2, 'effective_date' => '2026-01-01', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '20', 'fees' => '0'],
+  ['id' => 3, 'effective_date' => '2026-01-01', 'action' => 'opening_lot', 'asset_id' => 7, 'acquired_on' => '2020-01-01', 'quantity' => '1', 'amount' => '10', 'basis_status' => 'complete'],
+ ];
+ $result = Replay::calculate($events); decimal($result['effects'][2]['realized_gain'], '10'); decimal($result['cash_balance'], '120');
+});
 echo "$passed tests passed.\n";

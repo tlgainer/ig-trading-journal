@@ -428,6 +428,33 @@ final class Tracker {
 	 * @throws \InvalidArgumentException When opening facts are invalid.
 	 */
 	public function opening_balance( int $workspace, array $input, string $key ): array {
+		return $this->save_opening( $workspace, $input, $key, false );
+	}
+
+	/**
+	 * Insert a documented opening before existing account history, then replay.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Opening facts and source evidence.
+	 * @param string $key Idempotency identity.
+	 * @return array
+	 * @throws \InvalidArgumentException When opening facts are invalid.
+	 */
+	public function retroactive_opening( int $workspace, array $input, string $key ): array {
+		return $this->save_opening( $workspace, $input, $key, true );
+	}
+
+	/**
+	 * Validate and save either opening workflow.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Opening facts and source evidence.
+	 * @param string $key Idempotency identity.
+	 * @param bool   $historical Whether later posted activity may exist.
+	 * @return array
+	 * @throws \InvalidArgumentException When opening facts are invalid.
+	 */
+	private function save_opening( int $workspace, array $input, string $key, bool $historical ): array {
 		self::fields( $input, array( 'account_id', 'asset_id', 'kind', 'effective_date', 'acquired_on', 'amount', 'quantity', 'basis_status', 'source_note' ), array( 'account_id', 'kind', 'effective_date', 'source_note' ) );
 		$account_id = self::id( $input['account_id'] );
 		$kind       = $input['kind'];
@@ -475,17 +502,20 @@ final class Tracker {
 		return $this->mutation(
 			$workspace,
 			'tgit_post',
-			'opening.create',
+			$historical ? 'opening.retroactive' : 'opening.create',
 			$key,
 			$facts,
-			function () use ( $workspace, $facts ) {
+			function () use ( $workspace, $facts, $historical ) {
 				$account = $this->db->object( 'accounts', $workspace, $facts['account_id'] );
 				if ( null !== $account['archived_at'] ) {
 					throw new \InvalidArgumentException( 'Opening balance requires an active account.' );
 				}
-				$existing = $this->db->rows( 'SELECT action,effective_date FROM ' . $this->db->table( 'transactions' ) . ' WHERE workspace_id = %d AND account_id = %d AND state = %s ORDER BY id', array( $workspace, $facts['account_id'], 'posted' ) );
+				$existing = $this->active_account_events( $workspace, $facts['account_id'] );
 				foreach ( $existing as $event ) {
-					if ( ! in_array( $event['action'], array( 'opening_cash', 'opening_lot' ), true ) || $event['effective_date'] !== $facts['effective_date'] ) {
+					if ( str_starts_with( $event['action'], 'opening_' ) && $event['effective_date'] !== $facts['effective_date'] ) {
+						throw new \UnexpectedValueException( 'Opening balances in an account must share one date.' );
+					}
+					if ( ! str_starts_with( $event['action'], 'opening_' ) && ( ! $historical || $event['effective_date'] < $facts['effective_date'] ) ) {
 						throw new \UnexpectedValueException( 'Opening balances must precede ordinary posting and share one opening date for the account.' );
 					}
 					if ( 'cash' === $facts['kind'] && 'opening_cash' === $event['action'] ) {
@@ -502,9 +532,28 @@ final class Tracker {
 						throw new \InvalidArgumentException( 'Opening lot and account currencies must match.' );
 					}
 				}
-				$action   = 'cash' === $facts['kind'] ? 'opening_cash' : 'opening_lot';
-				$quantity = $facts['quantity'] ?? '0';
-				$id       = $this->db->insert(
+				$action    = 'cash' === $facts['kind'] ? 'opening_cash' : 'opening_lot';
+				$quantity  = $facts['quantity'] ?? '0';
+				$projected = null;
+				if ( $historical ) {
+					$before = $this->replay_projection( $workspace, $facts['account_id'] ) ?? Replay::calculate( $existing );
+					if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+						throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+					}
+					$preview_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+					$proposal   = array(
+						'id'             => $preview_id,
+						'action'         => $action,
+						'effective_date' => $facts['effective_date'],
+						'asset_id'       => $asset_id,
+						'quantity'       => $quantity,
+						'amount'         => $facts['amount'],
+						'acquired_on'    => $facts['acquired_on'] ?? null,
+						'basis_status'   => $facts['basis_status'],
+					);
+					$projected  = Replay::calculate( array_merge( $existing, array( $proposal ) ) );
+				}
+				$id = $this->db->insert(
 					'transactions',
 					array(
 						'workspace_id'   => $workspace,
@@ -562,7 +611,10 @@ final class Tracker {
 						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
 					)
 				);
-				if ( 'cash' === $facts['kind'] ) {
+				if ( $historical ) {
+					$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $projected['cash_balance'], $workspace, $facts['account_id'] ) );
+					$this->record_replay( $workspace, $facts['account_id'], $id, 'retroactive_opening' );
+				} elseif ( 'cash' === $facts['kind'] ) {
 					$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( Decimal::money( Decimal::add( $account['cash_balance'], $facts['amount'] ) ), $workspace, $facts['account_id'] ) );
 				} else {
 					$this->db->insert(
@@ -584,6 +636,77 @@ final class Tracker {
 				return array(
 					'transaction' => $this->db->object( 'transactions', $workspace, $id ),
 					'opening'     => $this->db->object( 'opening_balances', $workspace, $opening ),
+				);
+			}
+		);
+	}
+
+	/**
+	 * Append evidence resolving an unknown opening lot basis.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $id Opening transaction identifier.
+	 * @param array  $input Expected resolution revision, basis and reason.
+	 * @param string $key Idempotency identity.
+	 * @return array Resolution evidence and current projection.
+	 * @throws \InvalidArgumentException When the source or input is invalid.
+	 */
+	public function resolve_opening_basis( int $workspace, int $id, array $input, string $key ): array {
+		self::fields( $input, array( 'expected_revision', 'amount', 'reason' ), array( 'expected_revision', 'amount', 'reason' ) );
+		if ( ! is_int( $input['expected_revision'] ) || $input['expected_revision'] < 0 ) {
+			throw new \InvalidArgumentException( 'Expected basis revision must be a nonnegative integer.' );
+		}
+		$revision = $input['expected_revision'];
+		$amount   = Decimal::input( $input['amount'], 12 );
+		$reason   = self::text( $input['reason'], 190 );
+		return $this->mutation(
+			$workspace,
+			'tgit_post',
+			'opening.basis.' . $id,
+			$key,
+			array(
+				'expected_revision' => $revision,
+				'amount'            => $amount,
+				'reason'            => $reason,
+			),
+			function () use ( $workspace, $id, $revision, $amount, $reason ) {
+				$source  = $this->db->object( 'transactions', $workspace, $id );
+				$opening = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'opening_balances' ) . ' WHERE workspace_id = %d AND transaction_id = %d', array( $workspace, $id ) );
+				if ( 'opening_lot' !== $source['action'] || ! $opening || 'unresolved' !== $opening['basis_status'] ) {
+					throw new \InvalidArgumentException( 'Only an unresolved opening lot may receive basis evidence.' );
+				}
+				$latest = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'opening_basis_resolutions' ) . ' WHERE workspace_id = %d AND opening_transaction_id = %d ORDER BY revision DESC LIMIT 1', array( $workspace, $id ) );
+				if ( (int) ( $latest['revision'] ?? 0 ) !== $revision ) {
+					throw new \UnexpectedValueException( 'Opening basis revision changed.' );
+				}
+				$account = $this->db->object( 'accounts', $workspace, (int) $source['account_id'] );
+				if ( null !== $account['archived_at'] ) {
+					throw new \InvalidArgumentException( 'Resolve basis in an active account only.' );
+				}
+				$before = $this->replay_projection( $workspace, (int) $account['id'] ) ?? Replay::calculate( $this->active_account_events( $workspace, (int) $account['id'] ) );
+				if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+					throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+				}
+				$resolution_id = $this->db->insert(
+					'opening_basis_resolutions',
+					array(
+						'workspace_id'           => $workspace,
+						'opening_transaction_id' => $id,
+						'revision'               => $revision + 1,
+						'amount'                 => $amount,
+						'reason'                 => $reason,
+						'actor_id'               => $this->actor,
+						'created_at'             => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$after         = $this->record_replay( $workspace, (int) $account['id'], $id, 'basis_resolution' );
+				if ( Decimal::compare( $before['cash_balance'], $after['cash_balance'] ) !== 0 ) {
+					throw new \RuntimeException( 'Basis resolution unexpectedly changed cash.' );
+				}
+				$this->audit( $workspace, 'opening.basis_resolved', 'transaction', $id, $revision + 1 );
+				return array(
+					'resolution' => $this->db->object( 'opening_basis_resolutions', $workspace, $resolution_id ),
+					'cash_after' => $after['cash_balance'],
 				);
 			}
 		);
@@ -865,7 +988,15 @@ final class Tracker {
 	 * @return array
 	 */
 	private function active_account_events( int $workspace, int $account ): array {
-		return $this->db->rows( 'SELECT t.*,o.acquired_on,o.basis_status,COALESCE(parent.chronology_id,t.id) AS order_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = t.workspace_id AND o.transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.account_id = %d AND t.state = %s AND superseded.id IS NULL ORDER BY t.effective_date,order_id', array( $workspace, $account, 'posted' ) );
+		$rows = $this->db->rows( 'SELECT t.*,o.acquired_on,o.basis_status,r.id AS basis_resolution_id,r.amount AS resolved_basis,COALESCE(parent.chronology_id,t.id) AS order_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = t.workspace_id AND o.transaction_id = t.id LEFT JOIN ' . $this->db->table( 'opening_basis_resolutions' ) . ' r ON r.id = (SELECT r2.id FROM ' . $this->db->table( 'opening_basis_resolutions' ) . ' r2 WHERE r2.workspace_id = t.workspace_id AND r2.opening_transaction_id = t.id ORDER BY r2.revision DESC LIMIT 1) LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.account_id = %d AND t.state = %s AND superseded.id IS NULL ORDER BY t.effective_date,order_id', array( $workspace, $account, 'posted' ) );
+		foreach ( $rows as &$row ) {
+			if ( null !== $row['basis_resolution_id'] ) {
+				$row['basis_status'] = 'complete';
+				$row['amount']       = $row['resolved_basis'];
+			}
+		}
+		unset( $row );
+		return $rows;
 	}
 
 	/**

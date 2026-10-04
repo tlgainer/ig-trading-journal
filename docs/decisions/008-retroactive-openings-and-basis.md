@@ -1,0 +1,5 @@
+# ADR 008: Retroactive openings and cost-basis evidence
+
+An ordinary opening entry remains restricted to an empty account history. A separate reviewed operation can insert an opening cash or asset lot before existing posted activity, using the same documented source note and account opening date. Replay orders openings before same-day ordinary events and rejects any later overdraft, oversell or unresolved-basis sale. The operation appends a versioned replay run and leaves prior posted facts unchanged.
+
+An opening lot whose basis was unknown retains its original `unresolved` record. A separate workspace-scoped table stores each documented resolution amount, reason, actor and monotonically increasing revision. The active calculation uses the latest resolution, while older evidence remains. A documented zero is distinct from missing basis. A stale expected revision fails atomically. Every resolution appends a replay run and must leave cash unchanged. Backups and forward repair follow the schema-6 operations guide.

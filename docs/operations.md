@@ -6,11 +6,11 @@ Confirmed host: WordPress 7.1.2, PHP 8.1.2-1ubuntu2.26 on Apache 2.4.52/apache2h
 
 The site currently reports production HTTP URLs. Configure HTTPS and update both WordPress URLs before real use; do not switch production to development to bypass transport checks. Plain permalinks work without a permalink change. Workspaces default to USD/America/New_York (EST/EDT); WordPress's site timezone does not override the workspace.
 
-## Activation and schema 5 upgrade
+## Activation and schema 6 upgrade
 
-Back up the database and private image bytes before replacing code/reactivating. Keep **all five** `docs/001-ledger-foundation.sql`, `docs/002-trade-journal-media.sql`, `docs/003-opening-balances.sql`, `docs/004-cash-corrections.sql`, and `docs/005-security-replay.sql` in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
+Back up the database and private image bytes before replacing code/reactivating. Keep **all six** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `006-opening-basis-resolutions.sql`, in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
 
-Activation/reactivation reads all five bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` under a named database lock, verifies InnoDB and records `tgit_schema_version=5` after success. This upgrades schema 1, 2, 3 or 4, or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
+Activation/reactivation reads all six bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` under a named database lock, verifies InnoDB and records `tgit_schema_version=6` after success. This upgrades schema 1 through 5, or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
 
 There is no request-time migration. Until reactivation succeeds, the API readiness gate and admin notice explain the mismatch. MySQL DDL is not transactional: after a partial failure, fix permissions/prerequisites and reactivate to repeat the additive repair. Unknown future schema versions are refused. No table is dropped and no financial replay occurs in this migration.
 
@@ -18,15 +18,16 @@ There is no request-time migration. Until reactivation succeeds, the API readine
 
 Ordinarily activation handles SQL. If manual execution is necessary, select the correct backed-up WordPress database and confirm its prefix in wp-config.php.
 
-- Fresh installation: run SQL files 001 through 005 in order.
-- Existing schema-1 ledger installation: run files 002 through 005 in order.
-- Existing schema-2 journal installation: run files 003 through 005 in order.
-- Existing schema-3 opening installation: run files 004 and 005 in order.
-- Existing schema-4 correction installation: run `005-security-replay.sql`.
+- Fresh installation: run SQL files 001 through 006 in order.
+- Existing schema-1 ledger installation: run files 002 through 006 in order.
+- Existing schema-2 journal installation: run files 003 through 006 in order.
+- Existing schema-3 opening installation: run files 004 through 006 in order.
+- Existing schema-4 correction installation: run files 005 and 006 in order.
+- Existing schema-5 replay installation: run `006-opening-basis-resolutions.sql`.
 
-Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; do not convert them to destructive replacements. Reactivate afterward so the installer verifies all schemas and records version 5. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media/opening/correction/replay rows manually.
+Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; do not convert them to destructive replacements. Reactivate afterward so the installer verifies all schemas and records version 6. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media/opening/correction/replay/basis rows manually.
 
-Opening balances are entered through Settings after migration. They require a source note and may only be added before ordinary posted transactions in that account; every opening entry uses the same date. Existing accounts with posted history need the future correction/replay workflow for earlier opening records. An unresolved asset basis is displayed as unknown and blocks a sale of that account/asset; do not enter a fabricated zero. A documented zero basis is allowed explicitly.
+Opening balances entered through Settings require a source note and precede ordinary posting. Existing accounts with posted history use the dedicated retroactive-opening API, which validates later chronology and appends a replay run. Every opening entry in an account uses the same date. An unresolved asset basis is displayed as unknown and blocks a sale of that account/asset; do not enter a fabricated zero. The basis-resolution API appends documented, revision-checked evidence while preserving the original unknown opening record. A documented zero basis is allowed explicitly.
 
 ## Private images and jobs
 
@@ -36,7 +37,7 @@ Follow `private-images.md` for the GD/runtime check, private directory, Apache d
 
 Back up the database and private normalized bytes consistently. Database-only backup loses the gallery. Restore into an isolated installation and compare financial legs/lots/cash/revisions, journals, captured strategies and media hashes before cutover. Automated restore/export reconciliation is still pending under the owner's fourth priority.
 
-Schema 5 code refuses incompatible markers. Earlier code expects schema 1 through 4 and cannot safely operate after this migration. Rollback requires a matching complete backup or a reviewed forward-compatible repair; do not delete additive tables or force a schema downgrade. Correction source rows, legs and prior replay runs remain for audit. Active cash, holdings and gains exclude superseded sources. A stale source fingerprint or calculation version stops affected account posting/reporting; restore the matching code and data, or review a forward repair that appends a new calculation run after independent reconciliation. Never rewrite old posted facts or replay runs. No production backup, restore, purge, migration or deployment was performed during development.
+Schema 6 code refuses incompatible markers. Earlier code expects schema 1 through 5 and cannot safely operate after this migration. Rollback requires a matching complete backup or a reviewed forward-compatible repair; do not delete additive tables or force a schema downgrade. Correction source rows, legs, prior replay runs and basis-resolution revisions remain for audit. Active cash, holdings and gains exclude superseded sources. A stale source fingerprint or calculation version stops affected account posting/reporting; restore the matching code and data, or review a forward repair that appends a new calculation run after independent reconciliation. Never rewrite old posted facts or replay runs. No production backup, restore, purge, migration or deployment was performed during development.
 
 ## Staging smoke test
 

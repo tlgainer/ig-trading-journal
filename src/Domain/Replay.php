@@ -26,7 +26,15 @@ final class Replay {
 			$events,
 			static function ( array $left, array $right ): int {
 				$date_order = strcmp( $left['effective_date'], $right['effective_date'] );
-				return 0 !== $date_order ? $date_order : (int) ( $left['order_id'] ?? $left['id'] ) <=> (int) ( $right['order_id'] ?? $right['id'] );
+				if ( 0 !== $date_order ) {
+					return $date_order;
+				}
+				$left_opening  = str_starts_with( $left['action'], 'opening_' );
+				$right_opening = str_starts_with( $right['action'], 'opening_' );
+				if ( $left_opening !== $right_opening ) {
+					return $left_opening ? -1 : 1;
+				}
+				return (int) ( $left['order_id'] ?? $left['id'] ) <=> (int) ( $right['order_id'] ?? $right['id'] );
 			}
 		);
 		$cash    = '0';

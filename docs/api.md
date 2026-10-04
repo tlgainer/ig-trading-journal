@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.7.0
+# REST contract: tgit/v1, build 0.8.0
 
 All routes are private. Use a WordPress cookie session plus `X-WP-Nonce` from `wp_create_nonce('wp_rest')`, or WordPress application-password authentication over HTTPS. Production and staging require HTTPS; only explicitly local/development environments allow HTTP. Every service checks current membership; site administrator status cannot bypass workspace authorization.
 
@@ -14,6 +14,8 @@ Base path: `/wp-json/tgit/v1`.
 | `/workspaces/{workspace}/transactions` | GET, POST | Read: active member; post: owner/manager; draft: owner/manager/contributor |
 | `/workspaces/{workspace}/holdings` | GET | Active member |
 | `/workspaces/{workspace}/opening-balances` | POST | Owner/manager; documented starting cash or pre-existing asset lot |
+| `/workspaces/{workspace}/opening-balances/retroactive` | POST | Owner/manager; reviewed opening before posted history |
+| `/workspaces/{workspace}/opening-balances/{id}/basis-resolutions` | POST | Owner/manager; revise evidence for unknown opening lot basis |
 | `/workspaces/{workspace}/replay-preview` | POST | Owner/manager; read-only chronological preview |
 | `/workspaces/{workspace}/historical-cash` | POST | Owner/manager; posted historical deposit/withdrawal |
 | `/workspaces/{workspace}/historical-transactions` | POST | Owner/manager; posted historical buy/sell |
@@ -97,11 +99,15 @@ History pages return items in ascending order within the newest page and next_cu
 
 ## Documented opening balances (0.5.0)
 
-POST `/workspaces/{workspace}/opening-balances` requires `Idempotency-Key` and owner/manager membership. It atomically creates an immutable posted opening event, revision, ledger leg, source record and audit event. Cash adds to the account balance; a pre-existing lot adds FIFO inventory without deducting cash. All opening entries for an account share one opening date and must precede ordinary posted transactions. Retroactive opening entries require the future historical replay workflow.
+POST `/workspaces/{workspace}/opening-balances` requires `Idempotency-Key` and owner/manager membership. It atomically creates an immutable posted opening event, revision, ledger leg, source record and audit event. Cash adds to the account balance; a pre-existing lot adds FIFO inventory without deducting cash. All opening entries for an account share one opening date and the ordinary route requires them before posted trading.
 
 Cash JSON: `{"account_id":1,"kind":"cash","effective_date":"2026-01-01","amount":"2000","source_note":"Broker statement reference"}`. One opening cash entry per account. The amount must be positive.
 
-Lot JSON: `{"account_id":1,"asset_id":2,"kind":"lot","effective_date":"2026-01-01","acquired_on":"2021-06-01","quantity":"10","basis_status":"complete","amount":"1000","source_note":"Original lot statement"}`. A documented known zero basis is accepted. For unknown basis, set `basis_status` to `unresolved` and omit `amount`. Holdings then return `basis_status: unresolved` and `remaining_basis: null`; sales of that account/asset are blocked until basis resolution is supported.
+Lot JSON: `{"account_id":1,"asset_id":2,"kind":"lot","effective_date":"2026-01-01","acquired_on":"2021-06-01","quantity":"10","basis_status":"complete","amount":"1000","source_note":"Original lot statement"}`. A documented known zero basis is accepted. For unknown basis, set `basis_status` to `unresolved` and omit `amount`. Holdings then return `basis_status: unresolved` and `remaining_basis: null`; sales of that account/asset are blocked until basis evidence is recorded.
+
+`POST /workspaces/{workspace}/opening-balances/retroactive` accepts the same cash or lot body and `Idempotency-Key`. The opening date must match any existing opening entries and be no later than the first ordinary posted event. Replay validates every later balance and FIFO allocation, then appends a versioned calculation run without editing old posted facts. Same-day opening entries precede ordinary events.
+
+`POST /workspaces/{workspace}/opening-balances/{id}/basis-resolutions` accepts `{"expected_revision":0,"amount":"1000","reason":"Broker basis statement"}` and `Idempotency-Key`. The ID identifies an original unresolved opening-lot transaction. A first resolution uses revision 0; subsequent corrections use the latest resolution revision. Explicit zero is valid with documentary reason. Original opening facts remain unchanged; each resolution and replay run is append-only. A stale revision returns conflict, and later sales use the active documented basis.
 
 ## Corrections and replay (0.7.0)
 
