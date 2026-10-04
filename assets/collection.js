@@ -83,13 +83,14 @@
    }
    previous.disabled = page === 0; next.disabled = page >= pages - 1; pageInfo.textContent = `Page ${page + 1} of ${pages}`; clear.disabled = !query;
   }
-  return { workspace: options.workspace, update(items) { rows = items; render(); }, clear() { rows = []; query = ''; search.value = ''; render(); } };
+  return { workspace: options.workspace, update(items, nextOptions) { if (nextOptions) options = nextOptions; rows = items; render(); }, clear() { rows = []; query = ''; search.value = ''; render(); } };
  }
  window.tgitCollection = (target, options, rows) => {
   let instance = instances.get(target);
   if (!instance || instance.workspace !== options.workspace) { instance = create(target, options); instances.set(target, instance); }
-  instance.update(rows); return instance;
+  instance.update(rows, options); return instance;
  };
+ window.tgitResetCollection = (target) => { instances.delete(target); target.replaceChildren(); };
  window.tgitDisplayDecimal = (value, minimum = 2) => {
   const match = String(value).match(/^(-?\d+)(?:\.(\d+))?$/);
   if (!match) return String(value);

@@ -2,7 +2,7 @@
 
 Source: owner's UI/UX Addendum v1.0, October 3, 2026. Scope is WordPress admin. The owner confirmed that React is unnecessary and requested the same patterns on screens added after the original review.
 
-Build 0.12.0 continues the foundation and adds Trade Journal collection/detail navigation. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
+Build 0.13.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
 
 ## Shared rules
 
@@ -12,7 +12,7 @@ All eight sections use the same scoped control sizes, typography, focus treatmen
 | --- | --- | --- |
 | Overview | Cash account table, string decimal display, shared shell | Holdings table, compact metrics, contextual empty-state actions, full precision on demand |
 | Transactions | Shared shell and controls; draft/posting workflows retained | Collection first, focused entry, separate draft/post actions, detail/Correct eligibility, field errors and funding recovery |
-| Trade Journal | Planned/Open default table; full-result search/sort, detail tabs, minimal creation, deep links/Back, dirty guards and revision-conflict reload | Server filters/sorts and benchmarks, transaction picker, tag/confluence controls, grouped Plan fields and history table |
+| Trade Journal | Planned/Open default table; full-result search/sort, detail tabs, minimal creation, deep links/Back, dirty guards and revision-conflict reload; Active/Trash image table, focused metadata editor and independent upload | Server filters/sorts and benchmarks, transaction picker, tag/confluence controls, grouped Plan fields and history table |
 | Strategies | Shared shell and controls | Table, focused New/Edit, safe rich editor, captured-version view |
 | Calculators | Shared shell and controls; scenarios remain separate from posting | Grouped forms, shared monetary presentation/help/error patterns and accessibility review |
 | Research | Shared watchlist-item and research-note tables, supported sorts, whole-result search, pagination, scoped column/density preferences | Watchlist management, focused New/Edit, contextual filters, route/context preservation and scalable server queries |
@@ -26,6 +26,8 @@ Foundation evidence: UIR 02/03/05/06/40 and initial UIR 07/08/09/13/14/24/35 sup
 
 The disposable WordPress HTTP adapter also passes navigation/overflow checks for every current section at all three widths, including Calculators, Research and Reports. Real research create/revise checks verify UTF-8 persistence through database/API/editor/table. Visual review corrected stretched form controls and desktop/mobile menu visibility. Actual hosting admin/theme validation remains pending.
 
-No full UIR or UXA acceptance is claimed. Server-side table queries, 1,000-trade/100-image benchmarks, full 200-percent zoom/screen-reader checks, dirty navigation handling outside Trade Journal, active/Trash image tables and focused forms remain. The current library decision and compatibility reasoning are in `decisions/011-admin-ux-foundation.md`.
+No full UIR or UXA acceptance is claimed. Server-side table queries, 1,000-trade/100-image benchmarks, full 200-percent zoom/screen-reader checks, dirty navigation handling outside Trade Journal, upload queue table and remaining focused forms remain. The current library decision and compatibility reasoning are in `decisions/011-admin-ux-foundation.md`.
 
 Trade slice evidence and limits are in `decisions/012-trade-journal-navigation.md`. Browser fixtures cover minimal creation, private images, active image counts, retained list context, dirty cancellation, deep-link reload and concurrent-revision recovery.
+
+The private image collection and its remaining gates are documented in `decisions/013-private-image-collection.md`. No full UI/UX acceptance is claimed.

@@ -51,6 +51,8 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   await page.getByRole('button', { name: 'Clear filters', exact: true }).click(); assert.equal(await page.locator('tbody tr').count(), 25);
   await page.getByLabel('Trade view', { exact: true }).selectOption('closed'); await page.getByText('34 records. View: Closed.', { exact: true }).waitFor();
   for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); }
+  await page.evaluate(() => { tgitResetCollection(document.getElementById('rows')); window.renderFixture('4'); });
+  assert.equal(await page.locator('tbody tr').count(), 25, 'Resetting a collection must recreate its visible controls and rows.');
   assert.deepEqual(errors, []);
   console.log('PASS Collections: full-dataset search/sort, stable pagination, scoped preferences, Unicode, exact decimal display, empty state and responsive overflow.');
  } finally { await browser.close(); }

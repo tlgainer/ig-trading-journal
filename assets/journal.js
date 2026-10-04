@@ -5,6 +5,7 @@
  const $ = (id) => document.getElementById(`tgit-${id}`);
  let context = null, epoch = 0, trade = null, strategy = null, limits = null;
  let confluenceState = new Map();
+ let galleryGeneration = 0, galleryCollection = null, galleryRows = [];
  let strategyVersions = [], pending = new Map(), imageUrls = [], selected = new Map(), busy = false;
  const messages = { loading: 'Loading...', saved: 'Saved.', failed: 'Request failed. Retry with the same file.', empty: 'No records yet.' };
  const notice = (text, error = false) => { $('journal-status').textContent = text; $('journal-status').setAttribute('role', error ? 'alert' : 'status'); };
@@ -38,15 +39,16 @@
   do { const page = await api(path(`${type}?after=${next}&limit=100`)); if (expected !== epoch) return []; items.push(...page.items); next = page.next_cursor; } while (next !== null);
   return items;
  }
- function releaseImages() { for (const url of imageUrls) URL.revokeObjectURL(url); imageUrls = []; selected.clear(); $('compare-images').disabled = true; if ($('image-dialog').open) $('image-dialog').close(); }
+ function releaseImages() { galleryGeneration++; for (const url of imageUrls) URL.revokeObjectURL(url); imageUrls = []; selected.clear(); $('compare-images').disabled = true; if ($('image-dialog').open) $('image-dialog').close(); }
  function lock(value) {
   busy = value; window.tgitWriteBusy = value; $('workspace').disabled = value;
   for (const control of document.querySelectorAll('#tgit-journal-section button, #tgit-strategy-section button, #tgit-media-settings-section button')) if (!control.dataset.allowBusy && control.id !== 'tgit-close-image') control.disabled = value;
   $('compare-images').disabled = value || selected.size !== 2;
   if (!value && context) renderTrades(tradeRows);
+  if (!value && galleryCollection) galleryCollection.update(galleryRows);
   for (const id of ['workspace-form', 'account-form', 'asset-form', 'transaction-form', 'member-form']) for (const control of $(id).querySelectorAll('button')) control.disabled = value;
  }
- function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && trade) reload.hidden = false; } finally { lock(false); } }; }
+ function guarded(handler) { return async () => { if (busy || window.tgitWriteBusy) return; lock(true); notice(messages.loading); try { await handler(); if ($('journal-status').textContent === messages.loading) notice(''); } catch (error) { notice(error.message, true); if (error.status === 409 && trade && !imageDraft) reload.hidden = false; } finally { lock(false); } }; }
  let baseline = '', listScroll = 0, tradeRows = [], tradeLoad = 0;
  const list = document.createElement('div'); list.id = 'tgit-trade-list';
  $('new-trade').textContent = 'New trade'; $('new-trade').classList.add('button-primary');
@@ -76,11 +78,12 @@
  const reload = button('Reload latest journal', () => { if (leave()) guarded(() => openTrade(trade.trade.id))(); }, actions); reload.hidden = true;
  $('trade-form').noValidate = true;
  function selectDetail(id) {
+  save.hidden = id !== 'plan' || !isEditor();
   for (const [name, panel] of detailPanels) panel.hidden = name !== id;
   for (const tab of detailTabs.querySelectorAll('button')) { const selected = tab.dataset.detailTab === id; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; }
  }
  function snapshot() { return JSON.stringify([...$('trade-form').elements].filter((field) => field.name).map((field) => [field.name, field.type === 'file' ? [...field.files].map((file) => [file.name, file.size, file.lastModified]) : field.value])) + JSON.stringify([...confluenceState]); }
- const dirty = () => !$('trade-detail').hidden && isEditor() && baseline !== snapshot();
+ const dirty = () => !$('trade-detail').hidden && isEditor() && (baseline !== snapshot() || imageDirty());
  const leave = () => !dirty() || window.confirm('Discard unsaved journal changes?');
  function routeTrade(id, replace = false) {
   const url = new URL(location.href); url.searchParams.set('tgit_section', 'journal'); url.searchParams.set('tgit_workspace', context.workspace);
@@ -89,7 +92,7 @@
  }
  function closeTrade(updateRoute = true) {
   tradeLoad++;
-  releaseImages(); trade = null; $('trade-detail').hidden = true; list.hidden = false; baseline = '';
+  closeImageEditor(); galleryCollection = null; galleryRows = []; tgitResetCollection($('gallery')); releaseImages(); trade = null; $('trade-detail').hidden = true; list.hidden = false; baseline = '';
   if (updateRoute) routeTrade(null); window.scrollTo(0, listScroll); $('new-trade').focus();
  }
  function renderTrades(items) {
@@ -136,7 +139,7 @@
  function showTrade(data) {
   reload.hidden = true;
   save.textContent = data ? 'Save changes' : 'Create trade'; $('close-trade').textContent = data ? 'Back to trades' : 'Cancel';
-  releaseImages(); confluenceState.clear(); trade = data; const form = $('trade-form'); form.reset();
+  closeImageEditor(); galleryCollection = null; galleryRows = []; tgitResetCollection($('gallery')); releaseImages(); confluenceState.clear(); trade = data; const form = $('trade-form'); form.reset();
   listScroll = list.hidden ? listScroll : window.scrollY; list.hidden = true; $('trade-detail').hidden = false; $('trade-heading').textContent = data ? data.trade.title : 'New trade journal';
   choices(form.elements.asset_id, context.assets, (item) => `${item.symbol} | ${item.exchange}`);
   const captured = data?.strategy_version;
@@ -159,7 +162,7 @@
   history(data?.revisions ?? []);
   if (data?.revisions_cursor) { let before = data.revisions_cursor; const older = button('Load older journal revisions', guarded(async () => { const page = await api(path(`trades/${data.trade.id}/revisions?before=${before}&limit=20`)); history(page.items, true); before = page.next_cursor; older.hidden = before === null; }), $('trade-history')); }
   for (const element of form.elements) if (!['button', 'submit'].includes(element.type)) { element.disabled = !isEditor() && (element.tagName === 'SELECT' || ['file', 'checkbox'].includes(element.type)); if ('readOnly' in element) element.readOnly = !isEditor(); }
-  save.hidden = !isEditor();
+  save.hidden = !isEditor(); uploadImages.hidden = !isEditor();
   $('gallery-section').hidden = !data; $('upload-progress').replaceChildren();
   for (const field of [...form.elements].filter((field) => field.name)) {
    const label = field.closest('label'); if (label) label.hidden = !data && !['title', 'asset_id', 'strategy_version_id'].includes(field.name);
@@ -172,43 +175,100 @@
  }
  async function openTrade(id, updateRoute = true) { const expected = epoch, load = ++tradeLoad; notice(messages.loading); const data = await api(path(`trades/${id}`)); if (expected !== epoch || load !== tradeLoad) return; showTrade(data); if (!updateRoute) routeTrade(id, true); await refreshGallery(); if (load !== tradeLoad) return; notice(''); $('trade-detail').scrollIntoView({ block: 'start' }); }
  async function binary(id, variant, expected) {
+  const generation = galleryGeneration;
   const response = await fetch(tgitRestUrl(config.root, path(`images/${id}/content?variant=${variant}`)), { cache: 'no-store', credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce } });
   if (!response.ok) throw new Error('Image is unavailable or access was revoked.');
-  const blob = await response.blob(); if (expected !== epoch) return null; const url = URL.createObjectURL(blob); imageUrls.push(url); return url;
+  const blob = await response.blob(); if (expected !== epoch || generation !== galleryGeneration) return null; const url = URL.createObjectURL(blob); imageUrls.push(url); return url;
  }
  async function viewImages(rows) {
   const expected = epoch; $('image-view').replaceChildren(); $('image-dialog').showModal();
   for (const row of rows) { const figure = document.createElement('figure'); const image = document.createElement('img'); image.alt = row.alt_text || row.caption || row.filename; figure.append(image); text('figcaption', row.caption, figure); const url = await binary(row.id, 'original', expected); if (!url || !$('image-dialog').open) return; image.src = url; const link = text('a', 'Download normalized original', figure); link.href = url; link.download = row.filename; $('image-view').append(figure); }
  }
  async function mutateImage(row, operation, extra = {}) { await write(path(`images/${row.id}/${operation}`), { expected_revision: Number(row.revision), ...extra }); await refreshGallery(); await refreshTrades(); }
+ let imageBaseline = '', imageDraft = null;
+ const uploadInput = $('trade-form').elements.images;
+ uploadInput.setAttribute('form', 'tgit-trade-form');
+ const uploadLabel = uploadInput.closest('label'), uploadHelp = uploadLabel.nextElementSibling;
+ $('upload-progress').before(uploadLabel, uploadHelp);
+ const uploadImages = button('Upload selected images', () => { guarded(async () => {
+  if (!trade || !isEditor()) throw new Error('Create a trade first; image uploads require journal edit permission.');
+  const files = [...uploadInput.files]; if (!files.length) throw new Error('Choose one or more images to upload.');
+  const failures = []; for (const file of files) { try { await uploadFile(file); } catch (error) { failures.push(`${file.name}: ${error.message}`); } }
+  uploadInput.value = ''; await refreshGallery(); await refreshTrades();
+  notice(failures.length ? `${failures.length} image upload(s) failed. ${failures[0]}` : 'Images uploaded.', failures.length > 0);
+ })(); }, $('gallery-section'));
+ button('Refresh images', () => { if (!leaveImage()) return; guarded(async () => { closeImageEditor(); await refreshGallery(); await refreshTrades(); })(); }, $('gallery-section'));
+ uploadImages.id = 'tgit-upload-images'; uploadImages.classList.add('button-primary'); $('upload-progress').before(uploadImages);
+ const imageEditor = document.createElement('section'); imageEditor.id = 'tgit-image-editor'; imageEditor.hidden = true; $('gallery').after(imageEditor);
+ const imageSnapshot = () => { const form = imageEditor.querySelector('form'); return form ? JSON.stringify([...new FormData(form)]) : ''; };
+ const imageDirty = () => !imageEditor.hidden && imageBaseline !== imageSnapshot();
+ const leaveImage = () => !imageDirty() || window.confirm('Discard unsaved image details?');
+ function closeImageEditor() { imageEditor.hidden = true; imageEditor.replaceChildren(); imageDraft = null; imageBaseline = ''; }
+ function editImage(row) {
+  if (!leaveImage()) return;
+  closeImageEditor(); imageDraft = row; imageEditor.hidden = false;
+  const heading = text('h3', `Image details: ${row.filename}`, imageEditor); heading.tabIndex = -1;
+  const form = document.createElement('form'); form.className = 'tgit-form';
+  for (const [name, labelText] of [['caption', 'Caption'], ['alt_text', 'Accessible description'], ['timeframe', 'Chart timeframe'], ['sort_order', 'Order']]) {
+   const label = text('label', labelText, form); const input = document.createElement('input'); input.name = name; input.value = row[name] ?? ''; input.maxLength = name === 'timeframe' ? 64 : 2000;
+   if (name === 'sort_order') { input.type = 'number'; input.min = '0'; input.max = '100000'; input.required = true; } label.append(input);
+  }
+  const label = text('label', 'Image stage', form); const stage = document.createElement('select'); stage.name = 'stage'; stage.required = true;
+  for (const [value, caption] of [['before', 'Before trade'], ['entry', 'Entry'], ['exit', 'Exit'], ['review', 'Review']]) { const option = text('option', caption, stage); option.value = value; } stage.value = row.stage || 'review'; label.append(stage);
+  help(form, 'Lower order numbers appear first. Stage and timeframe describe the chart; they do not change posted trades.');
+  const save = text('button', 'Save image details', form); save.type = 'submit'; save.className = 'button button-primary';
+  form.addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => {
+   const body = Object.fromEntries(new FormData(form)); body.sort_order = Number(body.sort_order);
+   await write(path(`images/${imageDraft.id}/metadata`), { expected_revision: Number(imageDraft.revision), ...body }); closeImageEditor(); await refreshGallery(); await refreshTrades(); notice(messages.saved);
+  })(); }); imageEditor.append(form);
+  button('Cancel image details', () => { if (leaveImage()) { closeImageEditor(); $('gallery').querySelector('input[type=search]')?.focus(); } }, imageEditor);
+  const reloadImage = button('Reload latest image details', () => { if (!leaveImage()) return; const id = imageDraft.id; guarded(async () => { const gallery = await api(path(`trades/${trade.trade.id}/images`)); const current = gallery.items.find((item) => String(item.id) === String(id)); if (!current || current.state === 'deleted') { closeImageEditor(); await refreshGallery(); throw new Error('Image is no longer active.'); } closeImageEditor(); editImage(current); await refreshGallery(); notice('Latest image details loaded.'); })(); }, imageEditor);
+  reloadImage.title = 'Discard your image draft and load the current saved metadata.';
+  imageBaseline = imageSnapshot(); heading.focus();
+ }
  async function refreshGallery() {
   if (!trade) return; await loadSettings(epoch); const expected = epoch, id = String(trade.trade.id);
   const gallery = await api(path(`trades/${id}/images`)); if (expected !== epoch || String(trade?.trade.id) !== id) return;
-  releaseImages(); $('gallery').replaceChildren();
+  releaseImages();
   $('gallery-status').textContent = storageProblem() || 'Images are private. Trash retains storage until cleanup.';
-  if (!gallery.items.length) text('p', 'No images yet.', $('gallery'));
-  for (const row of gallery.items) {
-   const card = document.createElement('article'); card.className = 'tgit-card'; text('h4', row.filename, card); text('p', `${row.state} | ${row.stage} | ${row.timeframe}`, card);
-   if (row.state === 'ready') {
-    const image = document.createElement('img'); image.className = 'tgit-thumbnail'; image.alt = row.alt_text || row.caption || row.filename; card.append(image);
-    binary(row.id, 'thumbnail', expected).then((url) => { if (url && image.isConnected) image.src = url; }).catch((error) => text('p', error.message, card));
-    text('p', row.caption, card); button('View original', guarded(() => viewImages([row])), card);
-    const label = document.createElement('label'); const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; label.append(checkbox, document.createTextNode(' Select for comparison')); card.append(label);
-    checkbox.addEventListener('change', () => { if (checkbox.checked) selected.set(row.id, row); else selected.delete(row.id); $('compare-images').disabled = busy || window.tgitWriteBusy || selected.size !== 2; });
-   }
-   if (isEditor()) {
-    if (['reserved', 'failed'].includes(row.state)) { const retry = document.createElement('input'); retry.type = 'file'; retry.accept = 'image/jpeg,image/png,image/webp'; retry.setAttribute('aria-label', `Retry or replace the pending file for ${row.filename}`); card.append(retry); button('Retry this image', guarded(async () => { if (!retry.files[0]) throw new Error('Select a replacement or the original file for this image.'); await uploadFile(retry.files[0], row); await refreshGallery(); }), card); }
-    if (row.state !== 'deleted') {
-     const form = document.createElement('form'); form.className = 'tgit-form';
-     for (const [name, labelText] of [['caption', 'Caption'], ['alt_text', 'Accessible description'], ['timeframe', 'Chart timeframe'], ['sort_order', 'Order']]) { const label = text('label', labelText, form); const input = document.createElement('input'); input.name = name; input.value = row[name] ?? ''; input.maxLength = name === 'timeframe' ? 64 : 2000; if (name === 'sort_order') { input.type = 'number'; input.min = '0'; input.max = '100000'; } label.append(input); if (name === 'sort_order') help(form, 'Lower numbers appear first in the gallery. Images with the same order use upload order.'); }
-     const label = text('label', 'Image stage', form); const stage = document.createElement('select'); stage.name = 'stage'; stage.required = true; for (const [value, caption] of [['before', 'Before trade'], ['entry', 'Entry'], ['exit', 'Exit'], ['review', 'Review']]) { const option = text('option', caption, stage); option.value = value; } stage.value = row.stage || 'review'; label.append(stage); help(form, 'Choose where this image belongs in the trade journal.');
-     const save = text('button', 'Save image details', form); save.type = 'submit'; save.className = 'button';
-     form.addEventListener('submit', (event) => { event.preventDefault(); guarded(async () => { const body = Object.fromEntries(new FormData(form)); body.sort_order = Number(body.sort_order); await mutateImage(row, 'metadata', body); })(); }); card.append(form);
-     button('Remove image (recoverable)', guarded(() => mutateImage(row, 'delete')), card);
-    } else button('Restore image', guarded(() => mutateImage(row, 'restore')), card);
-   }
-   $('gallery').append(card);
-  }
+  const thumbnails = new Map();
+  galleryRows = gallery.items;
+  galleryCollection = tgitCollection($('gallery'), { actor: config.actorId, workspace: `${context.workspace}:${id}`, key: 'images', title: 'Images', defaultSort: 'order',
+   search: (row) => `${row.filename} ${row.caption} ${row.alt_text} ${row.timeframe} ${row.stage}`,
+   filters: [{ key: 'state', label: 'Image view', default: 'active', values: [['active', 'Active'], ['trash', 'Trash'], ['', 'All']], matches: (row, value) => !value || (value === 'trash' ? row.state === 'deleted' : row.state !== 'deleted') }],
+   columns: [
+    { key: 'filename', label: 'Filename', identity: true, required: true, sort: (a, b) => a.filename.localeCompare(b.filename), render: (row) => row.filename },
+    { key: 'preview', label: 'Preview', render: (row) => {
+     if (row.state !== 'ready') return 'Unavailable'; const image = document.createElement('img'); image.className = 'tgit-thumbnail'; image.alt = row.alt_text || row.caption || row.filename;
+     const generation = galleryGeneration;
+     if (!thumbnails.has(row.id)) thumbnails.set(row.id, binary(row.id, 'thumbnail', expected));
+     thumbnails.get(row.id).then((url) => { if (url && image.isConnected && generation === galleryGeneration) image.src = url; }).catch(() => { image.alt = 'Preview unavailable'; }); return image;
+    } },
+    { key: 'state', label: 'Status', sort: (a, b) => a.state.localeCompare(b.state), render: (row) => row.state === 'deleted' ? 'Trash' : row.state },
+    { key: 'stage', label: 'Stage', sort: (a, b) => a.stage.localeCompare(b.stage), render: (row) => row.stage },
+    { key: 'timeframe', label: 'Timeframe', render: (row) => row.timeframe || 'Not set' },
+    { key: 'caption', label: 'Caption', render: (row) => row.caption || 'Not set' },
+    { key: 'order', label: 'Order', numeric: true, sort: (a, b) => Number(a.sort_order) - Number(b.sort_order), render: (row) => String(row.sort_order) },
+    { key: 'compare', label: 'Compare', render: (row) => {
+     if (row.state !== 'ready') return 'Unavailable'; const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.setAttribute('aria-label', `Compare ${row.filename}`); checkbox.checked = selected.has(row.id);
+     checkbox.addEventListener('change', () => { if (checkbox.checked) selected.set(row.id, row); else selected.delete(row.id); $('compare-images').disabled = busy || window.tgitWriteBusy || selected.size !== 2; }); return checkbox;
+    } },
+    { key: 'actions', label: 'Actions', required: true, render: (row) => {
+     const group = document.createElement('div'); group.className = 'tgit-row-actions';
+     if (row.state === 'ready') button('View original', guarded(() => viewImages([row])), group);
+     if (isEditor()) {
+      if (row.state === 'deleted') button('Restore image', guarded(() => mutateImage(row, 'restore')), group);
+      else {
+       button('Edit details', () => { if (!busy && !window.tgitWriteBusy) editImage(row); }, group);
+       if (['reserved', 'failed'].includes(row.state)) {
+        const retry = document.createElement('input'); retry.type = 'file'; retry.accept = 'image/jpeg,image/png,image/webp'; retry.setAttribute('aria-label', `Retry or replace the pending file for ${row.filename}`); group.append(retry);
+        button('Retry this image', () => { if (!leaveImage()) return; guarded(async () => { if (!retry.files[0]) throw new Error('Select a replacement or the original file for this image.'); await uploadFile(retry.files[0], row); closeImageEditor(); await refreshGallery(); await refreshTrades(); })(); }, group);
+       }
+       button('Move to Trash', () => { if (!leaveImage()) return; guarded(async () => { await mutateImage(row, 'delete'); closeImageEditor(); })(); }, group);
+      }
+     } return group;
+    } }
+   ] }, gallery.items);
  }
  function uploadBinary(target, file, key, progress, signal) {
   return new Promise((resolve, reject) => {
@@ -246,7 +306,7 @@
   } finally { cancel.disabled = true; }
  }
  $('trade-form').addEventListener('submit', (event) => {
-  event.preventDefault(); if (!$('trade-form').checkValidity()) { selectDetail('plan'); $('trade-form').reportValidity(); return; } guarded(async () => {
+  event.preventDefault(); if (!leaveImage()) return; if (!$('trade-form').checkValidity()) { selectDetail('plan'); $('trade-form').reportValidity(); return; } guarded(async () => {
    const form = $('trade-form'), files = [...form.elements.images.files]; const input = {};
    for (const name of ['title', 'state', 'opened_on', 'closed_on']) input[name] = form.elements[name].value;
    input.asset_id = Number(form.elements.asset_id.value); input.strategy_version_id = form.elements.strategy_version_id.value ? Number(form.elements.strategy_version_id.value) : null;
@@ -287,7 +347,7 @@
  $('media-cleanup').addEventListener('click', guarded(async () => { const result = await write(path('media-cleanup'), {}); await loadSettings(epoch); if (trade) await refreshGallery(); notice(`Cleaned up ${result.purged} expired images/reservations.`); }));
  window.addEventListener('tgit-workspace', async (event) => {
   const routeId = new URL(location.href).searchParams.get('tgit_trade');
-  context = event.detail; const expected = ++epoch; trade = null; strategy = null; strategyVersions = []; tradeRows = []; pending.clear(); releaseImages(); $('trade-detail').hidden = true; list.hidden = false; baseline = ''; $('trades').replaceChildren();
+  context = event.detail; const expected = ++epoch; trade = null; strategy = null; strategyVersions = []; tradeRows = []; pending.clear(); closeImageEditor(); galleryCollection = null; galleryRows = []; releaseImages(); $('trade-detail').hidden = true; list.hidden = false; baseline = ''; tgitResetCollection($('trades')); tgitResetCollection($('gallery'));
   $('trade-form').reset(); confluenceState.clear();
   for (const id of ['trade-summary', 'fill-facts', 'trade-history', 'gallery', 'image-view', 'upload-progress']) $(id).replaceChildren();
   choices($('trade-form').elements.asset_id, context.assets, (item) => `${item.symbol} · ${item.exchange}`);
