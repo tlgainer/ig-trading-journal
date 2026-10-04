@@ -1,0 +1,9 @@
+# ADR 006: immutable cash correction and chronological replay boundary
+
+The first replay slice supports posted deposits and withdrawals. It keeps their immutable source facts and legs, creates a replacement event and correction link, appends a reasoned source revision, and recomputes the account's active cash chronologically under the existing workspace write lock. A replacement inherits the source's same-day chronology key, including across correction chains. If any later balance would overdraw, the entire operation rolls back.
+
+`../004-cash-corrections.sql` adds only correction provenance. Posted source events are not deleted. Current cash and future cash validation use active events, excluding superseded sources. Transaction reads expose links to both source and replacement. A dedicated historical-cash operation uses the same replay calculation without superseding an event. The replay-preview route is read-only and reports whether a proposed earlier event changes later FIFO gains.
+
+The domain replay calculator handles existing supported cash and security actions, opening cash/lots, exact decimal FIFO and unknown-basis rejection. It is not yet a commit engine for security corrections: existing lot allocations and realized gains require versioned replacement evidence before a historical buy or sale may be posted. A successful preview does not grant permission to commit a security change. The ordinary posting route continues to reject backdating.
+
+The migration is additive and repeatable. Back up before reactivation. On partial DDL failure, repair forward and reactivate; do not delete old legs or force a schema marker. Unit fixtures cover FIFO gain changes and invalid history; disposable database fixtures cover correction chains, same-day ordering, current balance, REST membership, idempotency and audit-write rollback.

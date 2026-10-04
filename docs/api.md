@@ -1,4 +1,4 @@
-# REST contract: tgit/v1, build 0.5.0
+# REST contract: tgit/v1, build 0.6.0
 
 All routes are private. Use a WordPress cookie session plus `X-WP-Nonce` from `wp_create_nonce('wp_rest')`, or WordPress application-password authentication over HTTPS. Production and staging require HTTPS; only explicitly local/development environments allow HTTP. Every service checks current membership; site administrator status cannot bypass workspace authorization.
 
@@ -14,6 +14,9 @@ Base path: `/wp-json/tgit/v1`.
 | `/workspaces/{workspace}/transactions` | GET, POST | Read: active member; post: owner/manager; draft: owner/manager/contributor |
 | `/workspaces/{workspace}/holdings` | GET | Active member |
 | `/workspaces/{workspace}/opening-balances` | POST | Owner/manager; documented starting cash or pre-existing asset lot |
+| `/workspaces/{workspace}/replay-preview` | POST | Owner/manager; read-only chronological preview |
+| `/workspaces/{workspace}/historical-cash` | POST | Owner/manager; posted historical deposit/withdrawal |
+| `/workspaces/{workspace}/transactions/{id}/corrections` | POST | Owner/manager; posted cash correction |
 
 GET accounts/assets/transactions use `after` (numeric ID cursor, default 0) and `limit` (1-100, default 100). Response `data.items`, `data.next_cursor`; continue until cursor is null. An exact full last page may give one extra empty request. Holdings cursor is an asset ID; it groups that page's asset/account positions. It does not support historical as-of queries yet. GET workspaces/members are setup lists.
 
@@ -98,3 +101,13 @@ POST `/workspaces/{workspace}/opening-balances` requires `Idempotency-Key` and o
 Cash JSON: `{"account_id":1,"kind":"cash","effective_date":"2026-01-01","amount":"2000","source_note":"Broker statement reference"}`. One opening cash entry per account. The amount must be positive.
 
 Lot JSON: `{"account_id":1,"asset_id":2,"kind":"lot","effective_date":"2026-01-01","acquired_on":"2021-06-01","quantity":"10","basis_status":"complete","amount":"1000","source_note":"Original lot statement"}`. A documented known zero basis is accepted. For unknown basis, set `basis_status` to `unresolved` and omit `amount`. Holdings then return `basis_status: unresolved` and `remaining_basis: null`; sales of that account/asset are blocked until basis resolution is supported.
+
+## Cash corrections and replay preview (0.6.0)
+
+`POST /workspaces/{workspace}/transactions/{id}/corrections` requires an `Idempotency-Key`, owner/manager membership, `expected_revision`, a nonempty `reason`, and a complete `replacement` posted deposit or withdrawal body. The replacement must retain the account and currency. The original posted amount/date/action and leg remain immutable; a correction link and source revision mark it superseded. Only the active replacement contributes to current cash. Its original same-day chronological position survives further correction chains. Later balances are replayed atomically; an overdraft rejects the entire correction. A retry of the same key and body returns the original result. Buy/sell corrections are rejected until versioned FIFO allocation replay is implemented.
+
+Example: `{"expected_revision":1,"reason":"Broker statement corrected","replacement":{"account_id":1,"action":"deposit","effective_date":"2026-01-01","state":"posted","amount":"1500","currency":"USD"}}`. Transaction list rows include `corrected_by_id` and `supersedes_id`; transaction detail includes correction evidence, all incoming/outgoing `correction_links`, and ordered revisions. Do not sum cash from all historical posted legs without excluding superseded sources.
+
+`POST /workspaces/{workspace}/historical-cash` accepts the same complete transaction shape as ordinary posting, limited to posted deposits/withdrawals, and requires `Idempotency-Key`. It validates every subsequent balance in account date/order sequence before inserting one immutable event. It cannot precede an account opening date. Ordinary transaction posting still blocks backdating.
+
+`POST /workspaces/{workspace}/replay-preview` accepts a complete proposed posted transaction body and returns `applied:false`, current/projected cash, proposed cash delta/gain, changed realized gains for later transactions and a source fingerprint. It performs no write and is not a reservation or approval to post. Historical buy/sell posting and versioned FIFO allocation replacement remain unavailable even if a preview succeeds.

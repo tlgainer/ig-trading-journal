@@ -10,6 +10,7 @@ namespace GainerInteractive\IGTradingJournal\Application;
 
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
+use GainerInteractive\IGTradingJournal\Domain\Replay;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 
 /** Tracker service for the current implementation slice. */
@@ -307,6 +308,9 @@ final class Tracker {
 		$this->authorize( $workspace, 'tgit_view' );
 		if ( ! in_array( $table, array( 'accounts', 'assets', 'transactions' ), true ) || $limit < 1 || $limit > 100 || $after < 0 ) {
 			throw new \InvalidArgumentException( 'Invalid list parameters.' );
+		}
+		if ( 'transactions' === $table ) {
+			return $this->db->rows( 'SELECT t.*,superseded.replacement_transaction_id AS corrected_by_id,parent.source_transaction_id AS supersedes_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.id > %d ORDER BY t.id LIMIT %d', array( $workspace, $after, $limit ) );
 		}
 		return $this->db->rows( 'SELECT * FROM ' . $this->db->table( $table ) . ' WHERE workspace_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $after, $limit ) );
 	}
@@ -833,8 +837,319 @@ final class Tracker {
 	public function transaction( int $workspace, int $id ): array {
 		$this->authorize( $workspace, 'tgit_view' );
 		return array(
-			'transaction' => $this->db->object( 'transactions', $workspace, $id ),
-			'revisions'   => $this->db->rows( 'SELECT revision,payload,actor_id,reason,created_at FROM ' . $this->db->table( 'transaction_revisions' ) . ' WHERE workspace_id = %d AND transaction_id = %d ORDER BY revision', array( $workspace, $id ) ),
+			'transaction'      => $this->db->object( 'transactions', $workspace, $id ),
+			'revisions'        => $this->db->rows( 'SELECT revision,payload,actor_id,reason,created_at FROM ' . $this->db->table( 'transaction_revisions' ) . ' WHERE workspace_id = %d AND transaction_id = %d ORDER BY revision', array( $workspace, $id ) ),
+			'correction'       => $this->db->row( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id DESC LIMIT 1', array( $workspace, $id, $id ) ),
+			'correction_links' => $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND (source_transaction_id = %d OR replacement_transaction_id = %d) ORDER BY id', array( $workspace, $id, $id ) ),
+		);
+	}
+
+	/**
+	 * Read only currently active posted events for an account.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $account Account identifier.
+	 * @return array
+	 */
+	private function active_account_events( int $workspace, int $account ): array {
+		return $this->db->rows( 'SELECT t.*,o.acquired_on,o.basis_status,COALESCE(parent.chronology_id,t.id) AS order_id FROM ' . $this->db->table( 'transactions' ) . ' t LEFT JOIN ' . $this->db->table( 'opening_balances' ) . ' o ON o.workspace_id = t.workspace_id AND o.transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' superseded ON superseded.workspace_id = t.workspace_id AND superseded.source_transaction_id = t.id LEFT JOIN ' . $this->db->table( 'transaction_corrections' ) . ' parent ON parent.workspace_id = t.workspace_id AND parent.replacement_transaction_id = t.id WHERE t.workspace_id = %d AND t.account_id = %d AND t.state = %s AND superseded.id IS NULL ORDER BY t.effective_date,order_id', array( $workspace, $account, 'posted' ) );
+	}
+
+	/**
+	 * Preview a chronological insertion without changing posted history.
+	 *
+	 * @param int   $workspace Workspace identifier.
+	 * @param array $input Complete proposed posted transaction.
+	 * @return array Projected cash and affected realized gains.
+	 * @throws \InvalidArgumentException When proposed facts or chronology are invalid.
+	 * @throws \RuntimeException When stored cash disagrees with posted history.
+	 */
+	public function replay_preview( int $workspace, array $input ): array {
+		$this->authorize( $workspace, 'tgit_post' );
+		$data = $this->transaction_input( $input );
+		if ( 'posted' !== $data['state'] ) {
+			throw new \InvalidArgumentException( 'Replay preview requires posted transaction facts.' );
+		}
+		$account = $this->db->object( 'accounts', $workspace, $data['account_id'] );
+		if ( null !== $account['archived_at'] || $account['native_currency'] !== $data['currency'] ) {
+			throw new \InvalidArgumentException( 'Use an active account in the transaction currency.' );
+		}
+		if ( null !== $data['asset_id'] ) {
+			$asset = $this->db->object( 'assets', $workspace, $data['asset_id'] );
+			if ( $asset['quote_currency'] !== $data['currency'] ) {
+				throw new \InvalidArgumentException( 'Asset and account currencies must match.' );
+			}
+		}
+		$existing = $this->active_account_events( $workspace, $data['account_id'] );
+		foreach ( $existing as $event ) {
+			if ( str_starts_with( $event['action'], 'opening_' ) && $data['effective_date'] < $event['effective_date'] ) {
+				throw new \InvalidArgumentException( 'Historical transaction cannot precede the account opening date.' );
+			}
+		}
+		$before = Replay::calculate( $existing );
+		if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+			throw new \RuntimeException( 'Account projection differs from posted history; repair is required before replay.' );
+		}
+		$proposal_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+		$proposal    = array( 'id' => $proposal_id ) + $data;
+		$after       = Replay::calculate( array_merge( $existing, array( $proposal ) ) );
+		$changed     = array();
+		foreach ( $existing as $event ) {
+			$id = (int) $event['id'];
+			if ( Decimal::compare( $before['effects'][ $id ]['realized_gain'], $after['effects'][ $id ]['realized_gain'] ) !== 0 ) {
+				$changed[] = array(
+					'transaction_id'       => $id,
+					'realized_gain_before' => $before['effects'][ $id ]['realized_gain'],
+					'realized_gain_after'  => $after['effects'][ $id ]['realized_gain'],
+				);
+			}
+		}
+		return array(
+			'applied'                => false,
+			'account_id'             => $data['account_id'],
+			'currency'               => $data['currency'],
+			'cash_before'            => $before['cash_balance'],
+			'cash_after'             => $after['cash_balance'],
+			'proposed_cash_delta'    => $after['effects'][ $proposal_id ]['cash_delta'],
+			'proposed_realized_gain' => $after['effects'][ $proposal_id ]['realized_gain'],
+			'changed_realized_gains' => $changed,
+			'source_fingerprint'     => hash( 'sha256', wp_json_encode( $existing ) ),
+		);
+	}
+
+	/**
+	 * Supersede one posted cash event without rewriting its financial facts.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $id Posted cash transaction identifier.
+	 * @param array  $input Expected revision, reason and replacement facts.
+	 * @param string $key Idempotency identity.
+	 * @return array Source, replacement and correction evidence.
+	 * @throws \InvalidArgumentException When cash correction facts are invalid.
+	 */
+	public function correct_cash( int $workspace, int $id, array $input, string $key ): array {
+		self::fields( $input, array( 'expected_revision', 'reason', 'replacement' ), array( 'expected_revision', 'reason', 'replacement' ) );
+		$revision = self::id( $input['expected_revision'] );
+		$reason   = self::text( $input['reason'], 190 );
+		if ( ! is_array( $input['replacement'] ) ) {
+			throw new \InvalidArgumentException( 'Replacement must be a JSON object.' );
+		}
+		$replacement = $this->transaction_input( $input['replacement'] );
+		if ( 'posted' !== $replacement['state'] || ! in_array( $replacement['action'], array( 'deposit', 'withdrawal' ), true ) ) {
+			throw new \InvalidArgumentException( 'This correction path accepts posted cash movements only.' );
+		}
+		$command = array(
+			'expected_revision' => $revision,
+			'reason'            => $reason,
+			'replacement'       => $replacement,
+		);
+		return $this->mutation(
+			$workspace,
+			'tgit_post',
+			'transaction.correct.' . $id,
+			$key,
+			$command,
+			function () use ( $workspace, $id, $revision, $reason, $replacement ) {
+				$source = $this->db->object( 'transactions', $workspace, $id );
+				if ( 'posted' !== $source['state'] || ! in_array( $source['action'], array( 'deposit', 'withdrawal' ), true ) || (int) $source['revision'] !== $revision ) {
+					throw new \UnexpectedValueException( 'Posted cash transaction changed or is not correctable.' );
+				}
+				if ( (int) $source['account_id'] !== $replacement['account_id'] || $source['currency'] !== $replacement['currency'] ) {
+					throw new \InvalidArgumentException( 'Cash correction must retain its account and currency.' );
+				}
+				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'transaction_corrections' ) . ' WHERE workspace_id = %d AND source_transaction_id = %d', array( $workspace, $id ) );
+				if ( $prior ) {
+					throw new \UnexpectedValueException( 'This transaction was already superseded.' );
+				}
+				$account = $this->db->object( 'accounts', $workspace, $replacement['account_id'] );
+				if ( null !== $account['archived_at'] ) {
+					throw new \InvalidArgumentException( 'Correct an active account only.' );
+				}
+				$existing = $this->active_account_events( $workspace, $replacement['account_id'] );
+				$before   = Replay::calculate( $existing );
+				if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+					throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+				}
+				$active_source = null;
+				$revised       = array();
+				foreach ( $existing as $event ) {
+					if ( (int) $event['id'] === $id ) {
+						$active_source = $event;
+						continue;
+					}
+					if ( str_starts_with( $event['action'], 'opening_' ) && $replacement['effective_date'] < $event['effective_date'] ) {
+						throw new \InvalidArgumentException( 'Correction cannot precede the account opening date.' );
+					}
+					$revised[] = $event;
+				}
+				if ( null === $active_source ) {
+					throw new \UnexpectedValueException( 'Source is not an active posted transaction.' );
+				}
+				$preview_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+				$proposal   = array(
+					'id'       => $preview_id,
+					'order_id' => (int) $active_source['order_id'],
+				) + $replacement;
+				$after      = Replay::calculate( array_merge( $revised, array( $proposal ) ) );
+				$new_id     = $this->db->insert(
+					'transactions',
+					$replacement + array(
+						'workspace_id'  => $workspace,
+						'uuid'          => wp_generate_uuid4(),
+						'realized_gain' => '0',
+						'created_by'    => $this->actor,
+						'created_at'    => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'transaction_revisions',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $new_id,
+						'revision'       => 1,
+						'payload'        => wp_json_encode( $replacement ),
+						'actor_id'       => $this->actor,
+						'reason'         => $reason,
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$delta = $after['effects'][ $preview_id ]['cash_delta'];
+				$this->db->insert(
+					'transaction_legs',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $new_id,
+						'account_id'     => $replacement['account_id'],
+						'asset_id'       => null,
+						'quantity_delta' => '0',
+						'cash_delta'     => $delta,
+						'currency'       => $replacement['currency'],
+						'role'           => $replacement['action'],
+					)
+				);
+				$correction_id = $this->db->insert(
+					'transaction_corrections',
+					array(
+						'workspace_id'               => $workspace,
+						'source_transaction_id'      => $id,
+						'replacement_transaction_id' => $new_id,
+						'chronology_id'              => (int) $active_source['order_id'],
+						'source_revision'            => $revision + 1,
+						'actor_id'                   => $this->actor,
+						'reason'                     => $reason,
+						'created_at'                 => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->update_object( 'transactions', $workspace, $id, array( 'revision' => $revision + 1 ) );
+				$this->db->insert(
+					'transaction_revisions',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $id,
+						'revision'       => $revision + 1,
+						'payload'        => wp_json_encode(
+							array(
+								'superseded_by' => $new_id,
+								'reason'        => $reason,
+							)
+						),
+						'actor_id'       => $this->actor,
+						'reason'         => $reason,
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $after['cash_balance'], $workspace, $replacement['account_id'] ) );
+				$this->audit( $workspace, 'transaction.corrected', 'transaction', $id, $revision + 1 );
+				$this->audit( $workspace, 'transaction.replaced', 'transaction', $new_id );
+				return array(
+					'source'      => $this->db->object( 'transactions', $workspace, $id ),
+					'replacement' => $this->db->object( 'transactions', $workspace, $new_id ),
+					'correction'  => $this->db->object( 'transaction_corrections', $workspace, $correction_id ),
+					'cash_after'  => $after['cash_balance'],
+				);
+			}
+		);
+	}
+
+	/**
+	 * Insert a historical cash movement after validating every later balance.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $input Posted deposit or withdrawal facts.
+	 * @param string $key Idempotency identity.
+	 * @return array Posted event and rebuilt current cash.
+	 * @throws \InvalidArgumentException When history would be invalid.
+	 */
+	public function post_historical_cash( int $workspace, array $input, string $key ): array {
+		$data = $this->transaction_input( $input );
+		if ( 'posted' !== $data['state'] || ! in_array( $data['action'], array( 'deposit', 'withdrawal' ), true ) ) {
+			throw new \InvalidArgumentException( 'Historical cash entry requires a posted deposit or withdrawal.' );
+		}
+		return $this->mutation(
+			$workspace,
+			'tgit_post',
+			'transaction.historical_cash',
+			$key,
+			$data,
+			function () use ( $workspace, $data ) {
+				$account = $this->db->object( 'accounts', $workspace, $data['account_id'] );
+				if ( null !== $account['archived_at'] || $account['native_currency'] !== $data['currency'] ) {
+					throw new \InvalidArgumentException( 'Use an active account in the transaction currency.' );
+				}
+				$existing = $this->active_account_events( $workspace, $data['account_id'] );
+				foreach ( $existing as $event ) {
+					if ( str_starts_with( $event['action'], 'opening_' ) && $data['effective_date'] < $event['effective_date'] ) {
+						throw new \InvalidArgumentException( 'Historical cash cannot precede the account opening date.' );
+					}
+				}
+				$before = Replay::calculate( $existing );
+				if ( Decimal::compare( $before['cash_balance'], $account['cash_balance'] ) !== 0 ) {
+					throw new \RuntimeException( 'Account projection differs from posted history; repair is required.' );
+				}
+				$preview_id = $existing ? 1 + max( array_map( static fn( array $event ): int => (int) $event['id'], $existing ) ) : 1;
+				$after      = Replay::calculate( array_merge( $existing, array( array( 'id' => $preview_id ) + $data ) ) );
+				$new_id     = $this->db->insert(
+					'transactions',
+					$data + array(
+						'workspace_id'  => $workspace,
+						'uuid'          => wp_generate_uuid4(),
+						'realized_gain' => '0',
+						'created_by'    => $this->actor,
+						'created_at'    => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'transaction_revisions',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $new_id,
+						'revision'       => 1,
+						'payload'        => wp_json_encode( $data ),
+						'actor_id'       => $this->actor,
+						'reason'         => 'Historical cash entry',
+						'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->db->insert(
+					'transaction_legs',
+					array(
+						'workspace_id'   => $workspace,
+						'transaction_id' => $new_id,
+						'account_id'     => $data['account_id'],
+						'asset_id'       => null,
+						'quantity_delta' => '0',
+						'cash_delta'     => $after['effects'][ $preview_id ]['cash_delta'],
+						'currency'       => $data['currency'],
+						'role'           => $data['action'],
+					)
+				);
+				$this->db->query( 'UPDATE ' . $this->db->table( 'accounts' ) . ' SET cash_balance = %s WHERE workspace_id = %d AND id = %d', array( $after['cash_balance'], $workspace, $data['account_id'] ) );
+				$this->audit( $workspace, 'transaction.historical_cash', 'transaction', $new_id );
+				return array(
+					'transaction' => $this->db->object( 'transactions', $workspace, $new_id ),
+					'cash_after'  => $after['cash_balance'],
+				);
+			}
 		);
 	}
 

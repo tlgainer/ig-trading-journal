@@ -3,9 +3,11 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../src/Domain/Decimal.php';
 require_once __DIR__ . '/../src/Domain/Ledger.php';
+require_once __DIR__ . '/../src/Domain/Replay.php';
 require_once __DIR__ . '/../src/Application/Access.php';
 use GainerInteractive\IGTradingJournal\Domain\Decimal as D;
 use GainerInteractive\IGTradingJournal\Domain\Ledger;
+use GainerInteractive\IGTradingJournal\Domain\Replay;
 use GainerInteractive\IGTradingJournal\Application\Access;
 
 if (!extension_loaded('bcmath')) { fwrite(STDERR, "BCMath is required.\n"); exit(1); }
@@ -83,4 +85,37 @@ test('Revoked owner denied every grant', function () {
  $m = ['role' => 'owner', 'state' => 'revoked']; foreach (['tgit_view', 'tgit_post', 'tgit_manage_members'] as $cap) equal(Access::allows($m, $cap), false);
 });
 test('Unknown role and capability denied', function () { equal(Access::allows(['role' => 'admin', 'state' => 'active'], 'tgit_view'), false); equal(Access::allows(['role' => 'owner', 'state' => 'active'], 'tgit_export'), false); });
+test('Chronological replay conserves native cash and FIFO basis', function () {
+ $events = [
+  ['id' => 3, 'effective_date' => '2026-01-03', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '4', 'unit_price' => '120', 'fees' => '2'],
+  ['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'deposit', 'amount' => '2000'],
+  ['id' => 2, 'effective_date' => '2026-01-02', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '10', 'unit_price' => '100', 'fees' => '5'],
+ ];
+ $result = Replay::calculate($events);
+ decimal($result['cash_balance'], '1473'); decimal($result['effects'][3]['realized_gain'], '76');
+ decimal($result['lots'][2]['quantity_remaining'], '6'); decimal($result['lots'][2]['basis_remaining'], '603');
+});
+test('Backdated acquisition changes later FIFO gain deterministically', function () {
+ $events = [
+  ['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'deposit', 'amount' => '1000'],
+  ['id' => 2, 'effective_date' => '2026-01-03', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '10', 'unit_price' => '10', 'fees' => '0'],
+  ['id' => 3, 'effective_date' => '2026-01-04', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '5', 'unit_price' => '20', 'fees' => '0'],
+ ];
+ decimal(Replay::calculate($events)['effects'][3]['realized_gain'], '50');
+ $events[] = ['id' => 4, 'effective_date' => '2026-01-02', 'action' => 'buy', 'asset_id' => 7, 'quantity' => '5', 'unit_price' => '8', 'fees' => '0'];
+ $result = Replay::calculate($events); decimal($result['effects'][3]['realized_gain'], '60'); decimal($result['cash_balance'], '960');
+});
+test('Replay rejects a proposed historical overdraft or oversell', function () {
+ rejects(fn() => Replay::calculate([['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'withdrawal', 'amount' => '1']]));
+ rejects(fn() => Replay::calculate([['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '10', 'fees' => '0']]));
+});
+test('Replay keeps pre-existing shares separate from starting cash and unknown basis', function () {
+ $events = [
+  ['id' => 1, 'effective_date' => '2026-01-01', 'action' => 'opening_cash', 'amount' => '500'],
+  ['id' => 2, 'effective_date' => '2026-01-01', 'action' => 'opening_lot', 'asset_id' => 7, 'acquired_on' => '2020-01-01', 'quantity' => '2', 'amount' => '100', 'basis_status' => 'complete'],
+  ['id' => 3, 'effective_date' => '2026-01-02', 'action' => 'sell', 'asset_id' => 7, 'quantity' => '1', 'unit_price' => '80', 'fees' => '0'],
+ ];
+ $result = Replay::calculate($events); decimal($result['cash_balance'], '580'); decimal($result['effects'][3]['realized_gain'], '30');
+ $events[1]['basis_status'] = 'unresolved'; unset($events[1]['amount']); rejects(fn() => Replay::calculate($events));
+});
 echo "$passed tests passed.\n";
