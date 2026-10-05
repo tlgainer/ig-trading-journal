@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-For **plugin 0.19.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.20.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
@@ -31,7 +31,7 @@ For **plugin 0.19.0**, used inside WordPress administration. This guide describe
 
 The workspace creator becomes its owner. Each workspace has separate members and records. Select the intended workspace before entering data; being a WordPress administrator does not automatically grant access to another person's workspace.
 
-For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.19.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
+For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.20.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
 
 The server needs PHP 8.1+ with BCMath, a supported database and HTTPS outside local development. Private images also need GD and private storage. BCMath and GD are PHP extensions, not WordPress plugins. Have the host verify them in the PHP runtime serving WordPress, rather than relying on the phpMyAdmin or command-line PHP version.
 
@@ -191,6 +191,10 @@ Use **Authored research note** to save a note for an asset. Editing an existing 
 **Crypto profit** uses buy price, sell/current price, investment principal excluding fees, and separately entered buy/sell fees. It returns units, position value, net exit value and scenario profit.
 
 **Long-position risk** uses entry price, risk budget and an absolute stop distance below entry. For an entry of `100` and a stop distance of `5`, the stop price is `95`; the field is not a percentage or the stop price itself.
+
+**Linear leveraged crypto** takes long/short direction, entry/exit price, collateral and leverage. Use the same currency for every amount; fees and borrowing/funding costs are entered as amounts, not percentages. For BTC entry 75,000 and exit 82,500, collateral 2,000 at 2x gives exposure 4,000 and gross profit 400 before costs. An exit at 67,500 gives a long loss of 400. Return is measured against entered collateral. Liquidation is unavailable without contract/account rules; the calculation assumes the entered exit is reached. Inverse contracts and currency conversions are unsupported. USDT/USDC identities remain planned.
+
+Stock long/short profit and bought call/put scenarios are planned. Sold options are deferred.
 
 These are scenarios. Running a calculator does not save a transaction, fund an account or create a holding.
 

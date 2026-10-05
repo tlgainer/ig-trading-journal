@@ -3,7 +3,18 @@
  'use strict';
  const config = window.tgitConfig;
  let workspace = '';
+ let generation = 0;
+ const display = (value) => window.tgitDisplayDecimal ? window.tgitDisplayDecimal(value, 2) : value;
  const forms = [
+  { id: 'tgit-leveraged-calculator', type: 'leveraged', output: 'tgit-leveraged-result', lines: (result) => [
+   `Notional exposure: ${display(result.notional_exposure)} ${result.currency}`,
+   `Equivalent units: ${result.equivalent_units}`,
+   `Gross profit: ${display(result.gross_profit)} ${result.currency}`,
+   `Entered costs: ${display(result.total_costs)} ${result.currency}`,
+   `Net profit: ${display(result.net_profit)} ${result.currency}`,
+   `Return on entered collateral: ${display(result.return_on_collateral)}%`,
+   'Liquidation price: unavailable. Hypothetical linear scenario; no position is opened.'
+  ] },
   { id: 'tgit-crypto-calculator', type: 'crypto', output: 'tgit-crypto-result', lines: (result) => [
    `Units: ${result.units}`,
    `Gross position value: ${result.position_value} ${result.currency}`,
@@ -28,6 +39,7 @@
   if (!form || !output) continue;
   form.addEventListener('submit', async (event) => {
    event.preventDefault(); if (!workspace) return;
+   const expected = generation;
    const button = form.querySelector('button[type="submit"], button:not([type])'); button.disabled = true;
    show(output, [config.i18n.loading]);
    try {
@@ -37,14 +49,16 @@
      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': config.nonce }, body: JSON.stringify(payload)
     });
     const envelope = await response.json();
+    if (expected !== generation) return;
     if (!response.ok) throw new Error(envelope.message || config.i18n.network);
     show(output, item.lines(envelope.data));
-   } catch (error) { show(output, [error.message || config.i18n.network], true); }
+   } catch (error) { if (expected === generation) show(output, [error.message || config.i18n.network], true); }
    finally { button.disabled = false; }
   });
  }
  window.addEventListener('tgit-workspace', (event) => {
   workspace = event.detail.workspace;
+  generation += 1;
   for (const item of forms) document.getElementById(item.output)?.replaceChildren();
  });
 })();

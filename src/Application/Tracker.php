@@ -1954,7 +1954,7 @@ final class Tracker {
 	 * Calculate a private, non-posting scenario for an authorized member.
 	 *
 	 * @param int    $workspace Workspace identifier.
-	 * @param string $type Crypto profit or long-position risk.
+	 * @param string $type Spot, linear leveraged profit or long-position risk.
 	 * @param array  $input Decimal-string inputs and optional note.
 	 * @return array Calculated scenario, never a ledger event.
 	 * @throws \InvalidArgumentException When inputs are invalid.
@@ -1969,6 +1969,21 @@ final class Tracker {
 				Decimal::input( $input['investment'], 12, true ),
 				Decimal::input( $input['buy_fee'] ?? '0', 12 ),
 				Decimal::input( $input['sell_fee'] ?? '0', 12 )
+			);
+		} elseif ( 'leveraged' === $type ) {
+			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'collateral', 'leverage', 'entry_fee', 'exit_fee', 'other_costs', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'collateral', 'leverage' ) );
+			if ( ! is_string( $input['direction'] ) ) {
+				throw new \InvalidArgumentException( 'Direction must be text.' );
+			}
+			$result = Scenario::leveraged(
+				$input['direction'],
+				Decimal::input( $input['entry_price'], 18, true ),
+				Decimal::input( $input['exit_price'], 18 ),
+				Decimal::input( $input['collateral'], 12, true ),
+				Decimal::input( $input['leverage'], 12, true ),
+				Decimal::input( $input['entry_fee'] ?? '0', 12 ),
+				Decimal::input( $input['exit_fee'] ?? '0', 12 ),
+				Decimal::input( $input['other_costs'] ?? '0', 12 )
 			);
 		} elseif ( 'risk' === $type ) {
 			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'currency', 'note' ), array( 'entry_price', 'risk_budget', 'stop_distance' ) );

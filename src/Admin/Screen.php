@@ -191,6 +191,24 @@ final class Screen {
 	<button class="button button-primary"><?php esc_html_e( 'Calculate size', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-risk-result" aria-live="polite"></output>
 	</form>
+	<form id="tgit-leveraged-calculator" class="tgit-form">
+	<h3><?php esc_html_e( 'Linear leveraged crypto', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Hypothetical linear exposure only. Entry, exit, collateral and costs must use the same currency. Inverse contracts and currency conversions are not supported.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
+	<label><?php esc_html_e( 'Direction', 'ig-trading-journal' ); ?><select name="direction"><option value="long"><?php esc_html_e( 'Long', 'ig-trading-journal' ); ?></option><option value="short"><?php esc_html_e( 'Short', 'ig-trading-journal' ); ?></option></select></label>
+	<label><?php esc_html_e( 'Entry price per unit', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Proposed exit price per unit', 'ig-trading-journal' ); ?><input name="exit_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Collateral, excluding costs', 'ig-trading-journal' ); ?><input name="collateral" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" aria-describedby="tgit-leverage-help"></label>
+	<label><?php esc_html_e( 'Leverage multiplier', 'ig-trading-journal' ); ?><input name="leverage" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="2" aria-describedby="tgit-leverage-help"></label>
+	<p id="tgit-leverage-help"><?php esc_html_e( 'For example, 2,000 collateral at 2x creates 4,000 exposure. Return is measured against entered collateral, excluding costs.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Entry fee amount', 'ig-trading-journal' ); ?><input name="entry_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Exit fee amount', 'ig-trading-journal' ); ?><input name="exit_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Borrowing and funding cost amount', 'ig-trading-journal' ); ?><input name="other_costs" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
+	<p><?php esc_html_e( 'Liquidation price is unavailable without contract and account rules. This arithmetic assumes the position reaches the entered exit; actual liquidation may occur first. Loss can exceed collateral.', 'ig-trading-journal' ); ?></p>
+	<button class="button button-primary"><?php esc_html_e( 'Calculate leveraged profit', 'ig-trading-journal' ); ?></button>
+	<output id="tgit-leveraged-result" aria-live="polite"></output>
+	</form>
 	</div>
 	</section>
 	<section id="tgit-research-section">

@@ -146,6 +146,26 @@ test('Crypto scenario states fee treatment without posting a trade', function ()
  $fees = Scenario::crypto('20', '30', '100', '2', '3'); decimal($fees['net_exit_value'], '147'); decimal($fees['profit_amount'], '45'); decimal($fees['profit_percentage'], '44.117647058824'); equal($fees['fees_included'], true);
  rejects(fn() => Scenario::crypto('0', '30', '100'));
 });
+test('Linear leverage separates collateral, exposure, direction and entered costs', function () {
+ $long = Scenario::leveraged('long', '75000', '82500', '2000', '2');
+ decimal($long['notional_exposure'], '4000'); decimal($long['gross_profit'], '400'); decimal($long['net_profit'], '400'); decimal($long['return_on_collateral'], '20'); equal($long['liquidation_price'], null);
+ $loss = Scenario::leveraged('long', '75000', '67500', '2000', '2'); decimal($loss['net_profit'], '-400');
+ $short = Scenario::leveraged('short', '75000', '67500', '2000', '2', '5', '3', '2'); decimal($short['gross_profit'], '400'); decimal($short['total_costs'], '10'); decimal($short['net_profit'], '390'); decimal($short['return_on_collateral'], '19.5');
+ decimal(Scenario::leveraged('short', '75000', '82500', '2000', '2')['net_profit'], '-400');
+ decimal(Scenario::leveraged('long', '75000', '0', '2000', '2')['net_profit'], '-4000');
+ decimal(Scenario::leveraged('long', '75000', '75000', '2000', '2', '5')['net_profit'], '-5');
+ decimal(Scenario::leveraged('long', '3', '6', '1', '1.5')['gross_profit'], '1.5');
+});
+
+test('Linear scenario rejects unsupported directions, zero divisors, invalid leverage and costs', function () {
+ rejects(fn() => Scenario::leveraged('inverse', '100', '110', '100', '2'));
+ rejects(fn() => Scenario::leveraged('long', '0', '110', '100', '2'));
+ rejects(fn() => Scenario::leveraged('long', '100', '110', '0', '2'));
+ rejects(fn() => Scenario::leveraged('long', '100', '110', '100', '0.5'));
+ rejects(fn() => Scenario::leveraged('long', '100', '110', '100', '2', '-1'));
+ rejects(fn() => Scenario::leveraged('long', '100', '110', '100', '2e1'));
+});
+
 test('Long-position risk scenario respects the absolute stop distance', function () {
  $risk = Scenario::risk('100', '50', '5'); decimal($risk['stop_price'], '95'); decimal($risk['position_size'], '10'); decimal($risk['capital_required'], '1000'); decimal($risk['risk_used'], '50');
  rejects(fn() => Scenario::risk('100', '50', '100'));

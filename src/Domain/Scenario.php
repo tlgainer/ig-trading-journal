@@ -13,6 +13,54 @@ final class Scenario {
 	public const VERSION = 'scenario-native-1';
 
 	/**
+	 * Model linear exposure with costs paid in the same unit as collateral.
+	 *
+	 * @param string $direction Long or short.
+	 * @param string $entry Entry price.
+	 * @param string $exit_price Proposed exit price, including zero.
+	 * @param string $collateral Entered collateral, excluding costs.
+	 * @param string $leverage Exposure multiplier, at least one.
+	 * @param string $entry_fee Entry cost amount.
+	 * @param string $exit_fee Exit cost amount.
+	 * @param string $other_costs Borrowing and funding cost amount.
+	 * @return array Non-posting decimal scenario.
+	 * @throws \InvalidArgumentException When inputs exceed the supported model.
+	 */
+	public static function leveraged( string $direction, string $entry, string $exit_price, string $collateral, string $leverage, string $entry_fee = '0', string $exit_fee = '0', string $other_costs = '0' ): array {
+		if ( ! in_array( $direction, array( 'long', 'short' ), true ) ) {
+			throw new \InvalidArgumentException( 'Direction must be long or short.' );
+		}
+		Decimal::input( $entry, 18, true );
+		Decimal::input( $exit_price, 18 );
+		Decimal::input( $collateral, 12, true );
+		Decimal::input( $leverage, 12, true );
+		if ( Decimal::compare( $leverage, '1' ) < 0 ) {
+			throw new \InvalidArgumentException( 'Leverage must be at least 1.' );
+		}
+		foreach ( array( $entry_fee, $exit_fee, $other_costs ) as $cost ) {
+			Decimal::input( $cost, 12 );
+		}
+		$exposure = Decimal::mul( $collateral, $leverage );
+		$notional = Decimal::money( $exposure );
+		$change   = 'long' === $direction ? Decimal::sub( $exit_price, $entry ) : Decimal::sub( $entry, $exit_price );
+		// Keep full precision for P&L; displayed equivalent units are not an intermediate.
+		$gross = Decimal::money( Decimal::mul( $exposure, Decimal::div( $change, $entry ) ) );
+		$costs = Decimal::money( Decimal::add( Decimal::add( $entry_fee, $exit_fee ), $other_costs ) );
+		$net   = Decimal::money( Decimal::sub( $gross, $costs ) );
+		return array(
+			'calculation_version'  => 'scenario-linear-1',
+			'direction'            => $direction,
+			'notional_exposure'    => $notional,
+			'equivalent_units'     => bcdiv( $exposure, $entry, 18 ),
+			'gross_profit'         => $gross,
+			'total_costs'          => $costs,
+			'net_profit'           => $net,
+			'return_on_collateral' => Decimal::round( Decimal::mul( Decimal::div( $net, $collateral ), '100' ), 12 ),
+			'liquidation_price'    => null,
+		);
+	}
+
+	/**
 	 * Calculate units, gross value and fee-aware profit for a crypto scenario.
 	 *
 	 * @param string $buy_price Buy price per unit.
