@@ -88,7 +88,7 @@ final class Controller {
 		self::route( $base . '/historical-cash', 'POST', 'post_historical_cash' );
 		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
-		self::route( $base . '/calculators/(?P<calculator>crypto|risk|leveraged)', 'POST', 'scenario' );
+		self::route( $base . '/calculators/(?P<calculator>crypto|risk|leveraged|stock|short-risk)', 'POST', 'scenario' );
 		self::route( $base . '/watchlists', 'GET', 'watchlists' );
 		self::route( $base . '/watchlists', 'POST', 'create_watchlist' );
 		self::route( $base . '/watchlists/(?P<list>[1-9][0-9]*)/items', 'GET', 'watchlist_items' );

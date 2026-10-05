@@ -183,6 +183,7 @@ final class Screen {
 	</form>
 	<form id="tgit-risk-calculator" class="tgit-form">
 	<h3><?php esc_html_e( 'Long-position risk', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Risk budget is the amount you are willing to lose, not the amount you invest. Entry 100, stop distance 5 and risk budget 200 sizes 40 units. Assumes exit at the stop; fees, slippage and gaps can increase loss.', 'ig-trading-journal' ); ?></p>
 	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
 	<label><?php esc_html_e( 'Entry price per unit', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Risk budget', 'ig-trading-journal' ); ?><input name="risk_budget" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
@@ -208,6 +209,36 @@ final class Screen {
 	<p><?php esc_html_e( 'Liquidation price is unavailable without contract and account rules. This arithmetic assumes the position reaches the entered exit; actual liquidation may occur first. Loss can exceed collateral.', 'ig-trading-journal' ); ?></p>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate leveraged profit', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-leveraged-result" aria-live="polite"></output>
+	</form>
+	<form id="tgit-stock-calculator" class="tgit-form">
+	<h3><?php esc_html_e( 'Stock profit', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Long estimates buying shares and selling later. Short estimates selling borrowed shares and buying them back. Use the same currency for prices and all cost amounts.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
+	<label><?php esc_html_e( 'Direction', 'ig-trading-journal' ); ?><select name="direction"><option value="long"><?php esc_html_e( 'Long', 'ig-trading-journal' ); ?></option><option value="short"><?php esc_html_e( 'Short', 'ig-trading-journal' ); ?></option></select></label>
+	<label><?php esc_html_e( 'Entry price per share', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Proposed sale or cover price per share', 'ig-trading-journal' ); ?><input name="exit_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Share quantity', 'ig-trading-journal' ); ?><input name="quantity" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Entry fee amount', 'ig-trading-journal' ); ?><input name="entry_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Exit fee amount', 'ig-trading-journal' ); ?><input name="exit_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label data-stock-short hidden><?php esc_html_e( 'Total estimated borrowing cost', 'ig-trading-journal' ); ?><input name="borrow_cost" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" disabled></label>
+	<label data-stock-short hidden><?php esc_html_e( 'Total estimated dividend payments', 'ig-trading-journal' ); ?><input name="dividend_cost" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" disabled></label>
+	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
+	<p><?php esc_html_e( 'Short-sale proceeds are not available investment capital. Broker margin and borrow availability are not calculated. Return is measured against entry share value, not margin. Short losses are not capped by that value.', 'ig-trading-journal' ); ?></p>
+	<button class="button button-primary"><?php esc_html_e( 'Calculate stock profit', 'ig-trading-journal' ); ?></button>
+	<output id="tgit-stock-result" aria-live="polite"></output>
+	</form>
+	<form id="tgit-short-risk-calculator" class="tgit-form">
+	<h3><?php esc_html_e( 'Short-position risk', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Size whole shares using a stop price above entry. Risk budget is the total loss you are willing to accept, not margin or investment capital.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Currency', 'ig-trading-journal' ); ?><input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="USD"></label>
+	<label><?php esc_html_e( 'Entry price per share', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Stop price above entry', 'ig-trading-journal' ); ?><input name="stop_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Total risk budget', 'ig-trading-journal' ); ?><input name="risk_budget" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Estimated total costs at the stop', 'ig-trading-journal' ); ?><input name="estimated_costs" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" aria-describedby="tgit-short-risk-help"></label>
+	<p id="tgit-short-risk-help"><?php esc_html_e( 'Include estimated entry/exit fees, borrowing, dividend payments and slippage as a total amount. Costs are reserved before sizing; recheck the estimate for the resulting share count. Gaps and changing costs can increase actual loss.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
+	<button class="button button-primary"><?php esc_html_e( 'Calculate short size', 'ig-trading-journal' ); ?></button>
+	<output id="tgit-short-risk-result" aria-live="polite"></output>
 	</form>
 	</div>
 	</section>

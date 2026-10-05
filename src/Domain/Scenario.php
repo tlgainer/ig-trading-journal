@@ -13,6 +13,94 @@ final class Scenario {
 	public const VERSION = 'scenario-native-1';
 
 	/**
+	 * Estimate owned-share sale or borrowed-share cover profit.
+	 *
+	 * @param string $direction Long or short.
+	 * @param string $entry Entry price per share.
+	 * @param string $exit_price Sale or cover price per share.
+	 * @param string $quantity Share quantity.
+	 * @param string $entry_fee Entry cost amount.
+	 * @param string $exit_fee Exit cost amount.
+	 * @param string $borrow_cost Borrowing cost amount, short only.
+	 * @param string $dividend_cost Dividend payment amount, short only.
+	 * @return array Non-posting decimal scenario.
+	 * @throws \InvalidArgumentException When inputs are invalid.
+	 */
+	public static function stock( string $direction, string $entry, string $exit_price, string $quantity, string $entry_fee = '0', string $exit_fee = '0', string $borrow_cost = '0', string $dividend_cost = '0' ): array {
+		if ( ! in_array( $direction, array( 'long', 'short' ), true ) ) {
+			throw new \InvalidArgumentException( 'Direction must be long or short.' );
+		}
+		Decimal::input( $entry, 18, true );
+		Decimal::input( $exit_price, 18 );
+		Decimal::input( $quantity, 18, true );
+		foreach ( array( $entry_fee, $exit_fee, $borrow_cost, $dividend_cost ) as $cost ) {
+			Decimal::input( $cost, 12 );
+		}
+		if ( 'long' === $direction && ( Decimal::compare( $borrow_cost, '0' ) > 0 || Decimal::compare( $dividend_cost, '0' ) > 0 ) ) {
+			throw new \InvalidArgumentException( 'Borrowing and dividend payment costs apply to short scenarios only.' );
+		}
+		$entry_value = Decimal::mul( $quantity, $entry );
+		$change      = 'long' === $direction ? Decimal::sub( $exit_price, $entry ) : Decimal::sub( $entry, $exit_price );
+		$gross       = Decimal::money( Decimal::mul( $quantity, $change ) );
+		$costs       = Decimal::money( Decimal::add( Decimal::add( $entry_fee, $exit_fee ), Decimal::add( $borrow_cost, $dividend_cost ) ) );
+		$net         = Decimal::money( Decimal::sub( $gross, $costs ) );
+		return array(
+			'calculation_version'   => 'scenario-stock-1',
+			'direction'             => $direction,
+			'quantity'              => $quantity,
+			'entry_value'           => Decimal::money( $entry_value ),
+			'exit_value'            => Decimal::money( Decimal::mul( $quantity, $exit_price ) ),
+			'gross_profit'          => $gross,
+			'total_costs'           => $costs,
+			'net_profit'            => $net,
+			'return_on_entry_value' => Decimal::round( Decimal::mul( Decimal::div( $net, $entry_value ), '100' ), 12 ),
+			'margin_required'       => null,
+		);
+	}
+
+	/**
+	 * Size whole short shares at an adverse stop, reserving entered costs.
+	 *
+	 * @param string $entry Entry price per share.
+	 * @param string $stop_price Stop above entry.
+	 * @param string $risk_budget Total loss budget, not investment capital.
+	 * @param string $estimated_costs Estimated total costs at the stop.
+	 * @return array Non-posting decimal scenario.
+	 * @throws \InvalidArgumentException When the budget cannot buy one risk unit.
+	 */
+	public static function short_risk( string $entry, string $stop_price, string $risk_budget, string $estimated_costs = '0' ): array {
+		Decimal::input( $entry, 18, true );
+		Decimal::input( $stop_price, 18, true );
+		Decimal::input( $risk_budget, 12, true );
+		Decimal::input( $estimated_costs, 12 );
+		if ( Decimal::compare( $stop_price, $entry ) <= 0 ) {
+			throw new \InvalidArgumentException( 'Short stop price must be above entry price.' );
+		}
+		$distance = Decimal::sub( $stop_price, $entry );
+		$budget   = Decimal::sub( $risk_budget, $estimated_costs );
+		if ( Decimal::compare( $budget, '0' ) <= 0 ) {
+			throw new \InvalidArgumentException( 'Estimated costs must be below the risk budget.' );
+		}
+		$shares = bcdiv( $budget, $distance, 0 );
+		if ( Decimal::compare( $shares, '1' ) < 0 ) {
+			throw new \InvalidArgumentException( 'Risk budget after costs is too small for one whole share.' );
+		}
+		$price_risk = Decimal::money( Decimal::mul( $shares, $distance ) );
+		$risk_used  = Decimal::money( Decimal::add( $price_risk, $estimated_costs ) );
+		return array(
+			'calculation_version' => 'scenario-short-risk-1',
+			'stop_price'          => $stop_price,
+			'position_size'       => $shares,
+			'notional_exposure'   => Decimal::money( Decimal::mul( $shares, $entry ) ),
+			'price_loss_at_stop'  => $price_risk,
+			'estimated_costs'     => $estimated_costs,
+			'risk_used'           => $risk_used,
+			'unused_budget'       => Decimal::money( Decimal::sub( $risk_budget, $risk_used ) ),
+			'margin_required'     => null,
+		);
+	}
+
+	/**
 	 * Model linear exposure with costs paid in the same unit as collateral.
 	 *
 	 * @param string $direction Long or short.

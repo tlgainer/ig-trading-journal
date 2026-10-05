@@ -1954,7 +1954,7 @@ final class Tracker {
 	 * Calculate a private, non-posting scenario for an authorized member.
 	 *
 	 * @param int    $workspace Workspace identifier.
-	 * @param string $type Spot, linear leveraged profit or long-position risk.
+	 * @param string $type Spot, leveraged, stock profit or position risk.
 	 * @param array  $input Decimal-string inputs and optional note.
 	 * @return array Calculated scenario, never a ledger event.
 	 * @throws \InvalidArgumentException When inputs are invalid.
@@ -1984,6 +1984,29 @@ final class Tracker {
 				Decimal::input( $input['entry_fee'] ?? '0', 12 ),
 				Decimal::input( $input['exit_fee'] ?? '0', 12 ),
 				Decimal::input( $input['other_costs'] ?? '0', 12 )
+			);
+		} elseif ( 'stock' === $type ) {
+			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'quantity', 'entry_fee', 'exit_fee', 'borrow_cost', 'dividend_cost', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'quantity' ) );
+			if ( ! is_string( $input['direction'] ) ) {
+				throw new \InvalidArgumentException( 'Direction must be text.' );
+			}
+			$result = Scenario::stock(
+				$input['direction'],
+				Decimal::input( $input['entry_price'], 18, true ),
+				Decimal::input( $input['exit_price'], 18 ),
+				Decimal::input( $input['quantity'], 18, true ),
+				Decimal::input( $input['entry_fee'] ?? '0', 12 ),
+				Decimal::input( $input['exit_fee'] ?? '0', 12 ),
+				Decimal::input( $input['borrow_cost'] ?? '0', 12 ),
+				Decimal::input( $input['dividend_cost'] ?? '0', 12 )
+			);
+		} elseif ( 'short-risk' === $type ) {
+			self::fields( $input, array( 'entry_price', 'stop_price', 'risk_budget', 'estimated_costs', 'currency', 'note' ), array( 'entry_price', 'stop_price', 'risk_budget' ) );
+			$result = Scenario::short_risk(
+				Decimal::input( $input['entry_price'], 18, true ),
+				Decimal::input( $input['stop_price'], 18, true ),
+				Decimal::input( $input['risk_budget'], 12, true ),
+				Decimal::input( $input['estimated_costs'] ?? '0', 12 )
 			);
 		} elseif ( 'risk' === $type ) {
 			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'currency', 'note' ), array( 'entry_price', 'risk_budget', 'stop_distance' ) );

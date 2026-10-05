@@ -5,7 +5,7 @@ Owner-requested additions, October 5, 2026. These extend the original PRD; they 
 ## Delivery order
 
 1. Finish Holdings/Transactions readability using the shared tables. Transactions already use the shared table in 0.18.0; Holdings is delivered in 0.19.0. Preserve account names, exact values, missing-price/basis statuses, whole-result search and scoped preferences.
-2. Extend non-posting calculators for leveraged crypto, stock long/short profit and short-position risk, then bought-option premium/expiry scenarios. Linear leveraged crypto is delivered in 0.20.0; stock scenarios are next. Keep calculations separate from ledger posting.
+2. Extend non-posting calculators for leveraged crypto, stock long/short profit and short-position risk, then bought-option premium/expiry scenarios. Linear leveraged crypto is delivered in 0.20.0; stock profit and short risk are delivered in 0.21.0. Bought call/put scenarios are next. Keep calculations separate from ledger posting.
 3. Design subaccounts, USDT/USDC currency identities and settlement conversions.
 4. Implement instrument-specific margin/derivative accounting and reports only after product/contract rules are confirmed. Do not treat derivative exposure as owned spot units.
 
@@ -34,6 +34,8 @@ Delivered in 0.20.0: hypothetical linear long/short, collateral times leverage, 
 - This calculator must not open a position, borrow cash or change balances.
 
 ## Stock profit and short-position risk calculators
+
+Delivered in 0.21.0: long/short share profit, entry/exit fees, short borrowing/dividend cost amounts and return on entry share value. Short sizing uses a stop price above entry, reserves entered estimated total costs, rounds down to whole shares and reports remaining risk budget. Broker margin and borrow availability remain unavailable. No short financial posting is enabled.
 
 - Long profit: quantity × (exit − entry), less entered costs.
 - Short profit: quantity × (entry − cover), less entered fees, borrow charges and applicable dividend payments.

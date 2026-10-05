@@ -166,6 +166,32 @@ test('Linear scenario rejects unsupported directions, zero divisors, invalid lev
  rejects(fn() => Scenario::leveraged('long', '100', '110', '100', '2e1'));
 });
 
+test('Stock long and short scenarios preserve exact shares and deduct all entered costs', function () {
+ $long = Scenario::stock('long', '100', '110', '10', '2', '3'); decimal($long['gross_profit'], '100'); decimal($long['net_profit'], '95'); decimal($long['return_on_entry_value'], '9.5');
+ $short = Scenario::stock('short', '100', '90', '10', '2', '3', '4', '1'); decimal($short['gross_profit'], '100'); decimal($short['total_costs'], '10'); decimal($short['net_profit'], '90'); equal($short['margin_required'], null);
+ decimal(Scenario::stock('short', '100', '110', '10')['net_profit'], '-100');
+ decimal(Scenario::stock('short', '100', '0', '10')['net_profit'], '1000');
+ decimal(Scenario::stock('short', '100', '250', '10')['net_profit'], '-1500');
+ decimal(Scenario::stock('long', '100', '0', '10')['net_profit'], '-1000');
+ decimal(Scenario::stock('long', '0.1', '0.3', '0.123456789123456789')['gross_profit'], '0.024691357825');
+ rejects(fn() => Scenario::stock('long', '100', '110', '10', '0', '0', '1'));
+ rejects(fn() => Scenario::stock('other', '100', '110', '10'));
+ rejects(fn() => Scenario::stock('short', '0', '110', '10'));
+ rejects(fn() => Scenario::stock('short', '100', '110', '0'));
+ rejects(fn() => Scenario::stock('short', '100', '110', '10', '-1'));
+});
+
+test('Short sizing rounds down whole shares and reserves estimated costs inside risk budget', function () {
+ $risk = Scenario::short_risk('100', '105', '200', '12'); equal($risk['position_size'], '37'); decimal($risk['notional_exposure'], '3700'); decimal($risk['price_loss_at_stop'], '185'); decimal($risk['risk_used'], '197'); decimal($risk['unused_budget'], '3'); equal($risk['margin_required'], null);
+ equal(Scenario::short_risk('100', '105', '200')['position_size'], '40');
+ equal(Scenario::short_risk('100', '300', '200')['position_size'], '1');
+ rejects(fn() => Scenario::short_risk('100', '100', '200'));
+ rejects(fn() => Scenario::short_risk('100', '95', '200'));
+ rejects(fn() => Scenario::short_risk('100', '105', '200', '200'));
+ rejects(fn() => Scenario::short_risk('100', '105', '4'));
+ rejects(fn() => Scenario::short_risk('100', '105', '200', '-1'));
+});
+
 test('Long-position risk scenario respects the absolute stop distance', function () {
  $risk = Scenario::risk('100', '50', '5'); decimal($risk['stop_price'], '95'); decimal($risk['position_size'], '10'); decimal($risk['capital_required'], '1000'); decimal($risk['risk_used'], '50');
  rejects(fn() => Scenario::risk('100', '50', '100'));
