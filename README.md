@@ -2,6 +2,8 @@
 
 A private investment tracker and trading journal for WordPress, implementing the TG Investment Tracker PRD in staged slices.
 
+See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
+
 ## Installation
 
 Requires PHP 8.1+ with BCMath, WordPress 6.8+, and MySQL 8.0+/MariaDB 10.6+ with InnoDB and utf8mb4. Use HTTPS outside local/development environments.
