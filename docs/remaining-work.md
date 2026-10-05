@@ -1,6 +1,6 @@
 # Prioritized remaining work
 
-Current build: 0.18.0, schema 8. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
+Current build: 0.19.0, schema 8. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
 UI/UX work is underway after the reporting slice. The shared-shell/table foundation and Trade Journal collection/detail navigation are implemented; see [screen coverage](ui-ux-coverage.md). The remaining original PRD backlog stays listed below.
 
@@ -12,6 +12,8 @@ UI/UX work is underway after the reporting slice. The shared-shell/table foundat
 4. **Spreadsheet imports, reconciliation, exports, and restore testing.** Next: full workbook inventory, mapping/preview, duplicate/change detection, per-row outcomes, reconciliation, controlled commit, CSV/portable export with image manifests, and verified database/private-byte restore.
 
 ## Other PRD work after the ordered priorities
+
+Owner additions for subaccounts, USDT/USDC, margin, leveraged crypto scenarios, stock short/profit and options calculators are recorded in [next requirements](next-requirements.md). Calculator support must remain separate from derivative/short financial posting.
 
 Dividends/withholding, interest, fees, rewards/reinvestment, linked transfers, swaps and splits; remaining accounting fixtures; provider adapters and entitlements; billing/licensing/hosted provisioning and commercial operational/legal review. No provider or billing vendor has been chosen.
 

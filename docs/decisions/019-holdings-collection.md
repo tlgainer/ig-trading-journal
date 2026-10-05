@@ -1,0 +1,11 @@
+# Holdings collection and extended requirements
+
+Build 0.19.0 converts Overview holdings to the shared searchable table. It loads every asset cursor before presenting full-result search/sort, uses account/asset composite row identities, and retains scoped column/density preferences. Account names replace relationship IDs. Quantity and monetary presentation trims trailing zeros using strings; full API values remain available in titles, without float conversion or rounding away significant digits. Account filtering, basis/price coverage, native currency and unavailable valuations remain explicit.
+
+Transactions retain the shared table introduced in 0.17.0 and read-only details/recovery added in 0.18.0. Opening lots now show units and an Opening balance label rather than implying a purchase at unit price zero. Opening basis remains a separate documented value; no financial facts are changed.
+
+Schema remains 8. No SQL, ledger/domain change, automatic quote provider or new calculator is introduced. The owner's subaccount, stablecoin, margin, leverage, short and options requests are specified in `next-requirements.md`; non-posting calculators and actual derivative financial accounting have separate delivery gates. Holdings server-query scalability, numeric sort contracts, full accessibility/performance and production-host acceptance remain pending.
+
+Validation: 41 unit and 81 disposable WordPress/database integration checks passed, along with PHP/JavaScript syntax, Composer coding standards and six REST URL checks. The Holdings browser fixture verifies 101 results across asset cursors, second-page search, account filtering, exact values/raw titles, unavailable valuations and mobile overflow. Real opening cash/lots followed by a sale, transaction creation/conflicts/promotion and all eight admin sections at 360/768/1440 pixels passed. Journal desktop/mobile linking, images, dirty guards, Back and deep links also passed. Temporary fixture data, sessions and screenshots are excluded from packaging and Git.
+
+All 11 real private-media HTTP regressions passed. The package was checked for one stable plugin root, all eight SQL files, exact source-byte agreement and exclusion of development/private fixture artifacts. Actual-host, sustained-performance and complete accessibility/restore acceptance remain separate release gates.

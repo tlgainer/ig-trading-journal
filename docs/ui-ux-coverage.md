@@ -2,7 +2,7 @@
 
 Source: owner's UI/UX Addendum v1.0, October 3, 2026. Scope is WordPress admin. The owner confirmed that React is unnecessary and requested the same patterns on screens added after the original review.
 
-Build 0.18.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
+Build 0.19.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
 
 ## Shared rules
 
@@ -10,7 +10,7 @@ All eight sections use the same scoped control sizes, typography, focus treatmen
 
 | Screen | Delivered | Remaining application of shared patterns |
 | --- | --- | --- |
-| Overview | Cash account table, string decimal display, shared shell | Holdings table, compact metrics, contextual empty-state actions, full precision on demand |
+| Overview | Cash account and Holdings tables, complete-cursor search, account filters, readable string decimals/raw value titles, explicit price/basis coverage | Compact metrics, contextual empty-state actions, scalable server queries and accessibility/performance acceptance |
 | Transactions | Complete-cursor searchable table, state filter, scoped preferences, focused New/Edit draft forms, dirty guards, separate draft/post actions, read-only details/revisions, conflict reload and funding guidance | Detail deep links, Correct eligibility/action UX, structured server field errors and accessibility/performance acceptance |
 | Trade Journal | Planned/Open default table; full-result search/sort, detail tabs, minimal creation, deep links/Back, dirty guards and revision-conflict reload; Active/Trash image table, focused metadata editor and independent upload; transaction picker and grouped Plan fields; tag/confluence controls and read-only revision table/details | Server filters/sorts, performance and accessibility acceptance |
 | Strategies | Searchable Active/Archived table, focused New/Edit, shared tags, dirty guards/conflict reload, visible feedback and immutable version table/preview | Rich editor, scalable server queries, performance/accessibility acceptance and detail deep links |
@@ -41,3 +41,5 @@ Strategy collection/editor and immutable version viewing are documented in `deci
 Transaction collection and focused-entry evidence are documented in `decisions/017-transaction-collection.md`.
 
 Read-only transaction details, explicit draft/post actions and error recovery are documented in `decisions/018-transaction-detail-recovery.md`.
+
+Holdings table and the extended-requirements separation are documented in `decisions/019-holdings-collection.md`.

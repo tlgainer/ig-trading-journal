@@ -5,7 +5,7 @@
  const $ = (id) => document.getElementById(`tgit-${id}`);
  const status = (message, error = false) => { $('status').textContent = message; $('status').dataset.error = String(error); $('status').setAttribute('role', error ? 'alert' : 'status'); };
  let workspaces = [], accounts = [], assets = [], workspace = '', generation = 0;
- let holdingCursor = null, transactionBaseline = null, transactionRows = [];
+ let transactionBaseline = null, transactionRows = [];
  let pending = null, editingDraft = null, transactionViewGeneration = 0;
  const promotionKeys = new Map();
  async function request(path, body, key) {
@@ -79,13 +79,27 @@
     { key: 'action', label: 'Action', sort: (a, b) => a.action.localeCompare(b.action), render: (row) => row.action },
     { key: 'asset', label: 'Asset', render: assetName },
     { key: 'state', label: 'State', render: (row) => row.corrected_by_id ? `${row.state} · Corrected` : row.state },
-    { key: 'amount', label: 'Amount / quantity', numeric: true, render: (row) => row.asset_id ? `${row.quantity} @ ${row.unit_price} ${row.currency}; fees ${row.fees}` : `${row.amount} ${row.currency}` },
+    { key: 'amount', label: 'Amount / quantity', numeric: true, render: (row) => row.action === 'opening_lot' ? `${tgitDisplayDecimal(row.quantity, 0)} units · Opening balance` : row.asset_id ? `${row.quantity} @ ${row.unit_price} ${row.currency}; fees ${row.fees}` : `${row.amount} ${row.currency}` },
     { key: 'gain', label: 'Realized gain', numeric: true, render: (row) => `${row.current_realized_gain} ${row.currency}` },
     { key: 'actions', label: 'Actions', required: true, render: actions }
    ] }, items);
  }
- function renderHoldings(items, append) {
-  cards($('holdings'), items, (row) => [row.symbol, `Account #${row.account_id} · Units ${row.quantity}`, row.basis_status === 'unresolved' ? 'Remaining basis: unresolved' : `Remaining basis: ${row.remaining_basis} ${row.currency}`, `Realized gain: ${row.realized_gain} ${row.currency}`, row.market_value === null ? config.i18n.unknown : `Market value: ${row.market_value} ${row.currency}; unrealized gain: ${row.unrealized_gain ?? 'Unavailable'}`, row.price_observation ? `${row.price_status} price: ${row.price_observation.source} / ${row.price_observation.effective_date}; observed ${row.price_observation.observed_at} UTC` : 'Enter a manual price in Reports.'], append);
+ function renderHoldings(items) {
+  const accountName = (row) => accounts.find((account) => String(account.id) === String(row.account_id))?.name || `Account #${row.account_id}`;
+  const decimal = (value, currency = '', minimum = 2) => { if (value === null || value === undefined) return 'Unavailable'; const span = document.createElement('span'); span.textContent = `${tgitDisplayDecimal(value, minimum)}${currency ? ` ${currency}` : ''}`; span.title = `${value}${currency ? ` ${currency}` : ''}`; return span; };
+  tgitCollection($('holdings'), { actor: config.actorId, workspace, key: 'holdings', title: 'Holdings', defaultSort: 'symbol',
+   search: (row) => `${row.symbol} ${accountName(row)} ${row.currency} ${row.basis_status} ${row.price_status}`,
+   filters: [{ key: 'account', label: 'Holding account', values: [['', 'All accounts'], ...accounts.map((account) => [String(account.id), account.name])], matches: (row, value) => !value || String(row.account_id) === value }],
+   columns: [
+    { key: 'symbol', label: 'Asset', identity: true, required: true, sort: (a, b) => a.symbol.localeCompare(b.symbol), render: (row) => row.symbol },
+    { key: 'account', label: 'Account', sort: (a, b) => accountName(a).localeCompare(accountName(b)), render: accountName },
+    { key: 'quantity', label: 'Quantity', numeric: true, render: (row) => decimal(row.quantity, '', 0) },
+    { key: 'basis', label: 'Remaining cost basis', numeric: true, render: (row) => row.basis_status === 'unresolved' ? 'Unresolved' : decimal(row.remaining_basis, row.currency) },
+    { key: 'realized', label: 'Realized gain', numeric: true, render: (row) => decimal(row.realized_gain, row.currency) },
+    { key: 'market', label: 'Market value', numeric: true, render: (row) => decimal(row.market_value, row.currency) },
+    { key: 'unrealized', label: 'Unrealized gain', numeric: true, render: (row) => decimal(row.unrealized_gain, row.currency) },
+    { key: 'price', label: 'Price coverage', render: (row) => row.price_status === 'missing' ? 'Missing price — enter a manual price in Reports' : `${row.price_status}: ${row.price_observation?.source || 'Manual observation'} / ${row.price_observation?.effective_date || 'Date unavailable'}` }
+   ] }, items.map((row) => ({ ...row, id: `${row.account_id}:${row.asset_id}` })));
  }
  function cancelEdit() {
   transactionViewGeneration++; transactionDetail.hidden = true; transactionDetail.replaceChildren(); transactionError.textContent = ''; reloadTransaction.hidden = true;
@@ -184,7 +198,7 @@
   const loaded = await Promise.all([all('accounts', expected), all('assets', expected)]);
   if (expected !== generation) return;
   [accounts, assets] = loaded;
-  const [transactions, holdings] = await Promise.all([all('transactions', expected), request(path('holdings?limit=100'))]);
+  const [transactions, holdings] = await Promise.all([all('transactions', expected), all('holdings', expected)]);
   if (expected !== generation) return;
   tgitCollection($('accounts'), { actor: config.actorId, workspace, key: 'accounts', title: 'Cash accounts', search: (row) => `${row.name} ${row.broker} ${row.native_currency}`, columns: [
    { key: 'name', label: 'Account', identity: true, required: true, sort: (a, b) => a.name.localeCompare(b.name), render: (row) => row.name },
@@ -198,8 +212,8 @@
   const posted = form.elements.state.querySelector('[value="posted"]'); posted.disabled = member.role === 'contributor';
   if (member.role === 'contributor') form.elements.state.value = 'draft';
   renderTransactions(transactions);
-  renderHoldings(holdings.items, false); holdingCursor = holdings.next_cursor;
-  $('more-transactions').hidden = true; $('more-holdings').hidden = holdingCursor === null;
+  renderHoldings(holdings);
+  $('more-transactions').hidden = true; $('more-holdings').hidden = true;
   if (member.role === 'owner') {
    const members = await request(path('members')); if (expected !== generation) return;
    cards($('members'), members.items, (row) => [`User #${row.wp_user_id}`, `${row.role} · ${row.state}`]);
@@ -257,16 +271,5 @@
  $('transaction-form').elements.action.addEventListener('change', actionFields);
  window.addEventListener('tgit-ledger-refresh', () => refresh().catch((error) => status(error.message, true)));
  $('workspace').addEventListener('change', () => { workspace = $('workspace').value; refresh().catch((error) => status(error.message, true)); });
- for (const type of ['holdings']) {
-  $(`more-${type}`).addEventListener('click', async () => {
-   const button = $(`more-${type}`); button.disabled = true; const expected = generation;
-   try {
-    const cursor = holdingCursor;
-    const result = await request(path(`${type}?after=${cursor}&limit=100`)); if (expected !== generation) return;
-    renderHoldings(result.items, true); holdingCursor = result.next_cursor;
-    button.hidden = result.next_cursor === null;
-   } catch (error) { status(error.message, true); } finally { button.disabled = false; }
-  });
- }
  loadWorkspaces(new URL(location.href).searchParams.get('tgit_workspace')).catch((error) => status(error.message, true));
 })();

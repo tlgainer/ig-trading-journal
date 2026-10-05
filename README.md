@@ -16,9 +16,9 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.18.0
+## Current build: 0.19.0
 
-Transactions now include read-only details, revision evidence and related-entry navigation. New entries have separate Save draft/Post transaction actions; errors retain input and revision conflicts offer an explicit reload. See the [Transaction details decision](docs/decisions/018-transaction-detail-recovery.md). Schema remains version 8; this update adds no SQL migration.
+Holdings now use the shared searchable table with account filters, readable exact decimals and explicit missing-price/basis coverage. Transactions retain their table/detail workflows; opening lots show units rather than a zero purchase price. See the [Holdings decision](docs/decisions/019-holdings-collection.md) and [next requirements](docs/next-requirements.md) for the queued margin/short/options work. Schema remains version 8; this update adds no SQL migration.
 
 - Workspace setup, explicit memberships and revocation; separate native-currency accounts and stock/ETF/crypto identities.
 - Deposits, withdrawals, buys and sells, immutable posted entries, and editable drafts with revision history and atomic posting.

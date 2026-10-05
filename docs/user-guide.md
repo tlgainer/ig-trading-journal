@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-For **plugin 0.18.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.19.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
@@ -31,7 +31,7 @@ For **plugin 0.18.0**, used inside WordPress administration. This guide describe
 
 The workspace creator becomes its owner. Each workspace has separate members and records. Select the intended workspace before entering data; being a WordPress administrator does not automatically grant access to another person's workspace.
 
-For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.18.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
+For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.19.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
 
 The server needs PHP 8.1+ with BCMath, a supported database and HTTPS outside local development. Private images also need GD and private storage. BCMath and GD are PHP extensions, not WordPress plugins. Have the host verify them in the PHP runtime serving WordPress, rather than relying on the phpMyAdmin or command-line PHP version.
 
@@ -126,7 +126,7 @@ Posted entries cannot be edited through the draft form. Corrections and historic
 
 ## Overview
 
-**Cash accounts** shows available cash, not the total value of shares plus cash. **Holdings** shows remaining units, cost basis and realized gain. Market value/unrealized gain depend on manual prices and known basis; missing inputs are shown as unavailable.
+**Cash accounts** shows available cash, not the total value of shares plus cash. **Holdings** is a searchable table showing account, remaining units, cost basis and realized gain. Use its account filter and Columns and density controls; hover formatted values for their raw decimal strings. Market value/unrealized gain depend on manual prices and known basis; missing inputs are shown as unavailable.
 
 A zero cash balance with no holdings after an attempted purchase usually means the purchase was rejected. Check the save message and Transactions table. A successful purchase appears as a posted entry and a holding.
 
@@ -260,3 +260,5 @@ Back up the database and private image directory together. Database-only backups
 This build is still a staged implementation. Spreadsheet imports, reconciliation, export and automated restore verification are pending. Dividends/interest and several corporate-action/transfer workflows, provider feeds and broader performance/accessibility/production-host acceptance also remain. Some correction/replay/basis-resolution workflows exist through APIs without a complete admin UI. See [remaining work](remaining-work.md) for the current scope.
 
 The guide documents available controls; it does not establish that the production host has passed the outstanding release gates. Use a disposable or staging workspace to learn the workflows before entering real records.
+
+Requested subaccount, stablecoin, margin, short and options capabilities are described in [next requirements](next-requirements.md); they are not delivered accounting/calculator features in this build.

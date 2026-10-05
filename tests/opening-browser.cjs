@@ -34,8 +34,8 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.locator('#tgit-content').waitFor({ state: 'visible' });
   if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
-  const holding = page.locator('#tgit-holdings article').filter({ has: page.getByText('Account #', { exact: false }) }).filter({ hasText: 'Units 2.000000000000000000' });
-  await holding.getByText('Remaining basis: 200.000000000000 USD').waitFor();
+  const holding = page.locator('#tgit-holdings tbody tr').filter({ hasText: name });
+  await holding.getByText('200.00 USD', { exact: true }).waitFor(); assert.equal(await holding.locator('[data-label=Quantity]').textContent(), '2');
   await page.locator('#tgit-content').waitFor({ state: 'visible' });
   if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
   await page.getByRole('tab', { name: 'Transactions', exact: true }).click(); await page.locator('#tgit-new-transaction').click(); const tx = page.locator('#tgit-transaction-form');
