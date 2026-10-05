@@ -97,6 +97,12 @@
 .tgit .tgit-table-scroll th[aria-sort="descending"] button::after { content: ' ↓'; }
 .tgit .tgit-collection-pagination { margin-top: 12px; }
 .tgit details > summary { cursor: pointer; min-height: 40px; padding: 8px 0; }
+.tgit-calculator-accordions { display: grid; gap: 12px; }
+.tgit-calculator-accordion { border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; }
+.tgit .tgit-calculator-accordion > summary { padding: 12px 16px; font-weight: 600; }
+.tgit .tgit-calculator-accordion > summary:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+.tgit-calculator-accordion[open] > summary { border-bottom: 1px solid #c3c4c7; }
+.tgit-calculator-accordion > form { padding: 16px; }
 .tgit .screen-reader-text { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (min-width: 783px) {
  .tgit .tgit-compact .tgit-table-scroll tbody tr { height: 36px; }

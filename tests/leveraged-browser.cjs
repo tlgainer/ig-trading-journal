@@ -12,6 +12,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   const page = await context.newPage(); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace));
   await page.locator('#tgit-content').waitFor({ state: 'visible' }); await page.getByRole('tab', { name: 'Calculators', exact: true }).click();
+  await page.locator('#tgit-calculators-section details').evaluateAll((items) => items.forEach((item) => { item.open = true; }));
   const form = page.locator('#tgit-leveraged-calculator'); const output = page.locator('#tgit-leveraged-result');
   for (const [name, value] of Object.entries({ entry_price: '75000', exit_price: '82500', collateral: '2000', leverage: '2' })) await form.locator(`[name=${name}]`).fill(value);
   const calculate = form.getByRole('button', { name: 'Calculate leveraged profit' });

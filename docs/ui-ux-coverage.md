@@ -2,7 +2,7 @@
 
 Source: owner's UI/UX Addendum v1.0, October 3, 2026. Scope is WordPress admin. The owner confirmed that React is unnecessary and requested the same patterns on screens added after the original review.
 
-Build 0.22.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
+Build 0.23.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
 
 ## Shared rules
 
@@ -14,7 +14,7 @@ All eight sections use the same scoped control sizes, typography, focus treatmen
 | Transactions | Complete-cursor searchable table, state filter, scoped preferences, focused New/Edit draft forms, dirty guards, separate draft/post actions, read-only details/revisions, conflict reload and funding guidance | Detail deep links, Correct eligibility/action UX, structured server field errors and accessibility/performance acceptance |
 | Trade Journal | Planned/Open default table; full-result search/sort, detail tabs, minimal creation, deep links/Back, dirty guards and revision-conflict reload; Active/Trash image table, focused metadata editor and independent upload; transaction picker and grouped Plan fields; tag/confluence controls and read-only revision table/details | Server filters/sorts, performance and accessibility acceptance |
 | Strategies | Searchable Active/Archived table, focused New/Edit, shared tags, dirty guards/conflict reload, visible feedback and immutable version table/preview | Rich editor, scalable server queries, performance/accessibility acceptance and detail deep links |
-| Calculators | Shared shell and controls; all scenarios use readable decimal outputs; bought options separate premium sale from expiration payoff, adjacent explanatory help and alert/status feedback; late workspace responses are discarded; short-only costs are shown by direction and risk-budget help explains sizing | Grouped form navigation and full accessibility review |
+| Calculators | Shared shell and controls; all scenarios use readable decimal outputs; bought options separate premium sale from expiration payoff, adjacent explanatory help and alert/status feedback; late workspace responses are discarded; short-only costs are shown by direction and risk-budget help explains sizing | Ordered native calculator accordions are delivered; full accessibility review remains |
 | Research | Shared watchlist-item and research-note tables, supported sorts, whole-result search, pagination, scoped column/density preferences | Watchlist management, focused New/Edit, contextual filters, route/context preservation and scalable server queries |
 | Reports | Shared shell and controls; reproducible calculations retained | Observation/run/saved-view collections, focused observation/correction editor, consistent filter controls and report row presentation |
 | Settings | Workspace creation collapsed after onboarding; shared controls | Workspace/Accounts/Assets/Members/Preferences organization, collection adapters, permission-controlled user picker, focused editors |

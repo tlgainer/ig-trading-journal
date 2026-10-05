@@ -12,6 +12,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   const page = await context.newPage(); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace));
   await page.locator('#tgit-content').waitFor({ state: 'visible' }); await page.getByRole('tab', { name: 'Calculators', exact: true }).click();
+  await page.locator('#tgit-calculators-section details').evaluateAll((items) => items.forEach((item) => { item.open = true; }));
   const stock = page.locator('#tgit-stock-calculator'); const profit = page.locator('#tgit-stock-result');
   for (const [name, value] of Object.entries({ entry_price: '100', exit_price: '110', quantity: '10', entry_fee: '2', exit_fee: '3' })) await stock.locator(`[name=${name}]`).fill(value);
   assert.equal(await stock.locator('[name=borrow_cost]').isVisible(), false);

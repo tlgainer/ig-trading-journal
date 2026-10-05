@@ -16,7 +16,7 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.22.0
+## Current build: 0.23.0
 
 Holdings now use the shared searchable table with account filters, readable exact decimals and explicit missing-price/basis coverage. Transactions retain their table/detail workflows; opening lots show units rather than a zero purchase price. See the [Holdings decision](docs/decisions/019-holdings-collection.md) and [next requirements](docs/next-requirements.md) for the queued margin/short/options work. Schema remains version 8; this update adds no SQL migration.
 
@@ -29,7 +29,7 @@ Holdings now use the shared searchable table with account filters, readable exac
 - Versioned strategies captured on trades; later strategy edits preserve the original rationale.
 - Multiple private JPEG/PNG/WebP images, captions, ordering, comparison, retry/replacement, recoverable trash and owner-configured quotas. Image uploads additionally require PHP GD and private local storage; see [setup](docs/private-images.md).
 - Versioned authenticated REST API, atomic posting and audit evidence, workspace-scoped idempotency keys, paginated lists, and a responsive admin screen.
-- Private spot/linear leveraged crypto-profit, stock long/short profit, bought call/put premium/expiry and long/short position-risk scenarios with exact decimal arithmetic, explicit fee treatment, and no ledger posting.
+- Private spot/linear leveraged crypto-profit, stock long/short profit, bought call/put premium/expiry and long/short position-risk scenarios with exact decimal arithmetic, explicit fee treatment, and no ledger posting. Calculators use ordered expandable accordions.
 - Manual watchlists with identified assets, user-set targets/status/thesis/tags, and authored research notes with revision history. These are private workspace records, never automated recommendations.
 
 - Manual price/FX observation history and corrections; dated activity, cash, holdings, FIFO gain, allocation and closed-group strategy reports with immutable input evidence. Income remains explicitly unavailable pending income posting.

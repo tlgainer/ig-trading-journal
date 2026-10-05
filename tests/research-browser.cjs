@@ -43,6 +43,7 @@ const revisedText = `Revised thesis — résumé 📈 ${Date.now()}`;
   await page.locator('#tgit-content').waitFor({ state: 'visible' });
   if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
   await page.getByRole('tab', { name: 'Calculators', exact: true }).click();
+  await page.locator('#tgit-calculators-section details').evaluateAll((items) => items.forEach((item) => { item.open = true; }));
   const calc = page.locator('#tgit-crypto-calculator'); await calc.locator('input[name=buy_price]').fill('20'); await calc.locator('input[name=sell_price]').fill('30'); await calc.locator('input[name=investment]').fill('100');
   await calc.getByRole('button', { name: 'Calculate profit' }).click(); await page.locator('#tgit-crypto-result').getByText('Profit: 50.00 USD (50.00%)').waitFor();
   assert.deepEqual(errors, []);

@@ -10,6 +10,15 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await context.addCookies([{ name: session.cookie_name, value: session.cookie_value, url: 'http://127.0.0.1:19308', httpOnly: true }]);
   const page = await context.newPage(); const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('http://127.0.0.1:19308/preview'); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace)); await page.locator('#tgit-content').waitFor({ state: 'visible' }); await page.getByRole('tab', { name: 'Calculators', exact: true }).click();
+  const accordions = page.locator('#tgit-calculators-section details');
+  assert.deepEqual(await accordions.locator('summary').allTextContents(), ['Stock profit', 'Crypto profit', 'Bought call / put profit', 'Linear leveraged crypto', 'Long-position risk', 'Short-position risk']);
+  assert.deepEqual(await accordions.evaluateAll((items) => items.map((item) => item.open)), [true, false, false, false, false, false]);
+  const cryptoHeading = accordions.nth(1).locator('summary'); await cryptoHeading.focus(); await page.keyboard.press('Enter');
+  assert.equal(await accordions.nth(1).evaluate((item) => item.open), true);
+  await page.locator('#tgit-crypto-calculator [name=buy_price]').fill('75'); await cryptoHeading.focus(); await page.keyboard.press('Space');
+  assert.equal(await accordions.nth(1).evaluate((item) => item.open), false); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#tgit-crypto-calculator [name=buy_price]').inputValue(), '75');
+  await accordions.evaluateAll((items) => items.forEach((item) => { item.open = true; }));
   const form = page.locator('#tgit-option-calculator'), result = page.locator('#tgit-option-result'), calculate = form.getByRole('button', { name: 'Calculate bought-option profit' });
   await form.getByLabel('Entry option price (premium per share)', { exact: true }).fill('2'); await form.locator('[name=exit_premium]').fill('3');
   await calculate.click(); await result.getByText('Net profit: 100.00 USD', { exact: true }).waitFor(); await result.getByText('Starting capital (premium + entry fee): 200.00 USD', { exact: true }).waitFor();
