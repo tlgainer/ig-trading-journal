@@ -79,8 +79,8 @@
     { key: 'action', label: 'Action', sort: (a, b) => a.action.localeCompare(b.action), render: (row) => row.action },
     { key: 'asset', label: 'Asset', render: assetName },
     { key: 'state', label: 'State', render: (row) => row.corrected_by_id ? `${row.state} · Corrected` : row.state },
-    { key: 'amount', label: 'Amount / quantity', numeric: true, render: (row) => row.action === 'opening_lot' ? `${tgitDisplayDecimal(row.quantity, 0)} units · Opening balance` : row.asset_id ? `${row.quantity} @ ${row.unit_price} ${row.currency}; fees ${row.fees}` : `${row.amount} ${row.currency}` },
-    { key: 'gain', label: 'Realized gain', numeric: true, render: (row) => `${row.current_realized_gain} ${row.currency}` },
+    { key: 'amount', label: 'Amount / quantity', numeric: true, render: (row) => row.action === 'opening_lot' ? `${tgitDisplayDecimal(row.quantity, 0)} units · Opening balance` : row.asset_id ? `${tgitDisplayDecimal(row.quantity, 0)} @ ${tgitDisplayDecimal(row.unit_price)} ${row.currency}; fees ${tgitDisplayDecimal(row.fees)}` : `${tgitDisplayDecimal(row.amount)} ${row.currency}` },
+    { key: 'gain', label: 'Realized gain', numeric: true, render: (row) => `${tgitDisplayDecimal(row.current_realized_gain)} ${row.currency}` },
     { key: 'actions', label: 'Actions', required: true, render: actions }
    ] }, items);
  }
@@ -156,7 +156,7 @@
   const heading = document.createElement('h2'); heading.textContent = `Transaction #${row.id}`; transactionDetail.append(heading);
   const back = document.createElement('button'); back.type = 'button'; back.className = 'button'; back.textContent = 'Back to transactions'; back.addEventListener('click', () => { cancelEdit(); newTransaction.focus(); }); transactionDetail.append(back);
   const explanation = document.createElement('p'); explanation.textContent = row.state === 'draft' ? 'Draft: no financial effect. Posting creates a separate immutable ledger entry.' : row.state === 'promoted' ? 'Promoted source: retained evidence of a draft that was posted.' : 'Posted history is immutable. Replayed calculations are shown separately from the original facts.'; transactionDetail.append(explanation);
-  facts(transactionDetail, [['State', row.state], ['Revision', row.revision], ['Action', row.action], ['Effective date', row.effective_date], ['Account', accounts.find((account) => String(account.id) === String(row.account_id))?.name || `#${row.account_id}`], ['Asset', assets.find((asset) => String(asset.id) === String(row.asset_id))?.symbol || 'Cash'], ['Currency', row.currency], ...(row.asset_id ? [['Quantity', row.quantity], ['Unit price', row.unit_price], ['Fees', row.fees]] : [['Amount', row.amount]]), ['Original realized gain', row.realized_gain], ['Current realized gain', data.current_calculation?.realized_gain]]);
+  facts(transactionDetail, [['State', row.state], ['Revision', row.revision], ['Action', row.action], ['Effective date', row.effective_date], ['Account', accounts.find((account) => String(account.id) === String(row.account_id))?.name || `#${row.account_id}`], ['Asset', assets.find((asset) => String(asset.id) === String(row.asset_id))?.symbol || 'Cash'], ['Currency', row.currency], ...(row.asset_id ? [['Quantity', tgitDisplayDecimal(row.quantity, 0)], ['Unit price', tgitDisplayDecimal(row.unit_price, 2)], ['Fees', tgitDisplayDecimal(row.fees, 2)]] : [['Amount', tgitDisplayDecimal(row.amount, 2)]]), ['Original realized gain', tgitDisplayDecimal(row.realized_gain, 2)], ['Current realized gain', data.current_calculation?.realized_gain == null ? 'Unavailable' : tgitDisplayDecimal(data.current_calculation.realized_gain)]]);
   const links = document.createElement('div'); links.className = 'tgit-actions'; transactionDetail.append(links);
   const linked = new Set();
   for (const revision of data.revisions) { const payload = JSON.parse(revision.payload); if (payload.posted_transaction_id) linked.add(String(payload.posted_transaction_id)); }

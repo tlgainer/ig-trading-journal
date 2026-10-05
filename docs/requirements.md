@@ -1,6 +1,6 @@
 # PRD implementation coverage
 
-Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.21.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
+Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.22.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0
 | API 01-04, SEC 01/04 | Authenticated/private versioned API, decimal strings, WP cookie/nonce checks, object/capability checks, strict JSON keys, idempotency/revisions, bounded list/history pages and private binary routes | Detailed field errors and broader abuse/rate/host tests |
 | AUD 01-03 | Append-only ledger/journal/strategy revisions, actor/UTC/correlation evidence, media lifecycle/metadata audit; correction links and replay runs retain source/replacement, reason and prior calculations | Stronger old/new role/media payloads, independent digests/export |
 | PF 01, UX 01/03/04/05 | Dated native/base holdings, cash, FIFO basis/gains, manual prices/FX and explicit null/stale coverage; desktop/360-pixel journal/gallery workflow; workspace-zone history presentation | Income posting, wider asset/accounting coverage and full WordPress-theme/browser/WCAG audit |
-| CA 01-02 | Exact-decimal spot/linear leveraged crypto, stock long/short profit and long/short position-risk scenarios, separate fee inputs, optional note, private REST and admin tab; no ledger posting | Broader scenario/strategy analytics and accessibility review |
+| CA 01-02 | Exact-decimal spot/linear leveraged crypto, stock long/short profit, bought-option premium/expiry and long/short position-risk scenarios, separate fee inputs, optional note, private REST and admin tab; no ledger posting | Broader scenario/strategy analytics and accessibility review |
 | WL 01, RS 01 | Private manual watchlists with asset identity, targets, thesis, tags and user-set status; separate sanitized authored research with immutable revisions and admin tab | Provider observations/history, richer search and migration mapping |
 | CAL 02/04/05/06, RP 01, UX 02, MKT 02 | Dated manual prices/direct native-to-base FX with expiry, sources, reasons and immutable corrections; acquisition/disposal/valuation-date FX; immutable filtered report inputs/results; cash-inclusive allocation, unrealized return, coverage-aware economic gain; closed/flat/fully posted strategy groups with explicit fee and break-even policy; personal saved views | Income accounting, CSV/portable export, provider policy, larger-history asynchronous reporting and host/a11y gates |
 | OPS 02, PRI 02 | Deactivation/uninstall preserve data; private retained trash policy; no external telemetry/AI/providers | Closure/privacy/export, consistent DB/media restore and full operational recovery |

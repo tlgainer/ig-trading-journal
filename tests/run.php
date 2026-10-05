@@ -192,6 +192,18 @@ test('Short sizing rounds down whole shares and reserves estimated costs inside 
  rejects(fn() => Scenario::short_risk('100', '105', '200', '-1'));
 });
 
+test('Bought options separate premium closeout from call and put expiration payoff', function () {
+ $base = ['option_type'=>'call','mode'=>'close','entry_premium'=>'2','exit_premium'=>'3','contracts'=>'1','multiplier'=>'100'];
+ $close = Scenario::option($base); decimal($close['net_profit'], '100'); decimal($close['starting_capital'], '200'); decimal($close['return_on_capital'], '50');
+ $expiry = array_replace($base, ['mode'=>'expiry','strike'=>'100','underlying_price'=>'105','entry_fee'=>'1','exit_fee'=>'2']);
+ $call = Scenario::option($expiry); decimal($call['gross_exit_value'], '500'); decimal($call['net_profit'], '297');
+ $put = Scenario::option(array_replace($expiry,['option_type'=>'put','underlying_price'=>'95'])); decimal($put['net_profit'], '297');
+ decimal(Scenario::option(array_replace($expiry,['underlying_price'=>'100']))['net_profit'], '-203');
+ decimal(Scenario::option(array_replace($base,['exit_premium'=>'0']))['net_profit'], '-200');
+ decimal(Scenario::option(array_replace($base,['contracts'=>'2','multiplier'=>'10']))['net_profit'], '20');
+ foreach (['contracts'=>'1.5','multiplier'=>'0','entry_premium'=>'0','option_type'=>'sold','mode'=>'model','entry_fee'=>'-1'] as $key=>$value) rejects(fn() => Scenario::option(array_replace($base,[$key=>$value])));
+});
+
 test('Long-position risk scenario respects the absolute stop distance', function () {
  $risk = Scenario::risk('100', '50', '5'); decimal($risk['stop_price'], '95'); decimal($risk['position_size'], '10'); decimal($risk['capital_required'], '1000'); decimal($risk['risk_used'], '50');
  rejects(fn() => Scenario::risk('100', '50', '100'));

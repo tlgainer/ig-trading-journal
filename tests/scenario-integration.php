@@ -17,6 +17,20 @@ test('Crypto and risk REST scenarios are private and never post ledger facts', f
  equal(count($tracker->list_objects($workspace, 'transactions')), 0);
 });
 
+test('Bought options and stop-loss prices stay private, decimal and non-posting', function () use ($tracker, $owner, $viewer) {
+ wp_set_current_user($owner); $workspace = (int) $tracker->create_workspace(['name'=>'Option scenario fixture'])['id'];
+ $request = new WP_REST_Request('POST', '/tgit/v1/workspaces/'.$workspace.'/calculators/option'); $request->set_header('Content-Type','application/json');
+ $input = ['option_type'=>'call','mode'=>'close','entry_premium'=>'2','exit_premium'=>'3','contracts'=>'1','multiplier'=>'100']; $request->set_body(wp_json_encode($input));
+ wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(),403); wp_set_current_user($owner);
+ $result = rest_do_request($request)->get_data()['data']; decimal($result['net_profit'],'100'); equal($result['posted'],false);
+ foreach (['entry_premium'=>2,'contracts'=>'1.5','option_type'=>'sold','underlying_price'=>'100'] as $field=>$value) { $request->set_body(wp_json_encode(array_replace($input,[$field=>$value]))); equal(rest_do_request($request)->get_status(),400); }
+ $request->set_body(wp_json_encode(['option_type'=>'put','mode'=>'expiry','entry_premium'=>'2','strike'=>'100','underlying_price'=>'95','contracts'=>'1','multiplier'=>'100'])); decimal(rest_do_request($request)->get_data()['data']['net_profit'],'300');
+ $risk = new WP_REST_Request('POST','/tgit/v1/workspaces/'.$workspace.'/calculators/risk'); $risk->set_header('Content-Type','application/json');
+ $risk->set_body(wp_json_encode(['entry_price'=>'300','stop_price'=>'295','risk_budget'=>'50'])); decimal(rest_do_request($risk)->get_data()['data']['position_size'],'10');
+ foreach (['stop_price'=>'305','stop_distance'=>'5'] as $field=>$value) { $risk->set_body(wp_json_encode(array_replace(['entry_price'=>'300','stop_price'=>'295','risk_budget'=>'50'],[$field=>$value]))); equal(rest_do_request($risk)->get_status(),400); }
+ equal(count($tracker->list_objects($workspace,'transactions')),0);
+});
+
 test('Stock profit and short sizing REST are authorized, exact and non-posting', function () use ($tracker, $owner, $viewer) {
  wp_set_current_user($owner);
  $workspace = (int) $tracker->create_workspace(['name' => 'Stock scenario fixture'])['id'];

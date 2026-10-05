@@ -6,6 +6,15 @@
  let generation = 0;
  const display = (value) => window.tgitDisplayDecimal ? window.tgitDisplayDecimal(value, 2) : value;
  const forms = [
+  { id: 'tgit-option-calculator', type: 'option', output: 'tgit-option-result', lines: (result) => [
+   `Bought option: ${result.option_type === 'call' ? 'Call' : 'Put'}`,
+   `Starting capital (premium + entry fee): ${display(result.starting_capital)} ${result.currency}`,
+   `${result.mode === 'expiry' ? 'Expiration payoff before fees' : 'Exit premium value before fees'}: ${display(result.gross_exit_value)} ${result.currency}`,
+   `Total fees: ${display(result.total_fees)} ${result.currency}`,
+   `Net profit: ${display(result.net_profit)} ${result.currency}`,
+   `Return on starting capital: ${display(result.return_on_capital)}%`,
+   'Scenario only. Exercise, assignment and resulting stock/cash transactions are not modeled.'
+  ] },
   { id: 'tgit-stock-calculator', type: 'stock', output: 'tgit-stock-result', lines: (result) => [
    `Entry share value: ${display(result.entry_value)} ${result.currency}`,
    `Exit share value: ${display(result.exit_value)} ${result.currency}`,
@@ -17,7 +26,7 @@
   ] },
   { id: 'tgit-short-risk-calculator', type: 'short-risk', output: 'tgit-short-risk-result', lines: (result) => [
    `Position size: ${result.position_size} whole shares`,
-   `Stop price: ${display(result.stop_price)} ${result.currency}`,
+   `Stop loss: ${display(result.stop_price)} ${result.currency}`,
    `Notional exposure: ${display(result.notional_exposure)} ${result.currency}`,
    `Price loss at stop: ${display(result.price_loss_at_stop)} ${result.currency}`,
    `Estimated costs: ${display(result.estimated_costs)} ${result.currency}`,
@@ -27,7 +36,7 @@
   ] },
   { id: 'tgit-leveraged-calculator', type: 'leveraged', output: 'tgit-leveraged-result', lines: (result) => [
    `Notional exposure: ${display(result.notional_exposure)} ${result.currency}`,
-   `Equivalent units: ${result.equivalent_units}`,
+   `Equivalent units: ${tgitDisplayDecimal(result.equivalent_units, 0)}`,
    `Gross profit: ${display(result.gross_profit)} ${result.currency}`,
    `Entered costs: ${display(result.total_costs)} ${result.currency}`,
    `Net profit: ${display(result.net_profit)} ${result.currency}`,
@@ -35,17 +44,17 @@
    'Liquidation price: unavailable. Hypothetical linear scenario; no position is opened.'
   ] },
   { id: 'tgit-crypto-calculator', type: 'crypto', output: 'tgit-crypto-result', lines: (result) => [
-   `Units: ${result.units}`,
-   `Gross position value: ${result.position_value} ${result.currency}`,
-   `Net exit value: ${result.net_exit_value} ${result.currency}`,
-   `Profit: ${result.profit_amount} ${result.currency} (${result.profit_percentage}%)`,
+   `Units: ${tgitDisplayDecimal(result.units, 0)}`,
+   `Gross position value: ${display(result.position_value)} ${result.currency}`,
+   `Net exit value: ${display(result.net_exit_value)} ${result.currency}`,
+   `Profit: ${display(result.profit_amount)} ${result.currency} (${display(result.profit_percentage)}%)`,
    result.fees_included ? 'Entered buy and sell fees are included in profit.' : 'No fees were entered.'
   ] },
   { id: 'tgit-risk-calculator', type: 'risk', output: 'tgit-risk-result', lines: (result) => [
-   `Stop price: ${result.stop_price} ${result.currency}`,
-   `Position size: ${result.position_size} units`,
-   `Capital required: ${result.capital_required} ${result.currency}`,
-   `Risk at stop: ${result.risk_used} ${result.currency}`
+   `Stop loss: ${display(result.stop_price)} ${result.currency}`,
+   `Position size: ${tgitDisplayDecimal(result.position_size, 0)} units`,
+   `Starting capital required: ${display(result.capital_required)} ${result.currency}`,
+   `Estimated loss at stop: ${display(result.risk_used)} ${result.currency}`
   ] }
  ];
  const stockForm = document.getElementById('tgit-stock-calculator');
@@ -56,6 +65,16 @@
   document.getElementById('tgit-stock-result')?.replaceChildren();
  };
  stockForm?.elements.direction.addEventListener('change', stockFields); stockFields();
+ const optionForm = document.getElementById('tgit-option-calculator');
+ const optionFields = () => {
+  if (!optionForm) return;
+  for (const label of optionForm.querySelectorAll('[data-option-mode]')) {
+   const active = label.dataset.optionMode === optionForm.elements.mode.value;
+   label.hidden = !active; const input = label.querySelector('input'); input.disabled = !active; input.required = active;
+  }
+  document.getElementById('tgit-option-result')?.replaceChildren();
+ };
+ optionForm?.elements.mode.addEventListener('change', optionFields); optionFields();
  function show(output, lines, error = false) {
   output.replaceChildren(); output.setAttribute('role', error ? 'alert' : 'status');
   for (const line of lines) { const item = document.createElement('p'); item.textContent = line; output.append(item); }

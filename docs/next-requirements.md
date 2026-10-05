@@ -5,7 +5,7 @@ Owner-requested additions, October 5, 2026. These extend the original PRD; they 
 ## Delivery order
 
 1. Finish Holdings/Transactions readability using the shared tables. Transactions already use the shared table in 0.18.0; Holdings is delivered in 0.19.0. Preserve account names, exact values, missing-price/basis statuses, whole-result search and scoped preferences.
-2. Extend non-posting calculators for leveraged crypto, stock long/short profit and short-position risk, then bought-option premium/expiry scenarios. Linear leveraged crypto is delivered in 0.20.0; stock profit and short risk are delivered in 0.21.0. Bought call/put scenarios are next. Keep calculations separate from ledger posting.
+2. Extend non-posting calculators for leveraged crypto, stock long/short profit and short-position risk, then bought-option premium/expiry scenarios. Linear leveraged crypto is delivered in 0.20.0; stock profit and short risk are delivered in 0.21.0. Bought call/put premium-sale and expiration-payoff scenarios are delivered in 0.22.0. Subaccount/currency design is next. Keep calculations separate from ledger posting.
 3. Design subaccounts, USDT/USDC currency identities and settlement conversions.
 4. Implement instrument-specific margin/derivative accounting and reports only after product/contract rules are confirmed. Do not treat derivative exposure as owned spot units.
 
@@ -44,6 +44,8 @@ Delivered in 0.21.0: long/short share profit, entry/exit fees, short borrowing/d
 - Margin, borrow availability, corporate-action obligations and short position accounting are separate ledger requirements.
 
 ## Bought-option scenarios (owner-confirmed scope)
+
+Delivered in 0.22.0: bought calls/puts, premium sale or expiration payoff, positive whole contract count, editable actual multiplier, explicit fees, starting capital and net profit/return. No pre-expiry pricing model, sold options, spreads or exercise/assignment ledger is included.
 
 - Support bought calls/puts only for this phase, contract count and configurable contract multiplier. Standard equity options often use 100, but adjusted contracts require their actual multiplier.
 - Sold/written options and multi-leg spreads are deferred; they are outside the currently authorized calculator scope.

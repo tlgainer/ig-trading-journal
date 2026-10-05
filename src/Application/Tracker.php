@@ -2008,8 +2008,24 @@ final class Tracker {
 				Decimal::input( $input['risk_budget'], 12, true ),
 				Decimal::input( $input['estimated_costs'] ?? '0', 12 )
 			);
+		} elseif ( 'option' === $type ) {
+			$common = array( 'option_type', 'mode', 'entry_premium', 'contracts', 'multiplier', 'entry_fee', 'exit_fee', 'currency', 'note' );
+			$prices = 'expiry' === ( $input['mode'] ?? '' ) ? array( 'strike', 'underlying_price' ) : array( 'exit_premium' );
+			self::fields( $input, array_merge( $common, $prices ), array_merge( array( 'option_type', 'mode', 'entry_premium', 'contracts', 'multiplier' ), $prices ) );
+			$result = Scenario::option( $input );
 		} elseif ( 'risk' === $type ) {
-			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'currency', 'note' ), array( 'entry_price', 'risk_budget', 'stop_distance' ) );
+			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'stop_price', 'currency', 'note' ), array( 'entry_price', 'risk_budget' ) );
+			if ( isset( $input['stop_distance'] ) === isset( $input['stop_price'] ) ) {
+				throw new \InvalidArgumentException( 'Enter either a stop-loss price or a stop distance.' );
+			}
+			$entry = Decimal::input( $input['entry_price'], 18, true );
+			if ( isset( $input['stop_price'] ) ) {
+				$stop = Decimal::input( $input['stop_price'], 18, true );
+				if ( Decimal::compare( $stop, $entry ) >= 0 ) {
+					throw new \InvalidArgumentException( 'Long stop-loss price must be below entry price.' );
+				}
+				$input['stop_distance'] = bcsub( $entry, $stop, 18 );
+			}
 			$result = Scenario::risk(
 				Decimal::input( $input['entry_price'], 18, true ),
 				Decimal::input( $input['risk_budget'], 12, true ),

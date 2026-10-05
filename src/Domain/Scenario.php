@@ -13,6 +13,57 @@ final class Scenario {
 	public const VERSION = 'scenario-native-1';
 
 	/**
+	 * Model a bought call or put premium sale or expiration cash payoff.
+	 *
+	 * @param array $input Decimal strings and explicitly selected scenario.
+	 * @return array Non-posting scenario; exercise is not modeled.
+	 * @throws \InvalidArgumentException When the supported contract is invalid.
+	 */
+	public static function option( array $input ): array {
+		$type = $input['option_type'] ?? '';
+		$mode = $input['mode'] ?? '';
+		if ( ! in_array( $type, array( 'call', 'put' ), true ) || ! in_array( $mode, array( 'close', 'expiry' ), true ) ) {
+			throw new \InvalidArgumentException( 'Select a bought call or put and a close-out or expiration scenario.' );
+		}
+		$premium    = Decimal::input( $input['entry_premium'] ?? null, 18, true );
+		$contracts  = Decimal::input( $input['contracts'] ?? null, 18, true );
+		$multiplier = Decimal::input( $input['multiplier'] ?? null, 18, true );
+		$entry_fee  = Decimal::input( $input['entry_fee'] ?? '0', 12 );
+		$exit_fee   = Decimal::input( $input['exit_fee'] ?? '0', 12 );
+		if ( ! ctype_digit( $contracts ) ) {
+			throw new \InvalidArgumentException( 'Contract count must be a positive whole number.' );
+		}
+		$units = Decimal::mul( $contracts, $multiplier );
+		if ( 'close' === $mode ) {
+			$exit_premium = Decimal::input( $input['exit_premium'] ?? null, 18 );
+		} else {
+			$strike       = Decimal::input( $input['strike'] ?? null, 18, true );
+			$underlying   = Decimal::input( $input['underlying_price'] ?? null, 18 );
+			$intrinsic    = 'call' === $type ? Decimal::sub( $underlying, $strike ) : Decimal::sub( $strike, $underlying );
+			$exit_premium = Decimal::compare( $intrinsic, '0' ) > 0 ? $intrinsic : '0';
+		}
+		$entry_value = Decimal::money( Decimal::mul( $premium, $units ) );
+		$payoff      = Decimal::money( Decimal::mul( $exit_premium, $units ) );
+		$costs       = Decimal::money( Decimal::add( $entry_fee, $exit_fee ) );
+		$capital     = Decimal::money( Decimal::add( $entry_value, $entry_fee ) );
+		if ( Decimal::compare( $capital, '0' ) <= 0 ) {
+			throw new \InvalidArgumentException( 'Starting capital is below supported monetary precision.' );
+		}
+		$profit = Decimal::money( Decimal::sub( Decimal::sub( $payoff, $entry_value ), $costs ) );
+		return array(
+			'calculation_version' => 'scenario-bought-option-1',
+			'option_type'         => $type,
+			'mode'                => $mode,
+			'entry_premium_value' => $entry_value,
+			'starting_capital'    => $capital,
+			'gross_exit_value'    => $payoff,
+			'total_fees'          => $costs,
+			'net_profit'          => $profit,
+			'return_on_capital'   => Decimal::round( Decimal::mul( Decimal::div( $profit, $capital ), '100' ), 12 ),
+		);
+	}
+
+	/**
 	 * Estimate owned-share sale or borrowed-share cover profit.
 	 *
 	 * @param string $direction Long or short.

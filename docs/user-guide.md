@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-For **plugin 0.21.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.22.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
@@ -31,7 +31,7 @@ For **plugin 0.21.0**, used inside WordPress administration. This guide describe
 
 The workspace creator becomes its owner. Each workspace has separate members and records. Select the intended workspace before entering data; being a WordPress administrator does not automatically grant access to another person's workspace.
 
-For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.21.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
+For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.22.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
 
 The server needs PHP 8.1+ with BCMath, a supported database and HTTPS outside local development. Private images also need GD and private storage. BCMath and GD are PHP extensions, not WordPress plugins. Have the host verify them in the PHP runtime serving WordPress, rather than relying on the phpMyAdmin or command-line PHP version.
 
@@ -190,7 +190,7 @@ Use **Authored research note** to save a note for an asset. Editing an existing 
 
 **Crypto profit** uses buy price, sell/current price, investment principal excluding fees, and separately entered buy/sell fees. It returns units, position value, net exit value and scenario profit.
 
-**Long-position risk** uses entry price, risk budget and an absolute stop distance below entry. For an entry of `100` and a stop distance of `5`, the stop price is `95`; the field is not a percentage or the stop price itself.
+**Long-position risk** uses entry price, maximum loss (risk budget) and an actual stop-loss price below entry. Entry `300`, stop loss `295` and risk budget `50` sizes `10` units and needs `3,000` starting capital before fees. Risk budget means potential loss, not money invested. The API also retains the older stop-distance input; do not supply both price and distance.
 
 **Linear leveraged crypto** takes long/short direction, entry/exit price, collateral and leverage. Use the same currency for every amount; fees and borrowing/funding costs are entered as amounts, not percentages. For BTC entry 75,000 and exit 82,500, collateral 2,000 at 2x gives exposure 4,000 and gross profit 400 before costs. An exit at 67,500 gives a long loss of 400. Return is measured against entered collateral. Liquidation is unavailable without contract/account rules; the calculation assumes the entered exit is reached. Inverse contracts and currency conversions are unsupported. USDT/USDC identities remain planned.
 
@@ -198,7 +198,9 @@ Use **Authored research note** to save a note for an asset. Editing an existing 
 
 **Short-position risk** sizes whole shares with a stop above entry. Enter a total risk budget and estimated total costs at the stop (fees, borrowing, dividend payments and estimated slippage). Entry 100, stop 105, budget 200 and costs 12 give 37 shares: price loss 185 plus costs 12 = 197, leaving 3 unused. The calculator rounds down and never increases the entered risk budget to fit another share. Recheck estimated costs against the resulting share count. Actual gaps or changing costs can increase loss. Margin and borrow availability are unavailable.
 
-Bought call/put scenarios are next. Sold options are deferred.
+**Bought call / put profit** supports selling an option before expiration or estimating its expiration payoff. Enter option premium per share, whole contract count, actual contract multiplier and fee amounts. One contract entered at premium `2` and sold at premium `3`, with multiplier `100`, yields `100` gross profit before fees. Starting capital is the entry premium value plus entry fees. For expiration, enter strike and underlying stock price at expiration; calls pay the amount above strike and puts the amount below strike, each floored at zero, times contracts and multiplier. Payoff is shown separately from net profit after the entry premium and fees. A stock price target alone cannot determine an option premium before expiration. Sold options, spreads, exercise/assignment and resulting stock/cash accounting are outside this calculator.
+
+**Readable values:** ordinary financial displays remove redundant trailing zeros using strings; amounts show at least two decimal places and quantities trim unnecessary zeros. Significant fractional precision is preserved, including small crypto quantities and FX rates. Stored inputs, ledger values, raw history and exports remain exact. Holdings and Transactions use tables; if older cards remain after updating, confirm the active plugin version and hard-refresh the page.
 
 These are scenarios. Running a calculator does not save a transaction, fund an account or create a holding.
 
