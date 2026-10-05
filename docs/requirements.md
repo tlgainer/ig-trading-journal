@@ -1,6 +1,6 @@
 # PRD implementation coverage
 
-Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.23.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
+Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.24.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |

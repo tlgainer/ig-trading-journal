@@ -2,7 +2,7 @@
 
 Source: owner's UI/UX Addendum v1.0, October 3, 2026. Scope is WordPress admin. The owner confirmed that React is unnecessary and requested the same patterns on screens added after the original review.
 
-Build 0.23.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
+Build 0.24.0 continues the foundation and adds Trade Journal collection/detail navigation and private image tables, a transaction picker, grouped journal fields, label controls and revision tables. No lifecycle, posted-history or media-authorization contracts change. Schema remains 8.
 
 ## Shared rules
 
@@ -43,3 +43,5 @@ Transaction collection and focused-entry evidence are documented in `decisions/0
 Read-only transaction details, explicit draft/post actions and error recovery are documented in `decisions/018-transaction-detail-recovery.md`.
 
 Holdings table and the extended-requirements separation are documented in `decisions/019-holdings-collection.md`.
+
+Build 0.24.0 applies white section cards and consistent `1px solid #949494` control borders across all screens. Cards reduce padding on mobile and retain keyboard focus outlines. Financial, authorization and schema contracts are unchanged.

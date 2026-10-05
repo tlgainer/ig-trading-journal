@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-For **plugin 0.23.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.24.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
@@ -31,7 +31,7 @@ For **plugin 0.23.0**, used inside WordPress administration. This guide describe
 
 The workspace creator becomes its owner. Each workspace has separate members and records. Select the intended workspace before entering data; being a WordPress administrator does not automatically grant access to another person's workspace.
 
-For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.23.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
+For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.24.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
 
 The server needs PHP 8.1+ with BCMath, a supported database and HTTPS outside local development. Private images also need GD and private storage. BCMath and GD are PHP extensions, not WordPress plugins. Have the host verify them in the PHP runtime serving WordPress, rather than relying on the phpMyAdmin or command-line PHP version.
 
@@ -187,6 +187,8 @@ Watch/Buy/Sell/Hold labels and target prices are your authored notes; they do no
 Use **Authored research note** to save a note for an asset. Editing an existing note requires a revision reason and preserves its prior evidence. Provider feeds and automated recommendations are not implemented in this build.
 
 ## Calculators
+
+Sections use white cards for contrast. Text inputs, dropdowns and text areas share a `1px solid #949494` border, with visible keyboard focus.
 
 Calculators are expandable accordions in this order: Stock profit, Crypto profit, Bought call / put profit, Linear leveraged crypto, Long-position risk, Short-position risk. Stock profit opens initially. Select a heading to expand or collapse it; multiple calculators can remain open. Collapsing a calculator retains its entered values and result. Heading toggles also work with Enter or Space.
 
