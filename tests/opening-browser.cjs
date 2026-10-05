@@ -41,7 +41,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.getByRole('tab', { name: 'Transactions', exact: true }).click(); await page.locator('#tgit-new-transaction').click(); const tx = page.locator('#tgit-transaction-form');
   await tx.locator('select[name=account_id]').selectOption({ label: `${name} (USD)` }); await tx.locator('select[name=action]').selectOption('sell'); await tx.locator('select[name=asset_id]').selectOption(assetId);
   await tx.locator('input[name=effective_date]').fill('2026-01-02'); await tx.locator('input[name=quantity]').fill('1'); await tx.locator('input[name=unit_price]').fill('150');
-  await tx.getByRole('button', { name: 'Save transaction' }).click();
+  await tx.getByRole('button', { name: 'Post transaction' }).click();
   await page.locator('#tgit-status').getByText('Saved', { exact: true }).waitFor();
   await page.locator('#tgit-content').waitFor({ state: 'visible' });
   if (await page.locator('.tgit-menu-toggle').isVisible() && await page.locator('.tgit-menu-toggle').getAttribute('aria-expanded') === 'false') await page.locator('.tgit-menu-toggle').click();
