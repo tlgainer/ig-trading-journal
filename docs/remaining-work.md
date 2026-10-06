@@ -43,3 +43,5 @@ Development schema 11 now stores immutable fundamental snapshots and binds provi
 Snapshot-backed exact fundamental metrics are now implemented internally. See [formula contract](fundamental-metric-formulas.md). Growth/comparison contracts, provider transport and fundamental/AI review workflows remain pending.
 
 Fundamental transport and internal owner-authorized one-shot jobs are implemented, separately disabled by default. See [worker contract](fundamental-refresh-worker.md). Review UI, recurring enrollment, comparable-period changes and AI summaries remain pending.
+
+Development weekly fundamentals are now implemented: explicit owner enrollment, per-dataset weekday slots, shared quota, recovery and revocation checks. Remaining financial-data work: comparable-period changes and configurable AI summaries/model/budget, plus daily-change/corporate-action compatibility and live entitlement/host acceptance. See [schedule contract](fundamental-schedules.md).

@@ -19,6 +19,15 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    await page.locator('#tgit-fundamental-detail').getByText('net margin percent', { exact: true }).waitFor(); assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('-5.00'));
    for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Fundamentals overflow at ${width}`); }
    if (actor === 'owner') {
+    const schedule = page.locator('#tgit-fundamental-schedule-form'); await page.waitForFunction(() => !document.getElementById('tgit-fundamental-schedule-form').inert);
+    await schedule.locator('[name=frequency]').selectOption('weekly'); await schedule.locator('[name=weekday]').selectOption('3'); await schedule.getByRole('button', { name: 'Save fundamental schedule', exact: true }).click();
+    await page.locator('#tgit-fundamental-schedule-status').getByText('Schedule saved; queueing is pending. Check server configuration and site cron.', { exact: true }).waitFor();
+    await page.locator('#tgit-fundamental-dataset').selectOption('CASH_FLOW'); assert.equal(await schedule.locator('[name=frequency]').inputValue(), 'off'); await schedule.locator('[name=frequency]').selectOption('weekly');
+    page.once('dialog', (dialog) => dialog.dismiss()); await page.locator('#tgit-fundamental-dataset').selectOption('OVERVIEW'); assert.equal(await page.locator('#tgit-fundamental-dataset').inputValue(), 'CASH_FLOW');
+    page.once('dialog', (dialog) => dialog.accept()); await page.locator('#tgit-fundamental-dataset').selectOption('OVERVIEW'); assert.equal(await schedule.locator('[name=weekday]').inputValue(), '3');
+    await schedule.locator('[name=frequency]').selectOption('off'); page.once('dialog', (dialog) => dialog.dismiss()); await page.getByRole('tab', { name: 'Overview', exact: true }).click(); assert.equal(await page.getByRole('tab', { name: 'Research', exact: true }).getAttribute('aria-selected'), 'true');
+    await schedule.getByRole('button', { name: 'Save fundamental schedule', exact: true }).click(); await page.locator('#tgit-fundamental-schedule-status').getByText('Fundamental schedule disabled.', { exact: true }).waitFor();
+    assert.equal(await schedule.locator('[name=frequency]').inputValue(), 'off');
     journalTrade = await page.evaluate(async (fixture) => {
      const response = await fetch(tgitRestUrl(tgitConfig.root, `workspaces/${fixture.workspace}/trades`), { method: 'POST', headers: { 'X-WP-Nonce': tgitConfig.nonce, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ asset_id: Number(fixture.asset), title: 'Fundamentals shortcut fixture', state: 'planned', transaction_ids: [], journal: {} }) });
      const envelope = await response.json(); if (!response.ok) throw new Error(envelope.message); return String(envelope.data.trade.id);
@@ -49,6 +58,6 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    }
    assert.deepEqual(errors, []); await context.close();
   }
-  console.log('PASS Fundamental history and journal shortcuts: owner/viewer access, dirty cancellation/discard, Back/reload, exact metrics, disabled refresh, uncertain retry identity and responsive tables.');
+  console.log('PASS Fundamental history, weekly controls and journal shortcuts: owner/viewer access, weekly enrollment/disable, schedule dirty guards, Back/reload, exact metrics, uncertain retry identity and responsive tables.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack); process.exitCode = 1; });

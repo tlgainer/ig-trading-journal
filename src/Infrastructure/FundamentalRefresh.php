@@ -10,7 +10,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 
-/** No recurring enrollment, automatic provider fallback or paid processing. */
+/** Bounded dataset dispatch without automatic provider fallback or paid processing. */
 final class FundamentalRefresh {
 
 	/** Check separate fundamental consent and existing server-only market configuration. */

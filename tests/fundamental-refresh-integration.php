@@ -36,6 +36,8 @@ test('One-shot fundamental jobs deduplicate and deactivation preserves saved sna
  $snapshots=$s->fundamentals($w,$asset); equal(count($snapshots),1); QuoteRefresh::deactivate(); equal(wp_next_scheduled('tgit_fundamental_refresh',$args),false); equal($s->fundamentals($w,$asset),$snapshots);
 });
 
+require __DIR__.'/fundamental-schedule-integration.php';
+
 test('All supported fundamental endpoints save exact snapshots once and never touch posted facts', function () use ($db,$owner) {
  wp_set_current_user($owner);
  [$s,$w,$asset,$mapping]=provider_context();

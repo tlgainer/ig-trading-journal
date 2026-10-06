@@ -49,3 +49,5 @@ Fundamental history, explicit snapshot metrics and owner-only on-demand refresh 
 Development Research now exposes fundamental snapshot history, statement metric details and explicit owner-only single-dataset refresh controls. See the development section in [user guide](user-guide.md). AI investment reviews and recurring fundamentals remain pending.
 
 Development stock journals now link to the selected asset's saved fundamentals through guarded Research navigation. Unsaved-change confirmation, scoped selection, Back and reload are covered. Recurring enrollment, comparable-period changes and AI review controls remain pending.
+
+Development schema 12 adds explicit per-dataset weekly fundamental enrollment, owner Research controls, DST-aware scheduling and recoverable cron jobs. See [schedule contract](fundamental-schedules.md) and [separate SQL](012-fundamental-schedules.sql). Comparable-period analysis and configurable AI summaries/model/budget remain pending.

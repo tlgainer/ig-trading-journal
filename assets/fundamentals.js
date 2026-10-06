@@ -4,6 +4,11 @@
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-fundamental-${id}`);
  let workspace = '', role = '', generation = 0, mappings = [], enabled = false, rows = [], loading = false, ready = false, focusPending = false;
  const keys = new Map();
+ let schedules = [], scheduleGeneration = 0, scheduleBusy = false, scheduleReady = false, scheduleBaseline = '', priorAsset = '', priorDataset = 'OVERVIEW';
+ const scheduleForm = $('schedule-form');
+ const scheduleSnapshot = () => JSON.stringify(Object.fromEntries(new FormData(scheduleForm)));
+ const scheduleDirty = () => role === 'owner' && scheduleBaseline && scheduleBaseline !== scheduleSnapshot();
+ const leaveSchedule = () => !window.tgitWriteBusy && (!scheduleDirty() || confirm('Discard unsaved fundamental schedule changes?'));
  const storage = () => `tgit-fundamental-requests:${config.actorId}:${workspace}`;
  const persist = () => { try { sessionStorage.setItem(storage(), JSON.stringify([...keys])); } catch (_) { /* Keep identity in this page. */ } };
  const status = (message, error = false) => { $('status').textContent = message; $('status').setAttribute('role', error ? 'alert' : 'status'); };
@@ -14,6 +19,7 @@
   $('refresh').disabled = loading || !enabled || !mapping() || !!window.tgitWriteBusy;
   $('refresh').textContent = keys.has(slot()) ? 'Check refresh outcome' : 'Refresh selected dataset';
   $('asset').disabled = loading || !!window.tgitWriteBusy; $('dataset').disabled = loading || !!window.tgitWriteBusy;
+  scheduleForm.inert = loading || scheduleBusy || !scheduleReady || !!window.tgitWriteBusy || !mapping();
  }
  async function request(path, body, key) {
   const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/${path}`), { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce, ...(body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -25,6 +31,28 @@
   return result;
  }
  const label = (value) => value.toLowerCase().replace(/_/g, ' ');
+ async function loadSchedules() {
+  const expected = ++scheduleGeneration, selectedWorkspace = workspace, selected = mapping(); schedules = []; scheduleBusy = true; scheduleReady = false; scheduleBaseline = ''; controls(); scheduleForm.reset(); $('schedule-status').textContent = '';
+  try { if (role === 'owner' && selected) { const result = await request(`provider-mappings/${selected.id}/fundamentals/schedule`); if (expected !== scheduleGeneration || selectedWorkspace !== workspace) return; schedules = result.items; scheduleReady = true; } }
+  catch (error) { if (expected === scheduleGeneration) $('schedule-status').textContent = error.message; }
+  finally { if (expected === scheduleGeneration) { scheduleBusy = false; if (scheduleReady) fillSchedule(); controls(); } }
+ }
+ function fillSchedule() {
+  const row = schedules.find((item) => item.dataset === $('dataset').value); scheduleForm.elements.frequency.value = row?.frequency || 'off'; scheduleForm.elements.weekday.value = row?.weekday || '1';
+  $('schedule-status').textContent = row ? `${label(row.dataset)} schedule: ${row.frequency === 'weekly' ? `weekly, ${scheduleForm.elements.weekday.selectedOptions[0].textContent}, 7:30 PM New York` : 'off'}.` : 'No schedule enrolled for this dataset.';
+  scheduleBaseline = scheduleSnapshot(); priorAsset = $('asset').value; priorDataset = $('dataset').value;
+ }
+ scheduleForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); const selected = mapping(); if (role !== 'owner' || !selected || window.tgitWriteBusy || scheduleBusy) return;
+  const expected = scheduleGeneration, selectedWorkspace = workspace, dataset = $('dataset').value, previous = schedules.find((row) => row.dataset === dataset);
+  window.tgitWriteBusy = true; controls();
+  try {
+   const result = await request(`provider-mappings/${selected.id}/fundamentals/schedule`, { dataset, frequency: scheduleForm.elements.frequency.value, weekday: Number(scheduleForm.elements.weekday.value), expected_schedule_id: Number(previous?.id || 0) });
+   if (expected !== scheduleGeneration || workspace !== selectedWorkspace) return; await loadSchedules();
+   $('schedule-status').textContent = result.frequency === 'off' ? 'Fundamental schedule disabled.' : result.queued ? 'Weekly schedule saved. Next future slot queued.' : 'Schedule saved; queueing is pending. Check server configuration and site cron.';
+  } catch (error) { if (expected === scheduleGeneration) $('schedule-status').textContent = `${error.message} Reload saved history before retrying if the save outcome is uncertain.`; }
+  finally { window.tgitWriteBusy = false; controls(); }
+ });
  async function detail(row) {
   const expected = generation; $('detail').replaceChildren();
   const heading = document.createElement('h4'); heading.textContent = `${label(row.dataset)} snapshot #${row.id}`; $('detail').append(heading);
@@ -59,9 +87,18 @@
   if (![...$('asset').options].some((option) => option.value === String(asset))) return;
   $('asset').value = String(asset); routeAsset(); focusPending = focus;
   if (!ready) return;
-  await load(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); }
+  await load(); await loadSchedules(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); }
  }
- $('asset').addEventListener('change', () => { routeAsset(); load(); }); $('reload').addEventListener('click', load); $('dataset').addEventListener('change', controls);
+ $('asset').addEventListener('change', () => { if (!leaveSchedule()) { $('asset').value = priorAsset; return; } routeAsset(); load(); loadSchedules(); }); $('reload').addEventListener('click', () => { if (leaveSchedule()) { load(); loadSchedules(); } }); $('dataset').addEventListener('change', () => { if (!leaveSchedule()) { $('dataset').value = priorDataset; return; } fillSchedule(); controls(); });
+ document.getElementById('tgit-workspace').addEventListener('change', (event) => { if (!leaveSchedule()) { event.target.value = workspace; event.stopImmediatePropagation(); } }, true);
+ document.getElementById('tgit-tabs').addEventListener('click', (event) => { const tab = event.target.closest('[data-tab]'); if (tab && tab.dataset.tab !== 'research') { if (!leaveSchedule()) { event.preventDefault(); event.stopImmediatePropagation(); } else if (scheduleReady) fillSchedule(); } }, true);
+ document.getElementById('tgit-tabs').addEventListener('keydown', (event) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return; if (!leaveSchedule()) { event.preventDefault(); event.stopImmediatePropagation(); } else if (scheduleReady) fillSchedule(); }, true);
+ window.addEventListener('popstate', (event) => {
+  if (!scheduleDirty()) return;
+  if (leaveSchedule()) { fillSchedule(); return; }
+  const url = new URL(location.href); url.searchParams.set('tgit_section', 'research'); url.searchParams.set('tgit_workspace', workspace); url.searchParams.set('tgit_fundamental_asset', priorAsset); history.pushState(null, '', url); window.tgitSelectSection('research'); event.stopImmediatePropagation();
+ }, true);
+ window.addEventListener('beforeunload', (event) => { if (scheduleDirty()) { event.preventDefault(); event.returnValue = ''; } });
  window.addEventListener('tgit-open-fundamentals', (event) => {
   if (String(event.detail.workspace) !== String(workspace) || window.tgitWriteBusy || new URL(location.href).searchParams.get('tgit_section') !== 'research') return;
   selectAsset(event.detail.asset, true);
@@ -83,7 +120,7 @@
   finally { window.tgitWriteBusy = false; controls(); }
  });
  window.addEventListener('tgit-workspace', async (event) => {
-  const expected = ++generation; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true; ready = false; focusPending = false;
+  const expected = ++generation; ++scheduleGeneration; schedules = []; scheduleBusy = false; scheduleForm.reset(); $('schedule-status').textContent = ''; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true; ready = false; focusPending = false;
   $('owner').hidden = role !== 'owner'; $('history').replaceChildren(); $('detail').replaceChildren(); $('config').textContent = ''; $('asset').replaceChildren();
   for (const asset of event.detail.assets.filter((row) => row.asset_class === 'stock')) { const option = document.createElement('option'); option.value = asset.id; option.textContent = `${asset.symbol} · ${asset.exchange} (${asset.quote_currency})`; $('asset').append(option); }
   const url = new URL(location.href), routedAsset = url.searchParams.get('tgit_fundamental_asset');
@@ -93,6 +130,6 @@
   try {
    if (role === 'owner') { const configuration = await request('market-data'); const loaded = await all('provider-mappings', expected); if (expected !== generation) return; mappings = loaded; enabled = configuration.fundamentals_enabled === true; $('config').textContent = enabled ? 'Each selected dataset consumes one Alpha Vantage request, sharing the quote allowance. Confirm an enabled mapping in Settings.' : 'Refresh is disabled. Saved history remains readable. Configure fundamentals and an Alpha Vantage mapping before refreshing.'; }
   } catch (error) { if (expected === generation) $('config').textContent = error.message; }
-  if (expected === generation) { ready = true; await load(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); } }
+  if (expected === generation) { ready = true; await load(); await loadSchedules(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); } }
  });
 })();

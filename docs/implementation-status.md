@@ -197,3 +197,9 @@ Saved stock journal summaries now include View stock fundamentals. The action us
 73 unit / 130 disposable WordPress/MySQL checks, coding standards, PHP/JavaScript syntax and six REST URL checks pass. Extended fundamental browser checks pass owner/viewer navigation, dirty cancellation/discard, Back/reload, exact metrics, disabled refresh, uncertain request identity and responsive tables. Next: recurring fundamental enrollment, comparable-period changes and configurable AI summaries/model/budget.
 
 Also repaired required-field declarations on the fundamental metric and refresh routes: missing snapshots/dataset now return 400 without PHP warnings. A regression test converts warnings into exceptions to verify this contract.
+
+## October 6, 2026: weekly fundamental enrollment
+
+Development schema 12 adds append-only dataset enrollment in docs/012-fundamental-schedules.sql. Research owners can save weekly weekday 7:30 PM New York refreshes or disable each dataset. The recoverable scheduler reauthorizes original owners/latest revisions/current mappings, honors DST, preserves shared request headroom, skips late slots and never auto-enrolls holdings. Deactivation preserves data; explicit reactivation/backup and all twelve migrations are required for a future package. Released ZIP remains 0.26.0/schema 8.
+
+74 unit and 135 disposable WordPress/MySQL checks pass, including migration, permissions, revisions, rollback, job deduplication, late/future suppression, completed reuse and recovery. Coding standards, PHP syntax and six REST URL checks pass. Weekly controls and journal shortcuts, desktop/mobile journal, all 11 real HTTP media checks and all eight responsive admin-shell sections passed. No live provider or OpenAI calls. Next: comparable-period changes and configurable AI summaries/model/monthly budget.

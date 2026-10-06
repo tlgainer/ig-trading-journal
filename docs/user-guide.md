@@ -275,7 +275,7 @@ In the development source, open **Research → Stock fundamentals** and choose a
 
 Owners can select one dataset and use **Refresh selected dataset** after configuring an enabled Alpha Vantage mapping in Settings and enabling the fundamental worker on the server. Each dataset consumes one request from the shared quote/fundamental allowance; four datasets require four requests. Viewers can read history but cannot refresh. If delivery is uncertain, use **Check refresh outcome**; it keeps the same request identity across page reloads and does not resend an uncertain dispatch. Missing data never becomes a fabricated zero. Free cash flow remains unavailable until the source's capex sign convention is verified.
 
-These controls are not included in the released 0.26.0 ZIP. AI summaries and recurring fundamental schedules remain pending.
+These controls are not included in the released 0.26.0 ZIP. AI summaries remain pending.
 
 Back up the database and private image directory together. Database-only backups do not preserve image bytes. Deactivation/uninstall preserve portfolio data. Administrator backup, upgrade and recovery procedures are in [operations.md](operations.md).
 
@@ -288,3 +288,7 @@ Requested subaccount, stablecoin, margin, short and options capabilities are des
 ### Development: fundamentals from a trade journal
 
 For a saved stock trade, open its **Summary** and choose **View stock fundamentals**. Research selects that trade's saved stock asset and shows stored history. Unsaved journal or image changes use the normal discard confirmation: Cancel keeps the journal open; accepting discards the unsaved changes. Back reopens the saved journal, and reloading Research retains the selected asset in the URL. The shortcut is available to viewers with workspace membership and never starts a provider request or AI review.
+
+### Development: weekly fundamentals
+
+In Research → Stock fundamentals, select a stock and dataset, then choose **Weekly** and a weekday at **7:30 PM New York**. Save the schedule separately for each dataset. Choose **Off** and save to disable it. A pending-queue message means the enrollment was saved but server configuration or cron still needs attention. Spread holdings/datasets across weekdays: each dataset uses one request and shares the Alpha Vantage quote allowance. Missed slots are skipped, and scheduled refresh does not run an AI review. Owner access and an enabled Alpha Vantage mapping are required. Unsaved schedule changes prompt before changing datasets, assets or sections. See [schedule details](fundamental-schedules.md).

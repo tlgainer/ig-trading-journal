@@ -85,6 +85,67 @@ final class MarketData {
 	}
 
 	/**
+	 * Read current dataset enrollment, including disabled revisions.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $mapping Mapping identifier.
+	 * @param string $dataset Fundamental dataset.
+	 * @return array|null
+	 * @throws \InvalidArgumentException On unsupported dataset.
+	 */
+	public function fundamental_schedule_config( int $workspace, int $mapping, string $dataset ): ?array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		$this->db->object( 'provider_mappings', $workspace, $mapping );
+		if ( ! in_array( $dataset, array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) ) {
+			throw new \InvalidArgumentException( 'Unsupported fundamental dataset.' );
+		}
+		return $this->db->row( 'SELECT * FROM ' . $this->db->table( 'fundamental_schedules' ) . ' WHERE workspace_id = %d AND mapping_id = %d AND dataset = %s ORDER BY id DESC LIMIT 1', array( $workspace, $mapping, $dataset ) );
+	}
+
+	/**
+	 * Append explicit owner enrollment with revision checks and atomic audit.
+	 *
+	 * @param int   $workspace Workspace identifier.
+	 * @param int   $mapping Mapping identifier.
+	 * @param array $input Dataset, frequency, weekday and expected revision.
+	 * @return array
+	 * @throws \InvalidArgumentException On invalid enrollment.
+	 */
+	public function save_fundamental_schedule( int $workspace, int $mapping, array $input ): array {
+		$fields = array( 'dataset', 'frequency', 'weekday', 'expected_schedule_id' );
+		Tracker::fields( $input, $fields, $fields );
+		if ( ! is_string( $input['dataset'] ) || ! in_array( $input['dataset'], array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) || ! in_array( $input['frequency'], array( 'off', 'weekly' ), true ) || ! is_int( $input['weekday'] ) || $input['weekday'] < 1 || $input['weekday'] > 5 || ! is_int( $input['expected_schedule_id'] ) || $input['expected_schedule_id'] < 0 ) {
+			throw new \InvalidArgumentException( 'Invalid fundamental enrollment.' );
+		}
+		return $this->db->atomic(
+			function () use ( $workspace, $mapping, $input ): array {
+				$this->lock_owner( $workspace );
+				$prior = $this->fundamental_schedule_config( $workspace, $mapping, $input['dataset'] );
+				if ( (int) ( $prior['id'] ?? 0 ) !== $input['expected_schedule_id'] ) {
+					throw new \UnexpectedValueException( 'Fundamental schedule changed; reload before saving.' );
+				}
+				if ( 'off' !== $input['frequency'] && 'alpha_vantage' !== $this->mapping( $workspace, $mapping )['provider'] ) {
+					throw new \InvalidArgumentException( 'Fundamental schedules require Alpha Vantage.' );
+				}
+				$id = $this->db->insert(
+					'fundamental_schedules',
+					array(
+						'workspace_id' => $workspace,
+						'mapping_id'   => $mapping,
+						'actor_id'     => $this->actor,
+						'dataset'      => $input['dataset'],
+						'frequency'    => $input['frequency'],
+						'weekday'      => $input['weekday'],
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'fundamental_schedule', 'fundamental_schedules', $id );
+				return $this->db->object( 'fundamental_schedules', $workspace, $id );
+			}
+		);
+	}
+
+	/**
 	 * Read latest enrollment for a scoped mapping, including disabled revisions.
 	 *
 	 * @param int $workspace Workspace identifier.

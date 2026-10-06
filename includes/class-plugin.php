@@ -32,6 +32,9 @@ final class Plugin {
 		add_action( 'init', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'boot' ) );
 		add_action( 'tgit_quote_schedule_scan', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'scan' ) );
 		add_action( 'tgit_scheduled_quote_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'job' ), 10, 3 );
+		add_action( 'init', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringFundamentals::class, 'boot' ) );
+		add_action( 'tgit_fundamental_schedule_scan', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringFundamentals::class, 'scan' ) );
+		add_action( 'tgit_scheduled_fundamental_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringFundamentals::class, 'job' ), 10, 3 );
 	}
 
 	/** Explain unmet prerequisites without automatically applying future migrations. */

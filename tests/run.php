@@ -220,5 +220,6 @@ test('Valuation excludes future observations and deterministically labels stale 
  equal(Valuation::select($rows,'2025-12-31')['status'],'missing'); equal(Valuation::select($rows,'2026-01-02')['observation']['id'],1); equal(Valuation::select($rows,'2026-01-04')['observation']['id'],3); equal(Valuation::select($rows,'2026-01-05')['status'],'stale');
 });
 require_once __DIR__ . '/provider-unit.php';
+require_once __DIR__ . '/fundamental-schedule-unit.php';
 
 echo "$passed tests passed.\n";

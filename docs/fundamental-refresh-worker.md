@@ -31,3 +31,5 @@ Seven deterministic WordPress integration groups intercept every HTTP attempt an
 73 unit and 126 disposable WordPress/MySQL integration checks passed, with coding standards, PHP/JavaScript syntax and six REST URL checks. No real provider/demo API or OpenAI request was sent. The admin/HTTP interface and schema are unchanged; the latest full browser/HTTP regression remains the schema-11 storage milestone in testing.md.
 
 Next: owner-visible review history and bounded on-demand actions, explicit recurring review enrollment, comparable-period change handling and configurable AI summary/model/budget controls.
+
+Subsequent development adds explicit per-dataset weekly enrollment through [RecurringFundamentals](fundamental-schedules.md), separately from this one-shot worker. Scheduled jobs call the same typed worker and shared quota. Weekly enrollment does not enable AI processing.

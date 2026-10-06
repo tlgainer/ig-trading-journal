@@ -322,6 +322,13 @@ final class Screen {
 	<label><?php esc_html_e( 'Dataset to refresh', 'ig-trading-journal' ); ?><select id="tgit-fundamental-dataset"><option value="OVERVIEW">Company overview</option><option value="INCOME_STATEMENT">Income statement</option><option value="BALANCE_SHEET">Balance sheet</option><option value="CASH_FLOW">Cash flow</option></select></label>
 	<button type="button" class="button" id="tgit-fundamental-refresh"><?php esc_html_e( 'Refresh selected dataset', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-fundamental-config"></p>
+	<form id="tgit-fundamental-schedule-form" class="tgit-grid">
+	<label><?php esc_html_e( 'Automatic refresh for selected dataset', 'ig-trading-journal' ); ?><select name="frequency"><option value="off">Off</option><option value="weekly">Weekly</option></select></label>
+	<label><?php esc_html_e( 'Weekday at 7:30 PM New York', 'ig-trading-journal' ); ?><select name="weekday"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option></select></label>
+	<button type="submit" class="button"><?php esc_html_e( 'Save fundamental schedule', 'ig-trading-journal' ); ?></button>
+	<p><?php esc_html_e( 'Each dataset uses one request per week and shares the quote allowance. Spread stocks and datasets across weekdays. Site cron, quota and provider availability can delay or skip a refresh; missed slots are not replayed.', 'ig-trading-journal' ); ?></p>
+	</form>
+	<p id="tgit-fundamental-schedule-status" role="status" aria-live="polite"></p>
 	</div>
 	<p id="tgit-fundamental-status" role="status" aria-live="polite"></p>
 	<div id="tgit-fundamental-history"></div>

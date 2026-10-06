@@ -8,7 +8,7 @@ test('Schema 11 upgrades typed requests from 10, repairs storage and preserves q
  [$s,$w,$asset,$mapping]=provider_context(); $request=$s->reserve($w,$mapping,provider_fingerprint('fundamental-migration'),'old-quote');
  $before=$db->object('provider_requests',$w,$request['id']); $db->query('ALTER TABLE '.$db->table('provider_requests').' DROP COLUMN dataset');
  $db->query('DROP TABLE '.$db->table('fundamental_snapshots')); update_option('tgit_schema_version','10'); Installer::install();
- equal(get_option('tgit_schema_version'),'11'); $after=$db->object('provider_requests',$w,$request['id']); equal($after['dataset'],'quote'); unset($before['dataset'],$after['dataset']); equal($after,$before);
+ equal(get_option('tgit_schema_version'),Installer::VERSION); $after=$db->object('provider_requests',$w,$request['id']); equal($after['dataset'],'quote'); unset($before['dataset'],$after['dataset']); equal($after,$before);
  equal($db->row('SHOW COLUMNS FROM '.$db->table('fundamental_snapshots').' LIKE %s',['evidence_fingerprint'])['Field'],'evidence_fingerprint');
  Installer::install(); equal($s->reserve($w,$mapping,provider_fingerprint('fundamental-migration'),'old-quote')['id'],$request['id']);
  $db->query('ALTER TABLE '.$db->table('provider_requests')." MODIFY COLUMN dataset varchar(20) NOT NULL DEFAULT 'quote'"); update_option('tgit_schema_version','10');

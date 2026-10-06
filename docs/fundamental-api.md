@@ -37,3 +37,5 @@ No screen or schema changed; browser fixtures were not rerun. No live provider, 
 Subsequent development now exposes history, selected-statement metrics and owner refresh controls in Research. See [user guide](user-guide.md). Journal navigation, recurring fundamental enrollment and AI review controls remain pending.
 
 Saved stock journal summaries now offer a guarded shortcut to Research for the same workspace asset. Navigation reads saved evidence only; it does not call the refresh API.
+
+Development schema 12 adds owner-only GET/POST fundamental schedule routes and weekly Research enrollment. See [schedule contract](fundamental-schedules.md) and [migration](012-fundamental-schedules.sql). All twelve migrations belong in future packages; the released ZIP remains unchanged.

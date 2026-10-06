@@ -13,6 +13,7 @@ use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes;
+use GainerInteractive\IGTradingJournal\Infrastructure\RecurringFundamentals;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Infrastructure\Installer;
 
@@ -72,6 +73,8 @@ final class Controller {
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
+		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/schedule', 'GET', 'fundamental_schedule' );
+		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/schedule', 'POST', 'save_fundamental_schedule' );
 		self::route( $base . '/provider-mappings', 'GET', 'provider_mappings' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/provider-mappings', 'POST', 'save_provider_mapping' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/refresh', 'POST', 'refresh_provider_quote' );
@@ -221,7 +224,7 @@ final class Controller {
 						'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
 					);
 				}
-			} elseif ( in_array( $operation, array( 'market_status', 'provider_mappings', 'save_provider_mapping', 'refresh_provider_quote', 'save_quote_schedule', 'refresh_fundamentals' ), true ) ) {
+			} elseif ( in_array( $operation, array( 'market_status', 'provider_mappings', 'save_provider_mapping', 'refresh_provider_quote', 'save_quote_schedule', 'refresh_fundamentals', 'fundamental_schedule', 'save_fundamental_schedule' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
 				if ( 'market_status' === $operation ) {
@@ -251,6 +254,19 @@ final class Controller {
 					);
 				} elseif ( 'save_provider_mapping' === $operation ) {
 					$result = $market->save_mapping( $workspace, (int) $request->get_url_params()['asset_id'], $data );
+				} elseif ( 'fundamental_schedule' === $operation ) {
+					$items = array();
+					foreach ( array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ) as $dataset ) {
+						$row = $market->fundamental_schedule_config( $workspace, (int) $request->get_url_params()['mapping'], $dataset );
+						if ( $row ) {
+							$items[] = $row;
+						}
+					}
+					$result = array( 'items' => $items );
+				} elseif ( 'save_fundamental_schedule' === $operation ) {
+					$result           = $market->save_fundamental_schedule( $workspace, (int) $request->get_url_params()['mapping'], $data );
+					$result['queued'] = RecurringFundamentals::queue( $workspace, (int) $result['id'] );
+					RecurringFundamentals::boot();
 				} elseif ( 'save_quote_schedule' === $operation ) {
 					$result           = $market->save_schedule( $workspace, (int) $request->get_url_params()['mapping'], $data );
 					$result['queued'] = RecurringQuotes::queue( $workspace, (int) $result['id'] );
