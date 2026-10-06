@@ -6,7 +6,7 @@ if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true)
 test('Schema 8 upgrades from schema 7 and repeats without loss', function () use ($db) {
  update_option('tgit_schema_version', '7');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('market_observations') . ' LIKE %s', ['supersedes_id'])['Field'], 'supersedes_id');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
 });

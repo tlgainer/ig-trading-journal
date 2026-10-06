@@ -16,7 +16,7 @@ final class Database {
 	 * @var \wpdb
 	 */
 	private $wpdb;
-	private const TABLES = array( 'market_observations', 'report_runs', 'saved_views', 'saved_view_revisions', 'workspaces', 'memberships', 'accounts', 'assets', 'transactions', 'transaction_legs', 'transaction_revisions', 'transaction_corrections', 'replay_runs', 'lots', 'lot_allocations', 'opening_balances', 'opening_basis_resolutions', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions', 'idempotency', 'audit_events', 'strategies', 'strategy_versions', 'trades', 'trade_journals', 'trade_fills', 'media_settings', 'media' );
+	private const TABLES = array( 'provider_mappings', 'provider_pools', 'provider_requests', 'provider_quotes', 'market_observations', 'report_runs', 'saved_views', 'saved_view_revisions', 'workspaces', 'memberships', 'accounts', 'assets', 'transactions', 'transaction_legs', 'transaction_revisions', 'transaction_corrections', 'replay_runs', 'lots', 'lot_allocations', 'opening_balances', 'opening_basis_resolutions', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions', 'idempotency', 'audit_events', 'strategies', 'strategy_versions', 'trades', 'trade_journals', 'trade_fills', 'media_settings', 'media' );
 
 	/**
 	 * Bind the WordPress database connection.

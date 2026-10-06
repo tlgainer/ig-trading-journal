@@ -32,7 +32,7 @@ final class Plugin {
 	/** Explain unmet prerequisites without automatically applying future migrations. */
 	public static function notice() {
 		if ( current_user_can( 'manage_options' ) && ! \GainerInteractive\IGTradingJournal\Infrastructure\Installer::ready() ) {
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'TG Investment Tracker needs PHP 8.1+, BCMath, and schema version 2. Back up the database, then reactivate the plugin to apply the additive journal/media migration.', 'ig-trading-journal' ) . '</p></div>';
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'TG Investment Tracker needs PHP 8.1+, BCMath, and the current database schema. Back up the database, then reactivate the plugin to apply the bundled additive migrations.', 'ig-trading-journal' ) . '</p></div>';
 		}
 	}
 

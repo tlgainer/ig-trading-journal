@@ -1,6 +1,6 @@
 # Financial data integration and AI fundamental reviews
 
-Owner-confirmed scope, October 5, 2026. This extends the original PRD. Current runtime remains build 0.26.0, schema 8; this document records planned work, not delivered functionality.
+Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 9; provider integration is unfinished and no new installable release is claimed.
 
 ## Scope and priority
 
@@ -80,7 +80,7 @@ Acceptance: reproducible evidence; comparable fiscal periods; immutable review h
 
 ## Persistence, operations and release
 
-New schema changes belong in separate numbered `docs/*.sql` files with prefix substitution, backup and forward-repair instructions. No migration/schema bump has been introduced in this planning step.
+Schema 9 is isolated in [009-provider-quotes.sql](009-provider-quotes.sql). It adds immutable mapping revisions and quote evidence, plus credential-wide quota pools and workspace-scoped request records. Pools contain only provider identifiers and server-derived credential digests; no credentials or customer data. Customer mappings, requests, quotes and audit evidence remain workspace scoped. Keep all nine migrations in future packaging; backup and forward repair are documented in [operations](operations.md). No SQL was run on production.
 
 Every customer relationship/read/job is workspace scoped. Scheduled jobs retain an authorizing membership and recheck revocation. Site administrators still require membership. A configured provider key grants no workspace access. Deactivation stops processing and preserves data; uninstall preserves data.
 
@@ -91,10 +91,12 @@ Required unit, PHP syntax/coding standards, REST URL, JavaScript and disposable 
 | Work | Status | Next step |
 | --- | --- | --- |
 | Scope and free-tier design | Documented | Owner confirmed both free tiers and AI summaries of fundamentals. Existing valuation/research separation reviewed. |
-| Provider foundation and stock valuations | In progress | Lossless bounded JSON decoding, Alpha Vantage EOD quote parsing and exact fixed-holding daily movement implemented and unit tested. Next: FMP adapter, persisted identity/observations, shared quota reservations, scheduler and UI integration. |
+| Provider foundation and stock valuations | In progress | Lossless JSON, Alpha Vantage EOD parsing, exact daily movement, append-only owner-confirmed mappings/quotes and shared request reservations implemented. Next: provider transports/FMP parser, refresh scheduler, manual/provider selection policy, valuation and UI integration. |
 | Fundamental snapshots and AI summaries | Planned | Build on provider evidence; configurable model and monthly budget confirmed, initially $10-$15 with proposed $15 cap. |
 | Related news/events | Planned | Verify entitlement coverage and approved relationships. |
 
 Initial foundation code is implemented in `src/Infrastructure/ProviderJson.php`, `src/Infrastructure/AlphaVantageQuote.php` and `src/Domain/Valuation.php`. Five deterministic test groups cover numeric fidelity/exponents, malformed and excessive inputs, quote identity/dates/prices, provider error redaction and movement versus unrealized gain. Provider quote currency/exchange remain unknown until verified mapping supplies them; the parser is not authorization to value a holding.
 
-Validation: 51 unit checks, PHP syntax, Composer coding standards, six REST URL checks and JavaScript syntax pass. Disposable WordPress/database regression evidence is recorded in implementation-status. No live provider requests, credentials, SQL migrations or new production package have been introduced; runtime integration remains incomplete.
+Quota reservations commit before network dispatch. Dispatch is single-claim; expired reservations cannot send. All recent attempts count, known failures do not refund the allowance, and uncertain dispatched calls stay counted until explicit reconciliation. Scheduled work reserves five requests for on-demand use (20/25 Alpha Vantage and 245/250 FMP). Quota reads use current locking reads under InnoDB so separate workspaces cannot consume the same final slot. Retry keys are hashed to preserve exact case-sensitive identity despite database collation. Mapping changes and revoked owner membership block in-flight completion. Quote/audit failures roll back evidence while preserving the original dispatched reservation.
+
+Validation: 51 unit checks, PHP syntax, Composer coding standards, six REST URL checks and JavaScript syntax pass; integration results are recorded in implementation-status. Separate SQL is introduced only for disposable schema validation. No live provider requests, credentials or new production package have been introduced; runtime transport/scheduler/UI integration remains incomplete.

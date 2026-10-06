@@ -6,7 +6,7 @@ test('Schema 4 correction table repairs from version 3 and repeats safely', func
  $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'];
  update_option('tgit_schema_version', '3');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
  equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'], $before);
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('transaction_corrections') . ' LIKE %s', ['chronology_id'])['Field'], 'chronology_id');
@@ -16,7 +16,7 @@ test('Schema 5 replay table repairs from version 4 without losing corrections', 
  $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'];
  update_option('tgit_schema_version', '4');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transaction_corrections'))['count'], $before);
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('replay_runs') . ' LIKE %s', ['projection_json'])['Field'], 'projection_json');
 });

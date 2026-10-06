@@ -9,14 +9,14 @@ test('Schema 3 opening table installs idempotently', function () {
  update_option('tgit_schema_version', '2');
  Installer::install();
  equal(Installer::ready(), true);
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  Installer::install();
 });
 
 test('Schema 6 basis table repairs from version 5', function () use ($db) {
  update_option('tgit_schema_version', '5');
  Installer::install();
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('opening_basis_resolutions') . ' LIKE %s', ['amount'])['Field'], 'amount');
 });
 

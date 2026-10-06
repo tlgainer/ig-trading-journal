@@ -10,7 +10,7 @@ $wpdb->suppress_errors(true);
 $task = json_decode($argv[4], true, 512, JSON_THROW_ON_ERROR);
 $service = new \GainerInteractive\IGTradingJournal\Application\Tracker(new \GainerInteractive\IGTradingJournal\Infrastructure\Database($wpdb), (int) $argv[2], wp_generate_uuid4());
 try {
- if (($task['operation'] ?? 'post') === 'reserve') { (new \GainerInteractive\IGTradingJournal\Application\Media(new \GainerInteractive\IGTradingJournal\Infrastructure\Database($wpdb), (int) $argv[2], wp_generate_uuid4()))->reserve((int) $argv[3], (int) $task['id'], $task['payload'], $task['key']); } elseif (($task['operation'] ?? 'post') === 'promote') { $service->promote_draft((int) $argv[3], (int) $task['id'], $task['payload'], $task['key']); } else { $service->post((int) $argv[3], $task['payload'], $task['key']); }
+ if (($task['operation'] ?? 'post') === 'provider_reserve') { (new \GainerInteractive\IGTradingJournal\Application\MarketData(new \GainerInteractive\IGTradingJournal\Infrastructure\Database($wpdb), (int) $argv[2], wp_generate_uuid4()))->reserve((int) $argv[3], (int) $task['id'], $task['fingerprint'], $task['key'], false); } elseif (($task['operation'] ?? 'post') === 'reserve') { (new \GainerInteractive\IGTradingJournal\Application\Media(new \GainerInteractive\IGTradingJournal\Infrastructure\Database($wpdb), (int) $argv[2], wp_generate_uuid4()))->reserve((int) $argv[3], (int) $task['id'], $task['payload'], $task['key']); } elseif (($task['operation'] ?? 'post') === 'promote') { $service->promote_draft((int) $argv[3], (int) $task['id'], $task['payload'], $task['key']); } else { $service->post((int) $argv[3], $task['payload'], $task['key']); }
  echo 'posted';
 } catch (\InvalidArgumentException | \UnexpectedValueException $error) {
  echo 'rejected';

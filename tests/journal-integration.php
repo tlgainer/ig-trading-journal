@@ -22,11 +22,11 @@ $jlimits = ['max_images' => 20, 'max_file_bytes' => 10485760, 'max_pixels' => 40
 test('Additive schema upgrade retains ledger rows and safely repeats', function () use ($db) {
  $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transactions'));
  update_option('tgit_schema_version', '1'); \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '8');
+ equal(get_option('tgit_schema_version'), '9');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
  equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transactions')), $before);
  update_option('tgit_schema_version', '99');
- try { \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); throw new LogicException('Unknown schema accepted.'); } catch (RuntimeException $e) {} finally { update_option('tgit_schema_version', '8'); }
+ try { \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); throw new LogicException('Unknown schema accepted.'); } catch (RuntimeException $e) {} finally { update_option('tgit_schema_version', '9'); }
 });
 test('Trade collection metadata stays scoped and excludes journal prose', function () use ($jt, $jw, $jtradeid) {
  $page = $jt->listing((int) $jw, 'trades', 0, 1); $row = $page['items'][0];
