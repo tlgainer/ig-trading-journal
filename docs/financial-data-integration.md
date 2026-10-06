@@ -1,6 +1,6 @@
 # Financial data integration and AI fundamental reviews
 
-Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 10; provider integration is unfinished and no new installable release is claimed.
+Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 11; provider integration is unfinished and no new installable release is claimed.
 
 ## Scope and priority
 
@@ -145,3 +145,12 @@ Next: corporate-action compatibility before displaying daily change, then fundam
 Added an internal lossless Alpha Vantage overview/income/balance-sheet/cash-flow parser. It keeps annual, quarterly and trailing figures distinct, preserves signed decimals and reported currencies, distinguishes missing values from zero and excludes provider narrative. The [fundamental evidence contract](fundamental-evidence-contract.md) records bounds, validation and the next persistence/metric/request/UI steps. This does not yet deliver scheduled or on-demand fundamental reviews or AI summaries. Daily-change corporate-action compatibility remains open; no paid endpoint is enabled.
 
 Validation: 66 unit checks, coding standards, PHP/JavaScript syntax and six REST URL checks passed. This isolated parser changes no database or browser workflow, so the preceding milestone's 110 integration/HTTP/browser checks are prior evidence, not newly rerun checks. No new SQL or installation ZIP; source remains 0.27.0-dev/schema 10 and the released ZIP remains 0.26.0/schema 8.
+## October 6 continuation: immutable fundamental snapshot storage
+
+Development source is now 0.27.0-dev/schema 11. Separate migration [011-fundamental-snapshots.sql](011-fundamental-snapshots.sql) adds append-only snapshots and a dataset discriminator on provider requests. Existing requests default to quote; all eleven SQL migrations belong in future packages. The latest released ZIP remains 0.26.0/schema 8.
+
+Internal MarketData operations now reserve supported Alpha Vantage fundamental datasets through the same atomic credential-wide quota as quotes. Dataset changes conflict with an existing retry identity, and quote/fundamental completions cannot substitute for each other. Completion requires the original authorized owner, current enabled mapping and a compatible dispatched request. Normalized evidence, identity, reporting currencies, parser version, fingerprint, retrieval time and previous-snapshot link commit with the request state and audit. Publication time remains unknown; fiscal dates cannot be in the future. Retry returns the same snapshot; later requests append history, including restatements, without changing earlier evidence or financial facts. Authorized reads are workspace/asset scoped and cursor bounded.
+
+Backup and forward repair: back up database and private images, keep external processing disabled, retain the matching development code and explicitly reactivate. The installer upgrades versions 1-10, recreates missing snapshot storage and adds the dataset column only when absent. An incompatible existing column blocks completion of the schema marker; inspect and repair its definition before reactivation. MySQL DDL is not atomic. Manual file 011 adds the column with ALTER; on repeated manual repair check SHOW COLUMNS first. Do not delete request or quota history to repair an upgrade.
+
+Next: comparable decimal metrics and the disabled-by-default fundamental transport, then on-demand/scheduled review controls and AI summaries with configured model and spending reservations. This milestone adds no fundamental HTTP calls, review UI or OpenAI processing. Daily-change corporate-action compatibility remains open.

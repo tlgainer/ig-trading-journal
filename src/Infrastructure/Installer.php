@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '10';
+	public const VERSION = '11';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -116,10 +116,32 @@ final class Installer {
 				throw new \RuntimeException( 'Provider schedule migration is missing.' );
 			}
 			$sql .= $schedule_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads bundled additive fundamental migration.
+			$fundamental_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/011-fundamental-snapshots.sql' );
+			if ( false === $fundamental_sql ) {
+				throw new \RuntimeException( 'Fundamental snapshot migration is missing.' );
+			}
+			$sql .= $fundamental_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {
 				if ( trim( $statement ) === '' ) {
+					continue;
+				}
+				$request_table = $wpdb->prefix . 'tgit_provider_requests';
+				if ( trim( $statement ) === "ALTER TABLE $request_table ADD COLUMN dataset varchar(30) NOT NULL DEFAULT 'quote'" ) {
+					// Trusted identifier and fixed additive DDL; manual SQL stays executable while retries skip the existing column.
+					$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $request_table, 'dataset' ), ARRAY_A );
+					if ( ! $column ) {
+						// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Statement is checked against the exact trusted table and fixed additive DDL above.
+						if ( false === $wpdb->query( trim( $statement ) ) ) {
+							throw new \RuntimeException( 'Provider dataset migration failed; inspect permissions and reactivate.' );
+						}
+						$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $request_table, 'dataset' ), ARRAY_A );
+					}
+					if ( ! $column || 'varchar(30)' !== $column['Type'] || 'NO' !== $column['Null'] || 'quote' !== $column['Default'] ) {
+						throw new \RuntimeException( 'Provider dataset column is incompatible; forward repair is required.' );
+					}
 					continue;
 				}
 				dbDelta( trim( $statement ) . ';' );

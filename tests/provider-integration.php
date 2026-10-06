@@ -32,7 +32,7 @@ function provider_fingerprint(string $label): string {
 
 test('Schema 9 upgrades from 8, repairs a missing provider table and preserves manual evidence', function () use ($db) {
  $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('market_observations'))['total'];
- update_option('tgit_schema_version','8'); Installer::install(); equal(get_option('tgit_schema_version'),'10');
+ update_option('tgit_schema_version','8'); Installer::install(); equal(get_option('tgit_schema_version'),Installer::VERSION);
  $db->query('DROP TABLE '.$db->table('provider_quotes')); Installer::install();
  equal($db->row('SHOW COLUMNS FROM '.$db->table('provider_quotes').' LIKE %s',['session_date'])['Field'],'session_date');
  equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('market_observations'))['total'],$before);
@@ -267,7 +267,7 @@ use GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes;
 
 test('Schema 10 enrollment repairs from 9 and retains quote evidence', function () use ($db) {
  $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_quotes'))['total'];
- update_option('tgit_schema_version','9'); Installer::install(); equal(get_option('tgit_schema_version'),'10');
+ update_option('tgit_schema_version','9'); Installer::install(); equal(get_option('tgit_schema_version'),Installer::VERSION);
  $db->query('DROP TABLE '.$db->table('provider_schedules')); Installer::install();
  equal($db->row('SHOW COLUMNS FROM '.$db->table('provider_schedules').' LIKE %s',['frequency'])['Field'],'frequency'); equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_quotes'))['total'],$before);
 });

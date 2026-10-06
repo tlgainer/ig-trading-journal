@@ -1,6 +1,6 @@
 # Prioritized remaining work
 
-Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev/schema 10. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
+Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev/schema 11. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
 Latest owner priority: [financial data integration](financial-data-integration.md), before queued subaccount/currency extensions. Exact quote parsing/daily movement, provider mapping/quote persistence, shared request quotas and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally. FMP transport, owner controls and explicit weekday scheduling are now implemented. Provider/manual stock valuation selection and all-account totals are implemented. Next: corporate-action compatibility for daily change, exchange-holiday calendars, fundamental snapshots with AI summaries and configurable model/monthly budget, then related news/events. Imports and other original PRD gates remain pending below.
 
@@ -37,3 +37,5 @@ No production database, server or deployed plugin was changed. Missing/stale quo
 Linear leveraged crypto scenarios are available in 0.20.0. Stock long/short profit and short risk are available in 0.21.0. Bought call/put premium and expiry scenarios are available in 0.22.0. Remaining extensions include subaccount and currency identity design, then reviewed product-specific margin/derivative accounting. Sold options are deferred by owner request. These extensions do not enable margin/short/options ledger posting.
 
 Fundamental parsing foundation: exact overview and annual/quarterly statement normalization is implemented internally; snapshot persistence, comparable metrics, fundamental dispatch/scheduling and AI review controls remain pending. See [evidence contract](fundamental-evidence-contract.md).
+
+Development schema 11 now stores immutable fundamental snapshots and binds provider requests to datasets under the existing shared quota. See [migration](011-fundamental-snapshots.sql). Fundamental transport, metrics, review UI and AI processing remain pending.

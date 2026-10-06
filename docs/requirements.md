@@ -2,7 +2,7 @@
 
 Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.26.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
-Development source: 0.27.0-dev/schema 10. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, owner mapping/refresh controls and explicit weekday enrollment are implemented. Explicit manual/provider stock valuation selection and all-account totals are implemented. Corporate-action compatibility for daily change, exchange-holiday calendars and fundamental/AI reviews remain pending. The released ZIP is unchanged.
+Development source: 0.27.0-dev/schema 11. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, owner mapping/refresh controls and explicit weekday enrollment are implemented. Explicit manual/provider stock valuation selection and all-account totals are implemented. Corporate-action compatibility for daily change, exchange-holiday calendars and fundamental/AI reviews remain pending. The released ZIP is unchanged.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
@@ -37,3 +37,5 @@ Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL inte
 
 Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.
 Fundamental parsing foundation: exact overview and annual/quarterly statement normalization is implemented internally; snapshot persistence, comparable metrics, fundamental dispatch/scheduling and AI review controls remain pending. See [evidence contract](fundamental-evidence-contract.md).
+
+Development schema 11 now stores immutable fundamental snapshots and binds provider requests to datasets under the existing shared quota. See [migration](011-fundamental-snapshots.sql). Fundamental transport, metrics, review UI and AI processing remain pending.

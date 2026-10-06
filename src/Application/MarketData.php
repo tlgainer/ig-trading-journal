@@ -11,6 +11,7 @@ namespace GainerInteractive\IGTradingJournal\Application;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
+use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageFundamentals;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 
 /** Internal application boundary; no external requests or key persistence. */
@@ -254,17 +255,24 @@ final class MarketData {
 	 * @param string $fingerprint Server-derived credential fingerprint.
 	 * @param string $key Unique request/retry identity.
 	 * @param bool   $scheduled Reserve five requests for on-demand work.
+	 * @param string $dataset Quote or supported fundamental endpoint.
 	 * @return array
 	 * @throws \InvalidArgumentException On invalid metadata; quota/retry conflicts are raised inside the transaction.
 	 * @throws \RuntimeException On shared reservation lock contention.
 	 */
-	public function reserve( int $workspace, int $mapping, string $fingerprint, string $key, bool $scheduled = true ): array {
+	public function reserve( int $workspace, int $mapping, string $fingerprint, string $key, bool $scheduled = true, string $dataset = 'quote' ): array {
+		if ( ! in_array( $dataset, array( 'quote', 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) ) {
+			throw new \InvalidArgumentException( 'Unsupported provider request dataset.' );
+		}
 		if ( ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) ) {
 			throw new \InvalidArgumentException( 'Invalid credential fingerprint.' );
 		}
 		// Hash exact retry bytes so case-insensitive database collation cannot alias keys.
 		$key      = hash( 'sha256', self::text( $key, 80 ) );
 		$identity = $this->current_mapping( $workspace, $mapping );
+		if ( 'quote' !== $dataset && 'alpha_vantage' !== $identity['provider'] ) {
+			throw new \InvalidArgumentException( 'Fundamental requests currently require Alpha Vantage.' );
+		}
 		$lock     = 'tgit_quote_' . substr( hash( 'sha256', $this->db->table( 'provider_pools' ) . $identity['provider'] . $fingerprint ), 0, 40 );
 		$acquired = $this->db->row( 'SELECT GET_LOCK(%s, 10) AS acquired', array( $lock ) );
 		if ( '1' !== (string) $acquired['acquired'] ) {
@@ -272,14 +280,14 @@ final class MarketData {
 		}
 		try {
 			return $this->db->atomic(
-				function () use ( $workspace, $mapping, $fingerprint, $key, $scheduled ): array {
+				function () use ( $workspace, $mapping, $fingerprint, $key, $scheduled, $dataset ): array {
 					$this->lock_owner( $workspace );
 					$identity = $this->mapping( $workspace, $mapping );
 					$this->db->query( 'INSERT IGNORE INTO ' . $this->db->table( 'provider_pools' ) . ' (provider, credential_fingerprint) VALUES (%s, %s)', array( $identity['provider'], $fingerprint ) );
 					$pool  = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'provider_pools' ) . ' WHERE provider = %s AND credential_fingerprint = %s FOR UPDATE', array( $identity['provider'], $fingerprint ) );
 					$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND workspace_id = %d AND request_key = %s', array( $pool['id'], $workspace, $key ) );
 					if ( $prior ) {
-						if ( (int) $prior['mapping_id'] !== $mapping || (int) $prior['actor_id'] !== $this->actor ) {
+						if ( (int) $prior['mapping_id'] !== $mapping || (int) $prior['actor_id'] !== $this->actor || $prior['dataset'] !== $dataset ) {
 							throw new \UnexpectedValueException( 'Provider request key conflicts with its original context.' );
 						}
 						return self::request_result( $prior );
@@ -300,6 +308,7 @@ final class MarketData {
 							'actor_id'     => $this->actor,
 							'request_key'  => $key,
 							'state'        => 'reserved',
+							'dataset'      => $dataset,
 							'created_at'   => gmdate( 'Y-m-d H:i:s' ),
 						)
 					);
@@ -387,7 +396,7 @@ final class MarketData {
 				$this->lock_owner( $workspace );
 				$row     = $this->request( $workspace, $request );
 				$mapping = $this->mapping( $workspace, (int) $row['mapping_id'] );
-				if ( $provider !== $mapping['provider'] || ! in_array( $row['state'], array( 'dispatched', 'completed' ), true ) ) {
+				if ( 'quote' !== $row['dataset'] || $provider !== $mapping['provider'] || ! in_array( $row['state'], array( 'dispatched', 'completed' ), true ) ) {
 					throw new \UnexpectedValueException( 'Provider response has no compatible dispatched request.' );
 				}
 				$quote = 'fmp' === $provider ? FmpEodQuote::parse( $body, $mapping['provider_symbol'] ) : AlphaVantageQuote::parse( $body, $mapping['provider_symbol'] );
@@ -422,6 +431,103 @@ final class MarketData {
 				return $this->db->object( 'provider_quotes', $workspace, $id );
 			}
 		);
+	}
+
+	/**
+	 * Commit normalized fundamental evidence only for its typed dispatched request.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $request Request identifier.
+	 * @param string $body Provider JSON.
+	 * @return array
+	 * @throws \UnexpectedValueException On mismatched lifecycle or retry evidence.
+	 */
+	public function complete_fundamentals( int $workspace, int $request, string $body ): array {
+		return $this->db->atomic(
+			function () use ( $workspace, $request, $body ): array {
+				$this->lock_owner( $workspace );
+				$row     = $this->request( $workspace, $request );
+				$mapping = $this->mapping( $workspace, (int) $row['mapping_id'] );
+				if ( 'alpha_vantage' !== $mapping['provider'] || ! in_array( $row['dataset'], array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) || ! in_array( $row['state'], array( 'dispatched', 'completed' ), true ) ) {
+					throw new \UnexpectedValueException( 'Fundamental evidence has no compatible dispatched request.' );
+				}
+				$evidence = 'OVERVIEW' === $row['dataset'] ? AlphaVantageFundamentals::overview( $body, $mapping['provider_symbol'] ) : AlphaVantageFundamentals::statements( $body, $mapping['provider_symbol'], $row['dataset'] );
+				$dates    = 'OVERVIEW' === $row['dataset'] ? array( $evidence['latest_quarter'] ) : array_column( $evidence['reports'], 'fiscal_date_ending' );
+				foreach ( $dates as $date ) {
+					if ( $date > gmdate( 'Y-m-d' ) ) {
+						throw new \InvalidArgumentException( 'Fundamental evidence has a future fiscal period.' );
+					}
+				}
+				$json = wp_json_encode( $evidence, JSON_UNESCAPED_SLASHES );
+				if ( false === $json ) {
+					throw new \InvalidArgumentException( 'Fundamental evidence could not be encoded.' );
+				}
+				$fingerprint = hash( 'sha256', $json );
+				$prior       = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'fundamental_snapshots' ) . ' WHERE workspace_id = %d AND request_id = %d', array( $workspace, $request ) );
+				if ( $prior ) {
+					if ( $prior['evidence_fingerprint'] !== $fingerprint ) {
+						throw new \UnexpectedValueException( 'Fundamental completion conflicts with saved evidence.' );
+					}
+					return $prior;
+				}
+				if ( 'completed' === $row['state'] ) {
+					throw new \UnexpectedValueException( 'Completed fundamental request is missing its evidence; repair is required.' );
+				}
+				$previous = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'fundamental_snapshots' ) . ' WHERE workspace_id = %d AND asset_id = %d AND provider = %s AND dataset = %s ORDER BY id DESC LIMIT 1', array( $workspace, $mapping['asset_id'], $mapping['provider'], $row['dataset'] ) );
+				$now      = gmdate( 'Y-m-d H:i:s' );
+				$id       = $this->db->insert(
+					'fundamental_snapshots',
+					array(
+						'workspace_id'         => $workspace,
+						'asset_id'             => $mapping['asset_id'],
+						'mapping_id'           => $mapping['id'],
+						'request_id'           => $request,
+						'provider'             => $mapping['provider'],
+						'provider_symbol'      => $mapping['provider_symbol'],
+						'dataset'              => $row['dataset'],
+						'quote_currency'       => $mapping['currency'],
+						'exchange'             => $mapping['exchange'],
+						'actor_id'             => $this->actor,
+						'previous_snapshot_id' => $previous['id'] ?? null,
+						'evidence_version'     => 'av-fundamentals-1',
+						'evidence_fingerprint' => $fingerprint,
+						'evidence_json'        => $json,
+						'retrieved_at'         => $now,
+						'published_at'         => null,
+					)
+				);
+				$this->db->update_object(
+					'provider_requests',
+					$workspace,
+					$request,
+					array(
+						'state'        => 'completed',
+						'completed_at' => $now,
+					)
+				);
+				$this->audit( $workspace, 'fundamental_snapshot', 'fundamental_snapshots', $id );
+				return $this->db->object( 'fundamental_snapshots', $workspace, $id );
+			}
+		);
+	}
+
+	/**
+	 * Read append-only fundamental history for an explicitly authorized asset.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $asset Asset identifier.
+	 * @param int $after Cursor identifier.
+	 * @param int $limit Maximum rows.
+	 * @return array
+	 * @throws \InvalidArgumentException On invalid pagination.
+	 */
+	public function fundamentals( int $workspace, int $asset, int $after = 0, int $limit = 100 ): array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_view' );
+		$this->db->object( 'assets', $workspace, $asset );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid fundamental history pagination.' );
+		}
+		return $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'fundamental_snapshots' ) . ' WHERE workspace_id = %d AND asset_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $asset, $after, $limit ) );
 	}
 
 	/**

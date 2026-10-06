@@ -6,38 +6,39 @@ Confirmed host: WordPress 7.1.2, PHP 8.1.2-1ubuntu2.26 on Apache 2.4.52/apache2h
 
 The site currently reports production HTTP URLs. Configure HTTPS and update both WordPress URLs before real use; do not switch production to development to bypass transport checks. Plain permalinks work without a permalink change. Workspaces default to USD/America/New_York (EST/EDT); WordPress's site timezone does not override the workspace.
 
-## Activation and development schema 10 upgrade
+## Activation and development schema 11 upgrade
 
-Development source is 0.27.0-dev/schema 10. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply this development migration to production merely to enable prices. FMP transport, owner mapping controls and explicit weekday enrollment are implemented in development. Holdings integration, exchange-holiday calendars and fundamental/AI reviews remain pending.
+Development source is 0.27.0-dev/schema 11. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply this development migration to production merely to enable prices. FMP transport, owner mapping controls and explicit weekday enrollment are implemented in development. Stock valuations/totals and internal fundamental parsing/storage are implemented. Daily-change compatibility, exchange calendars and fundamental/AI review workflows remain pending.
 
-Back up the database and private image bytes before replacing code/reactivating. Keep **all ten** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `010-provider-schedules.sql`, in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
+Back up the database and private image bytes before replacing code/reactivating. Keep **all eleven** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `011-fundamental-snapshots.sql`, in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
 
-Activation/reactivation reads all ten bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` under a named database lock, verifies InnoDB and records `tgit_schema_version=10` after success. This upgrades schema 1 through 9, or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
+Activation/reactivation reads all eleven bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` and the checked dataset-column ALTER under a named database lock, verifies InnoDB and records `tgit_schema_version=11` after success. This upgrades schema 1 through 10, or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
 
 There is no request-time migration. Until reactivation succeeds, the API readiness gate and admin notice explain the mismatch. MySQL DDL is not transactional: after a partial failure, fix permissions/prerequisites and reactivate to repeat the additive repair. Unknown future schema versions are refused. No table is dropped and no financial replay occurs in this migration.
 
-Install the latest ZIP directly; earlier packages do not need sequential installation. After the backup, replace the plugin, deactivate/reactivate explicitly, and verify schema 10 before entering new records.
+Install the latest ZIP directly; earlier packages do not need sequential installation. After the backup, replace the plugin, deactivate/reactivate explicitly, and verify schema 11 before entering new records.
 
 ## Separate manual SQL
 
 Ordinarily activation handles SQL. If manual execution is necessary, select the correct backed-up WordPress database and confirm its prefix in wp-config.php.
 
-- Fresh installation: run SQL files 001 through 010 in order.
-- Existing schema-1 ledger installation: run files 002 through 010 in order.
-- Existing schema-2 journal installation: run files 003 through 010 in order.
-- Existing schema-3 opening installation: run files 004 through 010 in order.
-- Existing schema-4 correction installation: run files 005 through 010 in order.
-- Existing schema-5 replay installation: run files 006 through 010 in order.
-- Existing schema-7 research installation: run files 008 through 010 in order.
-- Existing schema-6 basis installation: run files 007 through 010 in order.
-- Existing schema-8 reporting installation: run files 009 and 010 in order.
-- Existing schema-9 provider installation: run file 010.
+- Fresh installation: run SQL files 001 through 011 in order.
+- Existing schema-1 ledger installation: run files 002 through 011 in order.
+- Existing schema-2 journal installation: run files 003 through 011 in order.
+- Existing schema-3 opening installation: run files 004 through 011 in order.
+- Existing schema-4 correction installation: run files 005 through 011 in order.
+- Existing schema-5 replay installation: run files 006 through 011 in order.
+- Existing schema-7 research installation: run files 008 through 011 in order.
+- Existing schema-6 basis installation: run files 007 through 011 in order.
+- Existing schema-8 reporting installation: run files 009 through 011 in order.
+- Existing schema-9 provider installation: run files 010 and 011 in order.
+- Existing schema-10 schedule installation: run file 011.
 
 Schema 9 adds provider mapping revisions, append-only quotes, credential-wide quota pools and scoped request records; schema 10 adds append-only owner refresh enrollment; it does not copy or modify manual observations or financial history. Back up all existing tables before upgrading. After an interrupted migration, keep processing disabled, inspect new tables/indexes and rerun matching source installation. Retain all provider evidence and quota reservations during repair; do not delete pools to reset allowances. Previously dispatched requests with unknown outcomes remain counted until explicitly reconciled.
 
 Development registers disabled-by-default FMP/Alpha Vantage workers, one-shot hooks and an explicit weekday schedule. No workspace is automatically enrolled. Owner enrollment commits before cron queueing; an hourly recovery scan repairs missing jobs. Weekday slots are 18:30 and optionally 22:30 America/New_York, preserving DST. Exchange holidays are not included in this clock policy. Jobs more than two hours late skip the missed request and queue the next slot. Configure a dependable server-driven WordPress cron for timely execution. The internal scheduling operation requires a current workspace owner and a current confirmed stock mapping. Keys stay in server configuration; no owner-facing key/model/budget controls are released yet. Deactivation unschedules quote jobs and preserves tables, quotes and quota records. Keep live processing disabled until configuration/UI and release validation are complete. Rotating a key must not be used to evade an account's actual provider allowance; local pools are keyed by credential identity and cannot infer that two different keys belong to the same vendor account.
 
-Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; do not convert them to destructive replacements. Reactivate afterward so the installer verifies all schemas and records version 9. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media/opening/correction/replay/basis/watchlist/research/observation/report/view rows manually.
+Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; file 011 also adds a dataset column to existing requests. On manual repair, check whether that column exists before repeating its ALTER; do not convert them to destructive replacements. Reactivate afterward so the installer verifies all schemas and records version 11. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media/opening/correction/replay/basis/watchlist/research/observation/report/view rows manually.
 
 Opening balances entered through Settings require a source note and precede ordinary posting. Existing accounts with posted history use the dedicated retroactive-opening API, which validates later chronology and appends a replay run. Every opening entry in an account uses the same date. An unresolved asset basis is displayed as unknown and blocks a sale of that account/asset; do not enter a fabricated zero. The basis-resolution API appends documented, revision-checked evidence while preserving the original unknown opening record. A documented zero basis is allowed explicitly.
 
@@ -66,3 +67,4 @@ Provider valuations require the latest enabled matching mapping and a saved quot
 Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
 
 Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.
+Development schema 11 now stores immutable fundamental snapshots and binds provider requests to datasets under the existing shared quota. See [migration](011-fundamental-snapshots.sql). Fundamental transport, metrics, review UI and AI processing remain pending.
