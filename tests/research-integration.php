@@ -5,7 +5,7 @@ if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true)
 test('Schema 7 watchlist/research tables repair from version 6', function () use ($db) {
  update_option('tgit_schema_version', '6');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '9');
+ equal(get_option('tgit_schema_version'), '10');
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('watchlist_items') . ' LIKE %s', ['target_buy'])['Field'], 'target_buy');
  equal($db->row('SHOW COLUMNS FROM ' . $db->table('research_note_revisions') . ' LIKE %s', ['content'])['Field'], 'content');
 });

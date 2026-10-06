@@ -65,9 +65,10 @@ final class MarketData {
 		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
 			throw new \InvalidArgumentException( 'Invalid mapping pagination.' );
 		}
-		$table  = $this->db->table( 'provider_mappings' );
-		$quotes = $this->db->table( 'provider_quotes' );
-		return $this->db->rows( 'SELECT m.*, q.price, q.session_date, q.retrieved_at FROM ' . $table . ' m LEFT JOIN ' . $quotes . ' q ON q.workspace_id = m.workspace_id AND q.mapping_id = m.id AND q.id = (SELECT latest.id FROM ' . $quotes . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.mapping_id = m.id ORDER BY latest.session_date DESC, latest.id DESC LIMIT 1) WHERE m.workspace_id = %d AND m.id > %d AND NOT EXISTS (SELECT newer.id FROM ' . $table . ' newer WHERE newer.workspace_id = m.workspace_id AND newer.asset_id = m.asset_id AND newer.provider = m.provider AND newer.id > m.id) ORDER BY m.id LIMIT %d', array( $workspace, $after, $limit ) );
+		$table     = $this->db->table( 'provider_mappings' );
+		$quotes    = $this->db->table( 'provider_quotes' );
+		$schedules = $this->db->table( 'provider_schedules' );
+		return $this->db->rows( 'SELECT m.*, q.price, q.session_date, q.retrieved_at, s.id AS schedule_id, s.frequency FROM ' . $table . ' m LEFT JOIN ' . $quotes . ' q ON q.workspace_id = m.workspace_id AND q.mapping_id = m.id AND q.id = (SELECT latest.id FROM ' . $quotes . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.mapping_id = m.id ORDER BY latest.session_date DESC, latest.id DESC LIMIT 1) LEFT JOIN ' . $schedules . ' s ON s.workspace_id = m.workspace_id AND s.mapping_id = m.id AND s.id = (SELECT MAX(revision.id) FROM ' . $schedules . ' revision WHERE revision.workspace_id = m.workspace_id AND revision.mapping_id = m.id) WHERE m.workspace_id = %d AND m.id > %d AND NOT EXISTS (SELECT newer.id FROM ' . $table . ' newer WHERE newer.workspace_id = m.workspace_id AND newer.asset_id = m.asset_id AND newer.provider = m.provider AND newer.id > m.id) ORDER BY m.id LIMIT %d', array( $workspace, $after, $limit ) );
 	}
 
 	/**
@@ -79,6 +80,59 @@ final class MarketData {
 	private function lock_owner( int $workspace ): void {
 		$this->db->row( 'SELECT id FROM ' . $this->db->table( 'workspaces' ) . ' WHERE id = %d FOR UPDATE', array( $workspace ) );
 		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+	}
+
+	/**
+	 * Read latest enrollment for a scoped mapping, including disabled revisions.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $mapping Mapping identifier.
+	 * @return array|null
+	 */
+	public function schedule_config( int $workspace, int $mapping ): ?array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		$this->db->object( 'provider_mappings', $workspace, $mapping );
+		return $this->db->row( 'SELECT * FROM ' . $this->db->table( 'provider_schedules' ) . ' WHERE workspace_id = %d AND mapping_id = %d ORDER BY id DESC LIMIT 1', array( $workspace, $mapping ) );
+	}
+
+	/**
+	 * Append explicitly owner-authorized recurring enrollment or disable it.
+	 *
+	 * @param int   $workspace Workspace identifier.
+	 * @param int   $mapping Mapping identifier.
+	 * @param array $input Frequency and expected schedule identifier.
+	 * @return array
+	 * @throws \InvalidArgumentException On invalid enrollment.
+	 */
+	public function save_schedule( int $workspace, int $mapping, array $input ): array {
+		Tracker::fields( $input, array( 'frequency', 'expected_schedule_id' ), array( 'frequency', 'expected_schedule_id' ) );
+		if ( ! in_array( $input['frequency'], array( 'off', 'once', 'twice' ), true ) || ! is_int( $input['expected_schedule_id'] ) || $input['expected_schedule_id'] < 0 ) {
+			throw new \InvalidArgumentException( 'Invalid recurring enrollment.' );
+		}
+		return $this->db->atomic(
+			function () use ( $workspace, $mapping, $input ): array {
+				$this->lock_owner( $workspace );
+				$prior = $this->schedule_config( $workspace, $mapping );
+				if ( (int) ( $prior['id'] ?? 0 ) !== $input['expected_schedule_id'] ) {
+						throw new \UnexpectedValueException( 'Refresh schedule changed; reload before saving.' );
+				}
+				if ( 'off' !== $input['frequency'] ) {
+					$this->mapping( $workspace, $mapping );
+				}
+				$id = $this->db->insert(
+					'provider_schedules',
+					array(
+						'workspace_id' => $workspace,
+						'mapping_id'   => $mapping,
+						'actor_id'     => $this->actor,
+						'frequency'    => $input['frequency'],
+						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit( $workspace, 'quote_schedule', 'provider_schedules', $id );
+				return $this->db->object( 'provider_schedules', $workspace, $id );
+			}
+		);
 	}
 
 	/**

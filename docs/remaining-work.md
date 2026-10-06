@@ -1,8 +1,8 @@
 # Prioritized remaining work
 
-Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev/schema 9. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
+Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev/schema 10. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
-Latest owner priority: [financial data integration](financial-data-integration.md), before queued subaccount/currency extensions. Exact quote parsing/daily movement, provider mapping/quote persistence, shared request quotas and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally. Next: FMP transport, recurring market-aware scheduling, valuation/UI integration, fundamental snapshots with AI summaries and configurable model/monthly budget, then related news/events. Imports and other original PRD gates remain pending below.
+Latest owner priority: [financial data integration](financial-data-integration.md), before queued subaccount/currency extensions. Exact quote parsing/daily movement, provider mapping/quote persistence, shared request quotas and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally. FMP transport, owner controls and explicit weekday scheduling are now implemented. Next: provider/manual valuation selection, holdings/UI integration, exchange-holiday calendars, fundamental snapshots with AI summaries and configurable model/monthly budget, then related news/events. Imports and other original PRD gates remain pending below.
 
 UI/UX work is underway after the reporting slice. The shared-shell/table foundation and Trade Journal collection/detail navigation are implemented; see [screen coverage](ui-ux-coverage.md). The remaining original PRD backlog stays listed below.
 

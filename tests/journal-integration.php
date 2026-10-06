@@ -22,11 +22,11 @@ $jlimits = ['max_images' => 20, 'max_file_bytes' => 10485760, 'max_pixels' => 40
 test('Additive schema upgrade retains ledger rows and safely repeats', function () use ($db) {
  $before = $db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transactions'));
  update_option('tgit_schema_version', '1'); \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'), '9');
+ equal(get_option('tgit_schema_version'), '10');
  \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
  equal($db->row('SELECT COUNT(*) AS count FROM ' . $db->table('transactions')), $before);
  update_option('tgit_schema_version', '99');
- try { \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); throw new LogicException('Unknown schema accepted.'); } catch (RuntimeException $e) {} finally { update_option('tgit_schema_version', '9'); }
+ try { \GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); throw new LogicException('Unknown schema accepted.'); } catch (RuntimeException $e) {} finally { update_option('tgit_schema_version', '10'); }
 });
 test('Trade collection metadata stays scoped and excludes journal prose', function () use ($jt, $jw, $jtradeid) {
  $page = $jt->listing((int) $jw, 'trades', 0, 1); $row = $page['items'][0];
@@ -43,7 +43,8 @@ test('Journal persists with zero images and never changes cash or FIFO', functio
  $saved = $jt->save_trade($jw, $jtradeid, $input, 'journal-edit');
  equal(count($saved['revisions']), 2); equal($saved['journal']['fields']['planned_stop'], '0.000000000000000001');
  equal($jt->save_trade($jw, $jtradeid, $input, 'journal-edit'), $saved);
- equal($tracker->list_objects($jw, 'accounts'), $before); equal($tracker->holdings($jw), $lots);
+ equal($tracker->list_objects($jw, 'accounts'), $before);
+ $afterLots = $tracker->holdings($jw); unset($afterLots['as_of'], $lots['as_of']); equal($afterLots, $lots);
  try { $jt->save_trade($jw, $jtradeid, $input, 'journal-stale'); } catch (UnexpectedValueException $e) { return; }
  throw new RuntimeException('Stale journal overwritten.');
 });

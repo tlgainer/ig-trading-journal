@@ -32,7 +32,7 @@ function provider_fingerprint(string $label): string {
 
 test('Schema 9 upgrades from 8, repairs a missing provider table and preserves manual evidence', function () use ($db) {
  $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('market_observations'))['total'];
- update_option('tgit_schema_version','8'); Installer::install(); equal(get_option('tgit_schema_version'),'9');
+ update_option('tgit_schema_version','8'); Installer::install(); equal(get_option('tgit_schema_version'),'10');
  $db->query('DROP TABLE '.$db->table('provider_quotes')); Installer::install();
  equal($db->row('SHOW COLUMNS FROM '.$db->table('provider_quotes').' LIKE %s',['session_date'])['Field'],'session_date');
  equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('market_observations'))['total'],$before);
@@ -261,4 +261,48 @@ test('Owner REST refresh is bounded, idempotent and workspace scoped', function 
  $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']); wp_set_current_user($viewer);
  $denied=provider_http_mock(provider_http_response(provider_body()),fn()=>provider_rest('POST',$target,[],'rest-denied'),$calls); equal($calls,0); equal($denied->get_status(),403);
  wp_set_current_user($owner); [$other,$w2,$asset2,$mapping2]=provider_context(); equal(provider_rest('POST','workspaces/'.$w2.'/provider-mappings/'.$mapping.'/refresh',[],'foreign-refresh')->get_status(),404);
+});
+
+use GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes;
+
+test('Schema 10 enrollment repairs from 9 and retains quote evidence', function () use ($db) {
+ $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_quotes'))['total'];
+ update_option('tgit_schema_version','9'); Installer::install(); equal(get_option('tgit_schema_version'),'10');
+ $db->query('DROP TABLE '.$db->table('provider_schedules')); Installer::install();
+ equal($db->row('SHOW COLUMNS FROM '.$db->table('provider_schedules').' LIKE %s',['frequency'])['Field'],'frequency'); equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_quotes'))['total'],$before);
+});
+
+test('Recurring enrollment is append-only, owner authorized and revision checked', function () use ($db,$owner,$viewer,$tracker) {
+ wp_set_current_user($owner); [$s,$w,$asset,$mapping]=provider_context();
+ $target='workspaces/'.$w.'/provider-mappings/'.$mapping.'/schedule';
+ $response=provider_rest('POST',$target,['frequency'=>'once','expected_schedule_id'=>0]); equal($response->get_status(),200); $schedule=$response->get_data()['data']; equal($schedule['frequency'],'once'); equal($schedule['queued'],true);
+ equal(provider_rest('POST',$target,['frequency'=>'twice','expected_schedule_id'=>0])->get_status(),409);
+ rejects(fn()=>$s->save_schedule($w,$mapping,['frequency'=>'hourly','expected_schedule_id'=>(int)$schedule['id']]));
+ $off=$s->save_schedule($w,$mapping,['frequency'=>'off','expected_schedule_id'=>(int)$schedule['id']]); equal($off['frequency'],'off'); equal($db->object('provider_schedules',$w,(int)$schedule['id'])['frequency'],'once');
+ equal(RecurringQuotes::queue($w,(int)$schedule['id']),false); equal(RecurringQuotes::queue($w,(int)$off['id']),false);
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'manager','state'=>'active']); wp_set_current_user($viewer); equal(provider_rest('POST',$target,['frequency'=>'once','expected_schedule_id'=>(int)$off['id']])->get_status(),403); wp_set_current_user($owner); QuoteRefresh::deactivate();
+});
+
+test('Recurring jobs deduplicate, skip catch-up and stop after disable or owner revocation', function () use ($owner,$viewer,$tracker) {
+ [$s,$w,$asset,$mapping]=provider_context(); $schedule=$s->save_schedule($w,$mapping,['frequency'=>'twice','expected_schedule_id'=>0]); $id=(int)$schedule['id'];
+ equal(RecurringQuotes::queue($w,$id),true); equal(RecurringQuotes::queue($w,$id),true);
+ $at=time(); provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,$id,$at),$calls); equal($calls,1);
+ provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,$id,$at),$calls); equal($calls,0);
+ provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,$id,$at-10800),$calls); equal($calls,0);
+ provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,$id,$at+3600),$calls); equal($calls,0);
+ $s->save_schedule($w,$mapping,['frequency'=>'off','expected_schedule_id'=>$id]); provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,$id,$at),$calls); equal($calls,0);
+ $latest=$s->schedule_config($w,$mapping); $active=$s->save_schedule($w,$mapping,['frequency'=>'once','expected_schedule_id'=>(int)$latest['id']]);
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'owner','state'=>'active']); $tracker->set_member($w,['wp_user_id'=>$owner,'role'=>'owner','state'=>'revoked']);
+ provider_http_mock(provider_http_response(provider_body()),fn()=>RecurringQuotes::job($w,(int)$active['id'],$at),$calls); equal($calls,0); equal(RecurringQuotes::queue($w,(int)$active['id']),false);
+ RecurringQuotes::boot(); equal((bool)wp_next_scheduled('tgit_quote_schedule_scan'),true); QuoteRefresh::deactivate(); equal(wp_next_scheduled('tgit_quote_schedule_scan'),false);
+});
+
+test('Schedule audit rollback preserves the prior enrollment and scan recovers missing jobs', function () use ($db) {
+ global $wpdb; [$s,$w,$asset,$mapping,$input]=provider_context();
+ $schedule=$s->save_schedule($w,$mapping,['frequency'=>'once','expected_schedule_id'=>0]); $id=(int)$schedule['id'];
+ $trigger=$wpdb->prefix.'schedule_fault'; $db->query('CREATE TRIGGER '.$trigger.' BEFORE INSERT ON '.$db->table('audit_events')." FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fixture fault'");
+ try { try { $s->save_schedule($w,$mapping,['frequency'=>'off','expected_schedule_id'=>$id]); throw new LogicException('Audit failure accepted'); } catch(RuntimeException $error) {} } finally { $db->query('DROP TRIGGER '.$trigger); }
+ equal((int)$s->schedule_config($w,$mapping)['id'],$id); QuoteRefresh::deactivate(); RecurringQuotes::scan();
+ $at=GainerInteractive\IGTradingJournal\Domain\QuoteSchedule::next(new DateTimeImmutable('now',new DateTimeZone('UTC')),'once'); equal(wp_next_scheduled('tgit_scheduled_quote_refresh',[$w,$id,$at]),$at);
+ $s->save_mapping($w,$asset,array_replace($input,['expected_mapping_id'=>$mapping,'enabled'=>false])); equal(RecurringQuotes::queue($w,$id),false); QuoteRefresh::deactivate();
 });

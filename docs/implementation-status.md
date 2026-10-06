@@ -130,3 +130,13 @@ Added owner-only stock provider mapping controls and on-demand quote refresh to 
 The dedicated market-data browser fixture passed mapping save/revision, disabled-provider controls, unsaved-edit cancellation, stock identity fields, table widths at 360/768/1440px, and uncertain refresh retry identity after reload. The retry fixture intercepts both configuration and refresh responses in the browser; it cannot send provider traffic. Eleven real HTTP media checks also passed.
 
 Existing desktop/mobile journal workflows and all eight admin sections at 360/768/1440px passed again with the new Settings section loaded. No browser errors or viewport overflow were reported.
+
+## October 6, 2026: recurring weekday quote enrollment (0.27.0-dev, schema 10)
+
+Implemented append-only owner enrollment, a shared Settings frequency control/table column, New York weekday/DST slots, stable recurring job keys, skip-late behavior and recovery scan. Jobs recheck original ownership, latest enrollment and current mappings; deactivation preserves history and removes jobs. The schedule is explicitly weekday-based; exchange holidays may run. Shared rolling quotas remain authoritative. Automatic holdings valuation remains pending.
+
+The separate additive migration is `docs/010-provider-schedules.sql`; future packaging requires all ten SQL files. Backup/forward repair and schema-1-through-9 upgrades are documented in operations. 55 unit and 106 disposable WordPress/MySQL checks pass, including migration repair, exact slot policy, append-only enrollment/audit rollback, owner-only REST, retry deduplication, late/future jobs, disable/revocation and recovery. Required coding standards, PHP/JavaScript syntax and six REST URL checks pass. No production package or provider entitlement verification is claimed.
+
+Schedule controls passed the dedicated desktop/mobile Settings fixture, including a durable enabled frequency with honest pending queue status when the server provider is disabled, followed by explicit disabling. Eleven real HTTP media checks passed. Remaining browser regressions are recorded once complete below.
+
+All eight admin sections passed again at 360/768/1440px, and the desktop/mobile journal workflow passed with multiple private images, exact journal fields, dirty guards, list context and deep links. Schedule controls passed in the same scoped shell. No production-host or real provider check is claimed.

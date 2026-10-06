@@ -58,3 +58,17 @@ test('Fixed holding daily movement is distinct from unrealized gain and preserve
  equal(Valuation::price_movement('30',null,'315')['amount'],null); equal(Valuation::price_movement('30','320',null)['percent'],null); equal(Valuation::price_movement('30','320','0')['percent'],null);
  rejects(fn() => Valuation::price_movement('-1','320','315'));
 });
+
+require_once __DIR__.'/../src/Domain/QuoteSchedule.php';
+use GainerInteractive\IGTradingJournal\Domain\QuoteSchedule;
+
+test('Weekday quote slots preserve New York DST and skip weekends', function () {
+ equal(QuoteSchedule::next(new DateTimeImmutable('2026-03-06T23:30:00Z'),'once'), (new DateTimeImmutable('2026-03-09T22:30:00Z'))->getTimestamp());
+ equal(QuoteSchedule::next(new DateTimeImmutable('2026-10-30T22:30:00Z'),'once'), (new DateTimeImmutable('2026-11-02T23:30:00Z'))->getTimestamp());
+ equal(QuoteSchedule::next(new DateTimeImmutable('2026-10-06T22:30:00Z'),'twice'), (new DateTimeImmutable('2026-10-07T02:30:00Z'))->getTimestamp());
+ equal(QuoteSchedule::next(new DateTimeImmutable('2026-10-06T22:29:59Z'),'once'), (new DateTimeImmutable('2026-10-06T22:30:00Z'))->getTimestamp());
+});
+
+test('Weekday schedule disables explicitly and rejects unrecognized frequency', function () {
+ equal(QuoteSchedule::next(new DateTimeImmutable('2026-10-06T00:00:00Z'),'off'),null); rejects(fn()=>QuoteSchedule::next(new DateTimeImmutable('2026-10-06T00:00:00Z'),'hourly'));
+});

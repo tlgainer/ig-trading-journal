@@ -322,7 +322,10 @@ final class Screen {
 	<label><?php esc_html_e( 'Quote currency', 'ig-trading-journal' ); ?><input name="currency" readonly required></label>
 	<label><?php esc_html_e( 'Price requests', 'ig-trading-journal' ); ?><select name="enabled"><option value="true"><?php esc_html_e( 'Enabled for this mapping', 'ig-trading-journal' ); ?></option><option value="false"><?php esc_html_e( 'Disabled', 'ig-trading-journal' ); ?></option></select></label>
 	<label><?php esc_html_e( 'How you verified this symbol', 'ig-trading-journal' ); ?><input name="evidence" required maxlength="500"></label>
+	<label><?php esc_html_e( 'Automatic refresh (New York weekdays)', 'ig-trading-journal' ); ?><select name="frequency"><option value="off"><?php esc_html_e( 'Off', 'ig-trading-journal' ); ?></option><option value="once"><?php esc_html_e( 'Once: 6:30 PM', 'ig-trading-journal' ); ?></option><option value="twice"><?php esc_html_e( 'Twice: 6:30 PM and 10:30 PM', 'ig-trading-journal' ); ?></option></select></label>
+	<p><?php esc_html_e( 'Save the mapping first, then save its schedule. Weekday refresh skips weekends; exchange holidays may still run. Shared quotas can defer requests. Site cron can delay execution; missed slots are skipped.', 'ig-trading-journal' ); ?></p>
 	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save provider mapping', 'ig-trading-journal' ); ?></button>
+	<button type="button" id="tgit-market-save-schedule" class="button"><?php esc_html_e( 'Save refresh schedule', 'ig-trading-journal' ); ?></button>
 	</form>
 	<div id="tgit-market-mappings"></div>
 	</section>

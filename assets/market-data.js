@@ -22,6 +22,8 @@
   form.elements.provider_symbol.value = mapping?.provider_symbol || asset?.symbol || '';
   form.elements.exchange.value = asset?.exchange || ''; form.elements.currency.value = asset?.quote_currency || '';
   form.elements.evidence.value = mapping?.evidence || ''; form.elements.enabled.value = mapping && String(mapping.enabled) === '0' ? 'false' : 'true';
+  form.elements.frequency.value = mapping?.frequency || 'off'; form.elements.frequency.disabled = !mapping;
+  $('save-schedule').disabled = !mapping;
   form.querySelector('[type=submit]').disabled = !asset; baseline = snapshot();
  }
  function render() {
@@ -32,6 +34,7 @@
    { key: 'enabled', label: 'Requests', render: (row) => String(row.enabled) === '1' ? 'Enabled' : 'Disabled' },
    { key: 'price', label: 'End-of-day price', numeric: true, render: (row) => row.price === null ? 'Not fetched' : `${tgitDisplayDecimal(row.price)} ${row.currency}` },
    { key: 'session', label: 'Price session', render: (row) => row.session_date || 'Not fetched' },
+   { key: 'frequency', label: 'Automatic refresh', render: (row) => ({ once: 'Weekdays 6:30 PM NY', twice: 'Weekdays 6:30 and 10:30 PM NY' })[row.frequency] || 'Off' },
    { key: 'actions', label: 'Actions', required: true, render: (row) => {
     const actions = document.createElement('div'); actions.className = 'tgit-row-actions';
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button'; edit.textContent = 'Edit mapping'; edit.setAttribute('aria-label', `Edit ${row.provider_symbol} ${row.provider} mapping`);
@@ -76,6 +79,20 @@
   try { await request(`workspaces/${selected}/assets/${input.asset_id}/provider-mappings`, body); if (expected === generation) { await load(); status('Provider mapping saved. No request was sent.'); } }
   catch (error) { if (expected === generation) status(`${error.message} Reload Settings before retrying if the save outcome is uncertain.`, true); }
   finally { window.tgitWriteBusy = false; if (expected === generation) form.querySelector('[type=submit]').disabled = !assets.length; }
+ });
+ $('save-schedule').addEventListener('click', async () => {
+  if (window.tgitWriteBusy) return;
+  const before = baseline ? JSON.parse(baseline) : {}, input = Object.fromEntries(new FormData(form));
+  const frequency = input.frequency; delete before.frequency; delete input.frequency;
+  if (JSON.stringify(before) !== JSON.stringify(input)) { status('Save mapping changes before changing its refresh schedule.', true); return; }
+  const mapping = mappings.find((row) => String(row.asset_id) === input.asset_id && row.provider === input.provider); if (!mapping) return;
+  window.tgitWriteBusy = true; $('save-schedule').disabled = true; const selected = workspace, expected = generation;
+  try {
+   const result = await request(`workspaces/${selected}/provider-mappings/${mapping.id}/schedule`, { frequency, expected_schedule_id: Number(mapping.schedule_id || 0) });
+   if (expected !== generation) return; await load();
+   status(frequency === 'off' ? 'Automatic refresh disabled.' : result.queued ? 'Refresh schedule saved. The next weekday slot is queued.' : 'Schedule saved; queueing is pending. Check server configuration and site cron.');
+  } catch (error) { if (expected === generation) status(`${error.message} Reload Settings before retrying if the save outcome is uncertain.`, true); }
+  finally { window.tgitWriteBusy = false; if (expected === generation) $('save-schedule').disabled = !mapping; }
  });
  const leave = () => !window.tgitWriteBusy && (!dirty() || confirm('Discard unsaved market-data changes?'));
  document.getElementById('tgit-workspace').addEventListener('change', (event) => { if (!leave()) { event.target.value = workspace; event.stopImmediatePropagation(); } }, true);
