@@ -2,7 +2,7 @@
 
 Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.26.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
-Development source: 0.27.0-dev/schema 11. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, owner mapping/refresh controls and explicit weekday enrollment are implemented. Explicit manual/provider stock valuation selection and all-account totals are implemented. Corporate-action compatibility for daily change, exchange-holiday calendars and fundamental/AI reviews remain pending. The released ZIP is unchanged.
+Development source: 0.27.0-dev/schema 12. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, shared request quotas, disabled-by-default transport, owner controls and explicit quote/fundamental schedules are implemented. Manual/provider stock valuation selection, all-account totals, saved fundamental history/metrics and previous available reporting-period differences are implemented. Corporate-action compatibility for daily change, exchange-holiday calendars, verified growth comparisons and configurable AI reviews remain pending. The released ZIP is unchanged.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
@@ -50,4 +50,4 @@ Development Research now exposes fundamental snapshot history, statement metric 
 
 Development stock journals now link to the selected asset's saved fundamentals through guarded Research navigation. Unsaved-change confirmation, scoped selection, Back and reload are covered. Recurring enrollment, comparable-period changes and AI review controls remain pending.
 
-Development schema 12 adds explicit per-dataset weekly fundamental enrollment, owner Research controls, DST-aware scheduling and recoverable cron jobs. See [schedule contract](fundamental-schedules.md) and [separate SQL](012-fundamental-schedules.sql). Comparable-period analysis and configurable AI summaries/model/budget remain pending.
+Development schema 12 adds explicit per-dataset weekly fundamental enrollment, owner Research controls, DST-aware scheduling and recoverable cron jobs. See [schedule contract](fundamental-schedules.md) and [separate SQL](012-fundamental-schedules.sql). Saved reporting-period metric differences now have exact prior/current values, visible gaps, currency compatibility checks and Research tables; see [comparison contract](fundamental-period-comparisons.md). Verified annual/quarterly growth and configurable AI summaries/model/budget remain pending. Earlier milestone notes above describe historical scope.

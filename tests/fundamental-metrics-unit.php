@@ -64,3 +64,44 @@ test('Metric boundary rejects mixed identities, overview facts, malformed values
  $evidence=metric_evidence(); $evidence['CASH_FLOW']['reports'][]=$evidence['CASH_FLOW']['reports'][0]; rejects(fn()=>FundamentalMetrics::calculate($evidence));
  equal(FundamentalMetrics::calculate([])['reports'],[]);
 });
+
+test('Period changes use exact differences and percentage points with visible gaps', function () {
+ $evidence=metric_evidence();
+ foreach($evidence as &$envelope) { $prior=$envelope['reports'][0]; $prior['fiscal_date_ending']='2023-12-31'; $envelope['reports'][]=$prior; } unset($envelope);
+ $evidence['INCOME_STATEMENT']['reports'][0]['values']['netIncome']='100';
+ $evidence['BALANCE_SHEET']['reports'][0]['values']['longTermDebt']='90.000000000000000001';
+ $result=FundamentalMetrics::calculate($evidence,'positive_outflow');
+ equal($result['comparison_version'],'fundamental-comparisons-1'); equal(count($result['comparisons']),2);
+ $first=$result['comparisons'][0]; equal($first['changes']['net_margin_percent']['status'],'missing_prior_period');
+ $current=$result['comparisons'][1]; equal($current['prior_date_ending'],'2023-12-31'); equal($current['days_between'],731); equal($current['basis'],'previous_available_period');
+ decimal($current['changes']['net_margin_percent']['change'],'15'); equal($current['changes']['net_margin_percent']['unit'],'percentage_points');
+ decimal($current['changes']['total_reported_debt']['change'],'0.000000000000000001');
+ equal($result,FundamentalMetrics::calculate(array_reverse($evidence,true),'positive_outflow'));
+ foreach($evidence as &$envelope) $envelope['reports']=array_reverse($envelope['reports']); unset($envelope);
+ equal($result,FundamentalMetrics::calculate($evidence,'positive_outflow'));
+});
+
+test('Period changes never skip a changed currency or mix annual and quarterly reports', function () {
+ $evidence=metric_evidence();
+ foreach($evidence as &$envelope) {
+  $prior=$envelope['reports'][0]; $prior['fiscal_date_ending']='2024-12-31'; $prior['reported_currency']='EUR'; $envelope['reports'][]=$prior;
+  $quarter=$prior; $quarter['period_type']='quarterly'; $envelope['reports'][]=$quarter;
+ } unset($envelope);
+ $rows=FundamentalMetrics::calculate($evidence)['comparisons']; equal(count($rows),3);
+ equal($rows[1]['changes']['net_margin_percent']['status'],'currency_changed'); equal($rows[1]['changes']['net_margin_percent']['change'],null); equal($rows[1]['prior_currency'],'EUR');
+ equal($rows[2]['changes']['net_margin_percent']['status'],'missing_prior_period');
+});
+
+test('Ambiguous reporting currencies block comparisons instead of selecting an arbitrary source', function () {
+ $evidence=metric_evidence(); $evidence['BALANCE_SHEET']['reports'][0]['reported_currency']='EUR';
+ foreach($evidence as &$envelope) { $prior=$envelope['reports'][0]; $prior['fiscal_date_ending']='2024-12-31'; $envelope['reports'][]=$prior; } unset($envelope);
+ foreach(FundamentalMetrics::calculate($evidence)['comparisons'] as $row) if($row['fiscal_date_ending']==='2025-12-31') { equal($row['changes']['net_margin_percent']['status'],'ambiguous_currency'); equal($row['changes']['net_margin_percent']['change'],null); }
+});
+
+test('Unavailable metric changes preserve unknown capex and missing inputs without fabricated zero', function () {
+ $evidence=metric_evidence(); foreach($evidence as &$envelope) { $prior=$envelope['reports'][0]; $prior['fiscal_date_ending']='2024-12-31'; $envelope['reports'][]=$prior; } unset($envelope);
+ $evidence['INCOME_STATEMENT']['reports'][1]['values']['netIncome']=null;
+ $changes=FundamentalMetrics::calculate($evidence)['comparisons'][1]['changes'];
+ foreach(['free_cash_flow','net_margin_percent'] as $name) { equal($changes[$name]['change'],null); equal($changes[$name]['status'],'unavailable_metric'); }
+ decimal($changes['total_reported_debt']['change'],'0');
+});

@@ -80,10 +80,61 @@ final class FundamentalMetrics {
 			);
 		}
 		return array(
-			'formula_version'  => 'fundamental-metrics-1',
-			'capex_convention' => $capex_convention,
-			'reports'          => $results,
+			'formula_version'    => 'fundamental-metrics-1',
+			'capex_convention'   => $capex_convention,
+			'reports'            => $results,
+			'comparison_version' => 'fundamental-comparisons-1',
+			'comparisons'        => self::comparisons( $results ),
 		);
+	}
+
+	/**
+	 * Compare previous available periods, without inferring year/quarter growth.
+	 *
+	 * @param array $reports Validated calculated reports.
+	 * @return array
+	 */
+	private static function comparisons( array $reports ): array {
+		$periods = array();
+		foreach ( $reports as $report ) {
+			$periods[ $report['period_type'] ][ $report['fiscal_date_ending'] ][] = $report;
+		}
+		$output = array();
+		foreach ( $periods as $type => $dates ) {
+			ksort( $dates, SORT_STRING );
+			$previous = null;
+			foreach ( $dates as $date => $current ) {
+				foreach ( $current as $report ) {
+					$prior   = null === $previous ? null : $previous[0];
+					$context = null === $prior ? 'missing_prior_period' : ( count( $current ) > 1 || count( $previous ) > 1 ? 'ambiguous_currency' : ( $prior['reported_currency'] !== $report['reported_currency'] ? 'currency_changed' : 'complete' ) );
+					$changes = array();
+					foreach ( $report['metrics'] as $name => $metric ) {
+						$baseline         = null !== $previous && count( $previous ) > 1 ? null : ( $prior['metrics'][ $name ]['value'] ?? null );
+						$status           = 'complete' !== $context ? $context : ( null === $metric['value'] || null === $baseline ? 'unavailable_metric' : 'complete' );
+						$delta            = 'complete' === $status ? Decimal::sub( $metric['value'], $baseline ) : null;
+						$changes[ $name ] = array(
+							'prior_value'   => $baseline,
+							'current_value' => $metric['value'],
+							'change'        => $delta,
+							'unit'          => 'percent' === $metric['unit'] ? 'percentage_points' : $metric['unit'],
+							'status'        => $status,
+						);
+					}
+					$output[] = array(
+						'period_type'        => $type,
+						'fiscal_date_ending' => $date,
+						'prior_date_ending'  => $prior['fiscal_date_ending'] ?? null,
+						'reported_currency'  => $report['reported_currency'],
+						'prior_currency'     => null !== $previous && count( $previous ) > 1 ? null : ( $prior['reported_currency'] ?? null ),
+						'basis'              => 'previous_available_period',
+						'days_between'       => null === $prior ? null : (int) ( new \DateTimeImmutable( $prior['fiscal_date_ending'] ) )->diff( new \DateTimeImmutable( $date ) )->format( '%a' ),
+						'changes'            => $changes,
+					);
+				}
+				$previous = $current;
+			}
+		}
+		return $output;
 	}
 
 	/**

@@ -16,7 +16,10 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    await open(); assert.equal(await page.locator('#tgit-fundamental-history tbody tr').count(), 3);
    assert.equal(await page.locator('#tgit-fundamental-owner').isVisible(), actor === 'owner');
    const income = page.locator('#tgit-fundamental-history tbody tr').filter({ hasText: 'income statement' }); await income.getByRole('button', { name: /View snapshot/ }).click();
-   await page.locator('#tgit-fundamental-detail').getByText('net margin percent', { exact: true }).waitFor(); assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('-5.00'));
+   await page.locator('#tgit-fundamental-detail').getByText('net margin percent', { exact: true }).first().waitFor(); assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('-5.00'));
+   await page.locator('#tgit-fundamental-detail').getByText('Changes from previous available period (16)', { exact: true }).waitFor();
+   assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('Unavailable: missing prior period'));
+   assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('5.00 percentage points'));
    for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Fundamentals overflow at ${width}`); }
    if (actor === 'owner') {
     const schedule = page.locator('#tgit-fundamental-schedule-form'); await page.waitForFunction(() => !document.getElementById('tgit-fundamental-schedule-form').inert);

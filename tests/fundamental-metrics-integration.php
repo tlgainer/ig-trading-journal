@@ -3,11 +3,13 @@
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true) throw new RuntimeException('Disposable site required.');
 
-function saved_metric_context(): array {
+function saved_metric_context(bool $two_periods=false): array {
  global $db;
  [$s,$w,$asset,$mapping]=provider_context(); $ids=[];
  foreach(metric_evidence() as $dataset=>$envelope) {
-  $report=$envelope['reports'][0]; $body=wp_json_encode(['symbol'=>'FIXTURE','annualReports'=>[array_merge(['fiscalDateEnding'=>$report['fiscal_date_ending'],'reportedCurrency'=>$report['reported_currency']],$report['values'])],'quarterlyReports'=>[]]);
+  $report=$envelope['reports'][0]; $reports=[array_merge(['fiscalDateEnding'=>$report['fiscal_date_ending'],'reportedCurrency'=>$report['reported_currency']],$report['values'])];
+  if($two_periods) { $prior=$reports[0]; $prior['fiscalDateEnding']='2024-12-31'; if($dataset==='INCOME_STATEMENT') $prior['netIncome']='-100'; $reports[]=$prior; }
+  $body=wp_json_encode(['symbol'=>'FIXTURE','annualReports'=>$reports,'quarterlyReports'=>[]]);
   $r=$s->reserve($w,$mapping,provider_fingerprint('metric-snapshot-'.$w),$dataset,false,$dataset); $s->dispatch($w,$r['id']); $snapshot=$s->complete_fundamentals($w,$r['id'],$body); $ids[$dataset]=(int)$snapshot['id'];
  }
  return [$s,$w,$asset,$mapping,$ids];

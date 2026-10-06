@@ -29,6 +29,8 @@ Overview ratios and TTM facts are not used to fill statement gaps. Fiscal end da
 
 ## Source policy
 
+The development API also returns versioned [previous available period changes](fundamental-period-comparisons.md). These exact metric differences preserve gaps and block incompatible currencies; they do not infer year-over-year or quarter-over-quarter growth. The metric formula version remains unchanged.
+
 The capital-expenditure convention argument is trusted server policy, not a client field. The default is unknown and leaves free cash flow unavailable. Fundamental transport must verify the endpoint's expense convention before setting it; this milestone does not claim that verification for a live provider. Later immutable reviews must retain the formula version, exact source vector and convention along with their outputs.
 
 ## Validation

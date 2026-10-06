@@ -292,3 +292,7 @@ For a saved stock trade, open its **Summary** and choose **View stock fundamenta
 ### Development: weekly fundamentals
 
 In Research → Stock fundamentals, select a stock and dataset, then choose **Weekly** and a weekday at **7:30 PM New York**. Save the schedule separately for each dataset. Choose **Off** and save to disable it. A pending-queue message means the enrollment was saved but server configuration or cron still needs attention. Spread holdings/datasets across weekdays: each dataset uses one request and shares the Alpha Vantage quote allowance. Missed slots are skipped, and scheduled refresh does not run an AI review. Owner access and an enabled Alpha Vantage mapping are required. Unsaved schedule changes prompt before changing datasets, assets or sections. See [schedule details](fundamental-schedules.md).
+
+### Development: reporting-period changes
+
+Choose **View** on a saved statement snapshot to see metrics and **Changes from previous available period**. The table shows prior/current values, fiscal dates, gaps and currencies. Margin changes are percentage points: −5% to 10% is +15 points. Missing prior periods, different currencies and unavailable facts show explicit reasons. These comparisons do not verify equal reporting durations or accounting policies and are not labeled annual/quarterly growth. Viewing comparisons uses stored evidence and does not consume provider requests or AI budget. See [comparison details](fundamental-period-comparisons.md).
