@@ -10,6 +10,7 @@ namespace GainerInteractive\IGTradingJournal\Application;
 
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;
+use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 
 /** Internal application boundary; no external requests or key persistence. */
@@ -282,15 +283,41 @@ final class MarketData {
 	 * @throws \UnexpectedValueException On invalid request lifecycle or conflicting retry.
 	 */
 	public function complete_alpha_quote( int $workspace, int $request, string $body ): array {
+		return $this->complete_quote( $workspace, $request, $body, 'alpha_vantage' );
+	}
+
+	/**
+	 * Persist FMP daily evidence using the same immutable request contract.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $request Request identifier.
+	 * @param string $body Provider response body.
+	 * @return array
+	 */
+	public function complete_fmp_quote( int $workspace, int $request, string $body ): array {
+		return $this->complete_quote( $workspace, $request, $body, 'fmp' );
+	}
+
+	/**
+	 * Complete only the provider bound to the authorized request.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param int    $request Request identifier.
+	 * @param string $body Response body.
+	 * @param string $provider Expected provider.
+	 * @return array
+	 * @throws \UnexpectedValueException On incompatible or conflicting evidence.
+	 */
+	private function complete_quote( int $workspace, int $request, string $body, string $provider ): array {
 		return $this->db->atomic(
-			function () use ( $workspace, $request, $body ): array {
+			function () use ( $workspace, $request, $body, $provider ): array {
 				$this->lock_owner( $workspace );
 				$row     = $this->request( $workspace, $request );
 				$mapping = $this->mapping( $workspace, (int) $row['mapping_id'] );
-				if ( 'alpha_vantage' !== $mapping['provider'] || ! in_array( $row['state'], array( 'dispatched', 'completed' ), true ) ) {
+				if ( $provider !== $mapping['provider'] || ! in_array( $row['state'], array( 'dispatched', 'completed' ), true ) ) {
 					throw new \UnexpectedValueException( 'Provider response has no compatible dispatched request.' );
 				}
-				$quote = AlphaVantageQuote::parse( $body, $mapping['provider_symbol'] );
+				$quote = 'fmp' === $provider ? FmpEodQuote::parse( $body, $mapping['provider_symbol'] ) : AlphaVantageQuote::parse( $body, $mapping['provider_symbol'] );
 				if ( $quote['session_date'] > gmdate( 'Y-m-d' ) ) {
 					throw new \UnexpectedValueException( 'Provider quote has a future session date.' );
 				}

@@ -148,13 +148,15 @@ test('Concurrent workspaces cannot both reserve the final shared provider reques
  }
 });
 
-function provider_http_mock($response, callable $callback, &$calls) {
+function provider_http_mock($response, callable $callback, &$calls, string $provider='alpha_vantage') {
  $calls=0;
- $filter=static function($pre,$args,$url) use($response,&$calls) {
+ $filter=static function($pre,$args,$url) use($response,&$calls,$provider) {
   ++$calls;
-  equal(parse_url($url,PHP_URL_SCHEME),'https'); equal(parse_url($url,PHP_URL_HOST),'www.alphavantage.co'); equal(parse_url($url,PHP_URL_PATH),'/query');
+  equal(parse_url($url,PHP_URL_SCHEME),'https'); equal(parse_url($url,PHP_URL_HOST),'fmp'===$provider?'financialmodelingprep.com':'www.alphavantage.co'); equal(parse_url($url,PHP_URL_PATH),'fmp'===$provider?'/stable/historical-price-eod/light':'/query');
   equal($args['redirection'],0); equal($args['sslverify'],true); equal($args['limit_response_size'],2097152); equal($args['timeout'],20);
-  parse_str(parse_url($url,PHP_URL_QUERY),$query); equal($query['function'],'GLOBAL_QUOTE'); equal($query['symbol'],'FIXTURE');
+  parse_str(parse_url($url,PHP_URL_QUERY),$query); equal($query['symbol'],'FIXTURE');
+  if ('fmp'===$provider) { equal($query['apikey'],TGIT_FMP_API_KEY); equal($query['from'],gmdate('Y-m-d',time()-1209600)); equal($query['to'],gmdate('Y-m-d')); equal(isset($query['function']),false); }
+  else { equal($query['function'],'GLOBAL_QUOTE'); equal($query['apikey'],TGIT_ALPHA_VANTAGE_API_KEY); }
   // Always short-circuit; even simulated failures never reach the network.
   return $response;
  };
@@ -204,4 +206,26 @@ test('Quote jobs require an owner, deduplicate and stop on deactivation preservi
  provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::job($w,$owner,$mapping,$at),$calls); equal($calls,1);
  provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::job($w,$owner,$mapping,$at),$calls); equal($calls,0);
  $quotes=$s->quotes($w,$asset); equal(count($quotes),1); QuoteRefresh::deactivate(); equal(wp_next_scheduled('tgit_quote_refresh',$args),false); equal($s->quotes($w,$asset),$quotes);
+});
+
+test('FMP worker requires its own key and preserves immutable evidence on retries', function () use ($db,$owner) {
+ [$s,$w,$asset,$mapping,$input]=provider_context(); $fmp=$s->save_mapping($w,$asset,array_replace($input,['provider'=>'fmp'])); $map=(int)$fmp['id'];
+ equal(QuoteRefresh::enabled('fmp'),false); equal(QuoteRefresh::run($w,$owner,$map,'fmp-disabled')['state'],'disabled');
+ equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_requests').' WHERE workspace_id = %d',[$w])['total'],'0');
+ define('TGIT_FMP_API_KEY','synthetic-fmp-key-'.$owner);
+ $body='[{"symbol":"FIXTURE","date":"2026-01-02","price":320.123456789123456789},{"symbol":"FIXTURE","date":"2025-12-31","price":315}]';
+ $result=provider_http_mock(provider_http_response($body),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-success'),$calls,'fmp'); equal($calls,1); equal($result['state'],'completed'); decimal($result['quote']['price'],'320.123456789123456789'); equal($result['quote']['provider'],'fmp'); equal($result['quote']['currency'],'USD');
+ $again=provider_http_mock(new WP_Error('fixture','Do not resend'),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-success'),$calls,'fmp'); equal($calls,0); equal($again,$result);
+ provider_conflict(fn()=>$s->complete_alpha_quote($w,(int)$result['quote']['request_id'],provider_body()));
+ $at=time()+3600; QuoteRefresh::schedule($w,$owner,$map,$at); equal(wp_next_scheduled('tgit_quote_refresh',[$w,$owner,$map,$at]),$at); QuoteRefresh::deactivate();
+});
+
+test('FMP failures preserve quota and uncertain delivery is never resent', function () use ($owner) {
+ [$s,$w,$asset,$mapping,$input]=provider_context(); $fmp=$s->save_mapping($w,$asset,array_replace($input,['provider'=>'fmp'])); $map=(int)$fmp['id'];
+ $result=provider_http_mock(new WP_Error('fixture','Synthetic timeout'),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-timeout'),$calls,'fmp'); equal($calls,1); equal($result['state'],'uncertain');
+ $again=provider_http_mock(provider_http_response('[]'),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-timeout'),$calls,'fmp'); equal($calls,0); equal($again['state'],'uncertain');
+ foreach ([[402,'not entitled','failed'],[302,'redirect','failed'],[200,'{"Error Message":"synthetic"}','invalid_response'],[200,'[]','invalid_response']] as [$status,$body,$state]) {
+  $result=provider_http_mock(provider_http_response($body,$status),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-failure-'.$status.'-'.strlen($body)),$calls,'fmp'); equal($calls,1); equal($result['state'],$state);
+ }
+ equal($s->quotes($w,$asset),[]);
 });
