@@ -147,6 +147,31 @@ final class MarketData {
 	}
 
 	/**
+	 * Recheck the authorizing owner and selected mapping before network work.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $id Mapping identifier.
+	 * @return array
+	 */
+	public function current_mapping( int $workspace, int $id ): array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		return $this->mapping( $workspace, $id );
+	}
+
+	/**
+	 * Retrieve saved evidence for a completed request without resending it.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $request Request identifier.
+	 * @return array|null
+	 */
+	public function completed_quote( int $workspace, int $request ): ?array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		$this->request( $workspace, $request );
+		return $this->db->row( 'SELECT * FROM ' . $this->db->table( 'provider_quotes' ) . ' WHERE workspace_id = %d AND request_id = %d', array( $workspace, $request ) );
+	}
+
+	/**
 	 * Commit one credential-wide reservation before any network request.
 	 * The fingerprint is a trusted server-side SHA-256 digest, never a client field.
 	 *
@@ -157,49 +182,60 @@ final class MarketData {
 	 * @param bool   $scheduled Reserve five requests for on-demand work.
 	 * @return array
 	 * @throws \InvalidArgumentException On invalid metadata; quota/retry conflicts are raised inside the transaction.
+	 * @throws \RuntimeException On shared reservation lock contention.
 	 */
 	public function reserve( int $workspace, int $mapping, string $fingerprint, string $key, bool $scheduled = true ): array {
 		if ( ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) ) {
 			throw new \InvalidArgumentException( 'Invalid credential fingerprint.' );
 		}
 		// Hash exact retry bytes so case-insensitive database collation cannot alias keys.
-		$key = hash( 'sha256', self::text( $key, 80 ) );
-		return $this->db->atomic(
-			function () use ( $workspace, $mapping, $fingerprint, $key, $scheduled ): array {
-				$this->lock_owner( $workspace );
-				$identity = $this->mapping( $workspace, $mapping );
-				$this->db->query( 'INSERT IGNORE INTO ' . $this->db->table( 'provider_pools' ) . ' (provider, credential_fingerprint) VALUES (%s, %s)', array( $identity['provider'], $fingerprint ) );
-				$pool  = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'provider_pools' ) . ' WHERE provider = %s AND credential_fingerprint = %s FOR UPDATE', array( $identity['provider'], $fingerprint ) );
-				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND workspace_id = %d AND request_key = %s', array( $pool['id'], $workspace, $key ) );
-				if ( $prior ) {
-					if ( (int) $prior['mapping_id'] !== $mapping || (int) $prior['actor_id'] !== $this->actor ) {
-						throw new \UnexpectedValueException( 'Provider request key conflicts with its original context.' );
+		$key      = hash( 'sha256', self::text( $key, 80 ) );
+		$identity = $this->current_mapping( $workspace, $mapping );
+		$lock     = 'tgit_quote_' . substr( hash( 'sha256', $this->db->table( 'provider_pools' ) . $identity['provider'] . $fingerprint ), 0, 40 );
+		$acquired = $this->db->row( 'SELECT GET_LOCK(%s, 10) AS acquired', array( $lock ) );
+		if ( '1' !== (string) $acquired['acquired'] ) {
+			throw new \RuntimeException( 'Provider reservations are busy; retry later.' );
+		}
+		try {
+			return $this->db->atomic(
+				function () use ( $workspace, $mapping, $fingerprint, $key, $scheduled ): array {
+					$this->lock_owner( $workspace );
+					$identity = $this->mapping( $workspace, $mapping );
+					$this->db->query( 'INSERT IGNORE INTO ' . $this->db->table( 'provider_pools' ) . ' (provider, credential_fingerprint) VALUES (%s, %s)', array( $identity['provider'], $fingerprint ) );
+					$pool  = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'provider_pools' ) . ' WHERE provider = %s AND credential_fingerprint = %s FOR UPDATE', array( $identity['provider'], $fingerprint ) );
+					$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND workspace_id = %d AND request_key = %s', array( $pool['id'], $workspace, $key ) );
+					if ( $prior ) {
+						if ( (int) $prior['mapping_id'] !== $mapping || (int) $prior['actor_id'] !== $this->actor ) {
+							throw new \UnexpectedValueException( 'Provider request key conflicts with its original context.' );
+						}
+						return self::request_result( $prior );
 					}
-					return self::request_result( $prior );
+					$cutoff = gmdate( 'Y-m-d H:i:s', time() - 86400 );
+					// Locking read avoids an older REPEATABLE READ snapshot under concurrent workspaces.
+					$used  = $this->db->rows( 'SELECT id FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND (created_at >= %s OR dispatched_at >= %s OR state = %s) LIMIT 251 FOR UPDATE', array( $pool['id'], $cutoff, $cutoff, 'dispatched' ) );
+					$limit = self::LIMITS[ $identity['provider'] ] - ( $scheduled ? 5 : 0 );
+					if ( count( $used ) >= $limit ) {
+						throw new \UnexpectedValueException( 'Provider request allowance is exhausted; retry after the rolling window clears.' );
+					}
+					$id = $this->db->insert(
+						'provider_requests',
+						array(
+							'pool_id'      => $pool['id'],
+							'workspace_id' => $workspace,
+							'mapping_id'   => $mapping,
+							'actor_id'     => $this->actor,
+							'request_key'  => $key,
+							'state'        => 'reserved',
+							'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+						)
+					);
+					$this->audit( $workspace, 'provider_reserve', 'provider_requests', $id );
+					return self::request_result( $this->db->object( 'provider_requests', $workspace, $id ) );
 				}
-				$cutoff = gmdate( 'Y-m-d H:i:s', time() - 86400 );
-				// Locking read avoids an older REPEATABLE READ snapshot under concurrent workspaces.
-				$used  = $this->db->rows( 'SELECT id FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND (created_at >= %s OR dispatched_at >= %s OR state = %s) LIMIT 251 FOR UPDATE', array( $pool['id'], $cutoff, $cutoff, 'dispatched' ) );
-				$limit = self::LIMITS[ $identity['provider'] ] - ( $scheduled ? 5 : 0 );
-				if ( count( $used ) >= $limit ) {
-					throw new \UnexpectedValueException( 'Provider request allowance is exhausted; retry after the rolling window clears.' );
-				}
-				$id = $this->db->insert(
-					'provider_requests',
-					array(
-						'pool_id'      => $pool['id'],
-						'workspace_id' => $workspace,
-						'mapping_id'   => $mapping,
-						'actor_id'     => $this->actor,
-						'request_key'  => $key,
-						'state'        => 'reserved',
-						'created_at'   => gmdate( 'Y-m-d H:i:s' ),
-					)
-				);
-				$this->audit( $workspace, 'provider_reserve', 'provider_requests', $id );
-				return self::request_result( $this->db->object( 'provider_requests', $workspace, $id ) );
-			}
-		);
+			);
+		} finally {
+			$this->db->row( 'SELECT RELEASE_LOCK(%s) AS released', array( $lock ) );
+		}
 	}
 
 	/**

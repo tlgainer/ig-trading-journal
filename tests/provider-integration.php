@@ -3,6 +3,7 @@
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Application\Tracker;
 use GainerInteractive\IGTradingJournal\Infrastructure\Installer;
+use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true) throw new RuntimeException('Disposable site required.');
 
 function provider_context(): array {
@@ -132,7 +133,9 @@ test('Provider quote audit failure rolls back evidence while keeping the dispatc
 });
 
 test('Concurrent workspaces cannot both reserve the final shared provider request', function () use ($db,$owner) {
- [$s,$w,$asset,$mapping]=provider_context(); [$other,$w2,$asset2,$mapping2]=provider_context(); $digest=provider_fingerprint('concurrent-quota');
+ [$s,$w,$asset,$mapping]=provider_context(); [$other,$w2,$asset2,$mapping2]=provider_context();
+ for($round=0;$round<10;$round++) {
+ $digest=provider_fingerprint('concurrent-quota-'.$round);
  for($i=0;$i<24;$i++) $s->reserve($w,$mapping,$digest,'fill-'.$i,false);
  $processes=[];
  foreach([[$w,$mapping,'first'],[$w2,$mapping2,'second']] as [$workspace,$map,$key]) {
@@ -142,4 +145,63 @@ test('Concurrent workspaces cannot both reserve the final shared provider reques
  }
  $results=[]; foreach($processes as [$process,$pipes]) { $results[]=trim(stream_get_contents($pipes[1])); $error=stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]); if(proc_close($process)!==0) throw new RuntimeException('Provider worker failed: '.$error); }
  sort($results); equal($results,['posted','rejected']);
+ }
+});
+
+function provider_http_mock($response, callable $callback, &$calls) {
+ $calls=0;
+ $filter=static function($pre,$args,$url) use($response,&$calls) {
+  ++$calls;
+  equal(parse_url($url,PHP_URL_SCHEME),'https'); equal(parse_url($url,PHP_URL_HOST),'www.alphavantage.co'); equal(parse_url($url,PHP_URL_PATH),'/query');
+  equal($args['redirection'],0); equal($args['sslverify'],true); equal($args['limit_response_size'],2097152); equal($args['timeout'],20);
+  parse_str(parse_url($url,PHP_URL_QUERY),$query); equal($query['function'],'GLOBAL_QUOTE'); equal($query['symbol'],'FIXTURE');
+  // Always short-circuit; even simulated failures never reach the network.
+  return $response;
+ };
+ add_filter('pre_http_request',$filter,10,3);
+ try { return $callback(); } finally { remove_filter('pre_http_request',$filter,10); }
+}
+
+function provider_http_response(string $body, int $status=200): array {
+ return ['headers'=>['content-type'=>'application/json'],'body'=>$body,'response'=>['code'=>$status,'message'=>'Synthetic'],'cookies'=>[]];
+}
+
+test('Quote refresh remains disabled without explicit server configuration', function () use ($db,$owner) {
+ [$s,$w,$asset,$mapping]=provider_context(); equal(QuoteRefresh::enabled(),false);
+ equal(QuoteRefresh::run($w,$owner,$mapping,'disabled-worker')['state'],'disabled');
+ equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_requests').' WHERE workspace_id = %d',[$w])['total'],'0');
+ rejects(fn()=>QuoteRefresh::schedule($w,$owner,$mapping,time()+3600));
+ // Synthetic credential only in this disposable PHP process, never in configuration files.
+ define('TGIT_MARKET_DATA_ENABLED',true); define('TGIT_ALPHA_VANTAGE_API_KEY','synthetic-provider-key-'.$owner);
+});
+
+test('Quote refresh uses bounded HTTPS and reuses saved evidence without a second call', function () use ($owner) {
+ [$s,$w,$asset,$mapping]=provider_context();
+ $result=provider_http_mock(provider_http_response(provider_body('320.123456789123456789')),fn()=>QuoteRefresh::run($w,$owner,$mapping,'worker-success'),$calls);
+ equal($calls,1); equal($result['state'],'completed'); decimal($result['quote']['price'],'320.123456789123456789');
+ $again=provider_http_mock(new WP_Error('fixture','Must not send again'),fn()=>QuoteRefresh::run($w,$owner,$mapping,'worker-success'),$calls);
+ equal($calls,0); equal($again,$result);
+});
+
+test('Quote transport errors stay uncertain and bad HTTP/JSON responses consume attempts', function () use ($db,$owner) {
+ [$s,$w,$asset,$mapping]=provider_context();
+ $result=provider_http_mock(new WP_Error('fixture_timeout','Synthetic transport failure'),fn()=>QuoteRefresh::run($w,$owner,$mapping,'worker-timeout'),$calls);
+ equal($calls,1); equal($result['state'],'uncertain');
+ $again=provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::run($w,$owner,$mapping,'worker-timeout'),$calls); equal($calls,0); equal($again['state'],'uncertain');
+ foreach([[503,'unavailable','failed'],[302,'redirect','failed'],[200,'{"Information":"synthetic entitlement failure"}','invalid_response'],[200,'not-json','invalid_response']] as [$status,$body,$expected]) {
+  $result=provider_http_mock(provider_http_response($body,$status),fn()=>QuoteRefresh::run($w,$owner,$mapping,'worker-failure-'.$status.'-'.$expected.'-'.strlen($body)),$calls); equal($calls,1); equal($result['state'],$expected);
+ }
+ equal($s->quotes($w,$asset),[]);
+ equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('provider_requests').' WHERE workspace_id = %d',[$w])['total'],'5');
+});
+
+test('Quote jobs require an owner, deduplicate and stop on deactivation preserving evidence', function () use ($db,$tracker,$owner,$viewer) {
+ [$s,$w,$asset,$mapping]=provider_context(); $at=time()+3600; $args=[$w,$owner,$mapping,$at];
+ QuoteRefresh::schedule($w,$owner,$mapping,$at); QuoteRefresh::schedule($w,$owner,$mapping,$at); equal(wp_next_scheduled('tgit_quote_refresh',$args),$at);
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']);
+ try { QuoteRefresh::schedule($w,$viewer,$mapping,$at); throw new RuntimeException('Viewer scheduled quote'); } catch(DomainException $error) {}
+ $result=provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::run($w,$viewer,$mapping,'unauthorized'),$calls); equal($calls,0); equal($result['state'],'blocked');
+ provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::job($w,$owner,$mapping,$at),$calls); equal($calls,1);
+ provider_http_mock(provider_http_response(provider_body()),fn()=>QuoteRefresh::job($w,$owner,$mapping,$at),$calls); equal($calls,0);
+ $quotes=$s->quotes($w,$asset); equal(count($quotes),1); QuoteRefresh::deactivate(); equal(wp_next_scheduled('tgit_quote_refresh',$args),false); equal($s->quotes($w,$asset),$quotes);
 });

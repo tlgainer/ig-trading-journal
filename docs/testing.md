@@ -1,5 +1,11 @@
 # Validation evidence and commands
 
+## Development 0.27.0-dev provider foundation
+
+`php tests/run.php` passes 51 deterministic checks, including lossless JSON/scientific notation, provider response validation and exact fixed-holding price movement. `tests/provider-integration.php`, included by the full disposable WordPress integration suite, extends total integration coverage to 98 checks. It tests schema 8-to-9 repair, scoped immutable mappings/quotes, exact persistence, both provider quotas, retry/dispatch state, known failures/unknown outcomes, revocation and audit rollback. The final-slot race runs ten two-workspace attempts per suite to detect InnoDB lock-upgrade regressions.
+
+The quote worker fixtures intercept every WordPress HTTP attempt with `pre_http_request`, asserting fixed HTTPS host, TLS verification, no redirects, bounded timeout/response and no second send after success or uncertainty. Their synthetic API key exists only in the test process, never configuration files. One-shot scheduling/owner permission/deactivation are covered; no real provider or OpenAI request is made. This does not establish live entitlement coverage or constitute a production release. Recurring calendars, FMP transport, valuation/UI and AI-review gates remain.
+
 ## Build 0.10.0 reporting validation
 
 PHP 8.1.34 with BCMath/GD, WordPress 7.1.2 and disposable MySQL 8.0.26 pass 41 domain and 79 integration checks. `tests/report-integration.php` covers additive schema-7-to-8 repair/repetition, exact AC02 native valuation, cash-inclusive allocation, acquisition/disposal-date AC07 FX, missing/stale values, immutable report retention after a price correction, saved-view actor isolation/revisions, viewer permissions/revocation, documented zero valuation/unknown basis/zero denominators, economic gain excluding funding, and audit failure rollback/retry for observations/reports/views. Run it through the full disposable integration suite, never on production.

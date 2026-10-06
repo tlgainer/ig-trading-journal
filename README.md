@@ -4,7 +4,7 @@ A private investment tracker and trading journal for WordPress, implementing the
 
 See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
 
-Development source is now **0.27.0-dev/schema 9** for the [financial data integration](docs/financial-data-integration.md). The latest released ZIP remains **0.26.0/schema 8**. This source adds provider quote evidence and quota foundations; automatic fetching, schedules, UI controls and AI reviews are not enabled. A future source-based package must include all nine SQL files, through `009-provider-quotes.sql`, and follow the development migration instructions in [operations](docs/operations.md). The installation instructions below describe the released package.
+Development source is now **0.27.0-dev/schema 9** for the [financial data integration](docs/financial-data-integration.md). The latest released ZIP remains **0.26.0/schema 8**. This source adds provider quote evidence, quotas and a disabled-by-default Alpha Vantage transport/one-shot worker. No recurring schedule, owner-facing provider controls or AI reviews are released. A future source-based package must include all nine SQL files, through `009-provider-quotes.sql`, and follow the development migration instructions in [operations](docs/operations.md). The installation instructions below describe the released package.
 
 ## Installation
 

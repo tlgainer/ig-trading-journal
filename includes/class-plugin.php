@@ -27,6 +27,7 @@ final class Plugin {
 		add_action( 'admin_enqueue_scripts', array( \GainerInteractive\IGTradingJournal\Admin\Screen::class, 'enqueue' ) );
 		add_action( 'tgit_media_cleanup', array( \GainerInteractive\IGTradingJournal\Infrastructure\MediaJobs::class, 'cleanup' ), 10, 2 );
 		add_action( 'admin_notices', array( self::class, 'notice' ) );
+		add_action( 'tgit_quote_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::class, 'job' ), 10, 4 );
 	}
 
 	/** Explain unmet prerequisites without automatically applying future migrations. */

@@ -37,5 +37,6 @@ spl_autoload_register(
 );
 
 register_activation_hook( __FILE__, array( \GainerInteractive\IGTradingJournal\Infrastructure\Installer::class, 'activate' ) );
+register_deactivation_hook( __FILE__, array( \GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::class, 'deactivate' ) );
 
 \GainerInteractive\IGTradingJournal\Plugin::init();

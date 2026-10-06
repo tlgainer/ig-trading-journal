@@ -8,7 +8,7 @@ The site currently reports production HTTP URLs. Configure HTTPS and update both
 
 ## Activation and development schema 9 upgrade
 
-Development source is 0.27.0-dev/schema 9. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply this development migration to production merely to enable prices. Provider transport, schedules and UI are still pending.
+Development source is 0.27.0-dev/schema 9. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply this development migration to production merely to enable prices. FMP transport, recurring schedules and owner-facing UI are still pending.
 
 Back up the database and private image bytes before replacing code/reactivating. Keep **all nine** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `009-provider-quotes.sql`, in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
 
@@ -32,7 +32,9 @@ Ordinarily activation handles SQL. If manual execution is necessary, select the 
 - Existing schema-6 basis installation: run files 007 through 009 in order.
 - Existing schema-8 reporting installation: run file 009.
 
-Schema 9 adds provider mapping revisions, append-only quotes, credential-wide quota pools and scoped request records; it does not copy or modify manual observations or financial history. Back up all existing tables before upgrading. After an interrupted migration, keep processing disabled, inspect new tables/indexes and rerun matching source installation. Retain all provider evidence and quota reservations during repair; do not delete pools to reset allowances. Previously dispatched requests with unknown outcomes remain counted until explicitly reconciled. No automated provider jobs are registered in this development slice.
+Schema 9 adds provider mapping revisions, append-only quotes, credential-wide quota pools and scoped request records; it does not copy or modify manual observations or financial history. Back up all existing tables before upgrading. After an interrupted migration, keep processing disabled, inspect new tables/indexes and rerun matching source installation. Retain all provider evidence and quota reservations during repair; do not delete pools to reset allowances. Previously dispatched requests with unknown outcomes remain counted until explicitly reconciled.
+
+Development registers a disabled-by-default Alpha Vantage worker and one-shot quote hook. No workspace is automatically enrolled and no recurring market schedule is added. The internal scheduling operation requires a current workspace owner and a current confirmed stock mapping. Keys stay in server configuration; no owner-facing key/model/budget controls are released yet. Deactivation unschedules quote jobs and preserves tables, quotes and quota records. Keep live processing disabled until configuration/UI and release validation are complete. Rotating a key must not be used to evade an account's actual provider allowance; local pools are keyed by credential identity and cannot infer that two different keys belong to the same vendor account.
 
 Replace every `{{prefix}}` in a working copy with the configured prefix (`wp_` on the confirmed host). The files contain CREATE statements and fail on existing table names; do not convert them to destructive replacements. Reactivate afterward so the installer verifies all schemas and records version 9. Do not manually forge or downgrade the schema marker. Relationship integrity is enforced by scoped application transactions; do not write ledger/journal/media/opening/correction/replay/basis/watchlist/research/observation/report/view rows manually.
 

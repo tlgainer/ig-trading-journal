@@ -2,7 +2,7 @@
 
 Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.26.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
-Development source: 0.27.0-dev/schema 9. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations and exact daily movement are implemented internally; live transport, schedules, valuation/UI integration and fundamental/AI reviews remain pending. The released ZIP is unchanged.
+Development source: 0.27.0-dev/schema 9. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, recurring schedules, valuation/UI integration and fundamental/AI reviews remain pending. The released ZIP is unchanged.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
