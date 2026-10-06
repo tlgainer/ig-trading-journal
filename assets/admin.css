@@ -7,7 +7,7 @@
 .tgit .tgit-page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 16px 0; }
 .tgit .tgit-page-header h2 { margin: 0; }
 .tgit .tgit-shell { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 24px; align-items: start; }
-.tgit .tgit-pages { min-width: 0; }
+.tgit .tgit-pages { min-width: 0; background-color: white; padding: 15px; border-radius: 10px; }
 .tgit #tgit-tabs { position: sticky; top: 48px; flex-direction: column; flex-wrap: nowrap; margin: 0; padding: 8px; border: 1px solid var(--tgit-border); border-radius: 8px; background: var(--tgit-surface); }
 .tgit #tgit-tabs button { width: 100%; min-height: 40px; text-align: left; }
 .tgit .tgit-menu-toggle.button { display: none; }
@@ -30,6 +30,7 @@
 .tgit *, .tgit *::before, .tgit *::after { box-sizing: border-box; }
 .tgit [hidden] { display: none !important; }
 .tgit section { min-width: 0; margin: 24px 0; padding: 20px; background: #fff; border: 1px solid var(--tgit-border); border-radius: 8px; }
+.tgit .tgit-pages section { padding: 0; background: transparent; border: 0; border-radius: 0; }
 .tgit section > h2:first-child, .tgit section > h3:first-child { margin-top: 0; }
 @media (max-width: 600px) { .tgit section { padding: 12px; } }
 .tgit-form { display: grid; gap: 14px; max-width: 700px; }

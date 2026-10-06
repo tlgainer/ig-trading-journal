@@ -16,7 +16,7 @@ Activation/reactivation installs schema version 8, including the additive journa
 
 The creator becomes the workspace owner. Other WordPress administrators do not gain access automatically. Owners can add existing WordPress users as owners, managers, contributors (drafts and journals), or viewers. Network activation is not supported; activate on each site separately.
 
-## Current build: 0.25.0
+## Current build: 0.26.0
 
 Holdings now use the shared searchable table with account filters, readable exact decimals and explicit missing-price/basis coverage. Transactions retain their table/detail workflows; opening lots show units rather than a zero purchase price. See the [Holdings decision](docs/decisions/019-holdings-collection.md) and [next requirements](docs/next-requirements.md) for the queued margin/short/options work. Schema remains version 8; this update adds no SQL migration.
 
