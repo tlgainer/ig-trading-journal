@@ -37,10 +37,13 @@ test('One-shot fundamental jobs deduplicate and deactivation preserves saved sna
 });
 
 test('All supported fundamental endpoints save exact snapshots once and never touch posted facts', function () use ($db,$owner) {
+ wp_set_current_user($owner);
  [$s,$w,$asset,$mapping]=provider_context();
  foreach(['OVERVIEW','INCOME_STATEMENT','BALANCE_SHEET','CASH_FLOW'] as $dataset) {
   $body=$dataset==='OVERVIEW'?fundamental_overview():fundamental_statement(); $key='fetch-'.$dataset;
-  $result=fundamental_http_mock(provider_http_response($body),$dataset,fn()=>FundamentalRefresh::run($w,$owner,$mapping,$dataset,$key,false),$calls); equal($calls,1); equal($result['state'],'completed'); equal($result['snapshot']['dataset'],$dataset);
+  $path='workspaces/'.$w.'/provider-mappings/'.$mapping.'/fundamentals/refresh';
+  $response=fundamental_http_mock(provider_http_response($body),$dataset,fn()=>provider_rest('POST',$path,['dataset'=>$dataset],$key),$calls); equal($response->get_status(),200); $result=$response->get_data()['data']; equal($calls,1); equal($result['state'],'completed'); equal($result['snapshot']['dataset'],$dataset);
+  $retry=fundamental_http_mock(new WP_Error('fixture','Never resend'),$dataset,fn()=>provider_rest('POST',$path,['dataset'=>$dataset],$key),$calls); equal($retry->get_status(),200); equal($retry->get_data()['data'],$result); equal($calls,0);
   $again=fundamental_http_mock(new WP_Error('fixture','Never resend'),$dataset,fn()=>FundamentalRefresh::run($w,$owner,$mapping,$dataset,$key,false),$calls); equal($calls,0); equal($again,$result); equal(str_contains(wp_json_encode($result),TGIT_ALPHA_VANTAGE_API_KEY),false);
  }
  equal(count($s->fundamentals($w,$asset)),4); equal($s->quotes($w,$asset),[]); equal($db->rows('SELECT * FROM '.$db->table('transactions').' WHERE workspace_id = %d',[$w]),[]);

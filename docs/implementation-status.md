@@ -178,3 +178,8 @@ Added a separately disabled-by-default Alpha Vantage fundamental worker and expl
 Configuration additionally requires TGIT_FUNDAMENTALS_ENABLED strictly true. Price enablement alone cannot enable fundamental fetching. No recurring review enrollment, owner-facing analyze action or OpenAI processing is enabled by this milestone. The official Alpha Vantage endpoint documentation was verified; responses remain synthetic mocks and no live entitlement is claimed.
 
 73 unit and 126 disposable WordPress/MySQL integration checks, coding standards, PHP/JavaScript syntax and six REST URL checks passed. UI/HTTP and schema are unchanged; their latest full regression remains the schema-11 storage milestone. Source stays 0.27.0-dev/schema 11; no SQL or release ZIP is added. Next: review screens/on-demand actions, recurring enrollment, comparable-period changes and configurable AI summaries.
+## October 6, 2026: fundamental API integration
+
+Added private workspace-scoped snapshot history, explicit-source metric calculations and strictly validated owner-only refresh routes. All four datasets use the existing separately disabled worker and shared quota. Completed retries return saved evidence without another provider call. Clients cannot override capex policy. No schema or UI change; no new release ZIP.
+
+Validation: 73 unit and 129 disposable WordPress/MySQL integration checks, coding standards, PHP/JavaScript syntax and six REST URL checks pass. No live requests. Browser fixtures were not rerun for this API-only change. See [API contract](fundamental-api.md). Next: Research history and refresh controls, journal navigation, recurring fundamentals and AI summaries/model/budget controls.

@@ -146,6 +146,7 @@ require __DIR__ . '/report-integration.php';
 require __DIR__ . '/provider-integration.php';
 require __DIR__ . '/fundamentals-integration.php';
 require __DIR__ . '/fundamental-metrics-integration.php';
+require __DIR__ . '/fundamental-rest-integration.php';
 require __DIR__ . '/fundamental-refresh-integration.php';
 
 echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

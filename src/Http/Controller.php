@@ -11,6 +11,7 @@ namespace GainerInteractive\IGTradingJournal\Http;
 use GainerInteractive\IGTradingJournal\Application\Tracker;
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
+use GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Infrastructure\Installer;
@@ -68,6 +69,9 @@ final class Controller {
 		self::route( '/workspaces', 'POST', 'create_workspace' );
 		$base = '/workspaces/(?P<workspace>[1-9][0-9]*)';
 		self::route( $base . '/market-data', 'GET', 'market_status' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
+		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
 		self::route( $base . '/provider-mappings', 'GET', 'provider_mappings' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/provider-mappings', 'POST', 'save_provider_mapping' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/refresh', 'POST', 'refresh_provider_quote' );
@@ -149,7 +153,7 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'price_source' => array(
 						'type'    => 'string',
 						'enum'    => array( 'manual', 'fmp', 'alpha_vantage' ),
@@ -200,12 +204,30 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'market_status', 'provider_mappings', 'save_provider_mapping', 'refresh_provider_quote', 'save_quote_schedule' ), true ) ) {
+			if ( in_array( $operation, array( 'fundamentals', 'fundamental_metrics' ), true ) ) {
+				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
+				$asset  = (int) $request->get_url_params()['asset_id'];
+				if ( 'fundamental_metrics' === $operation ) {
+					Tracker::fields( $data, array( 'snapshots' ), array() );
+					if ( ! is_array( $data['snapshots'] ) || array_is_list( $data['snapshots'] ) ) {
+						throw new \InvalidArgumentException( 'A dataset to snapshot object is required.' );
+					}
+					$result = $market->fundamental_metrics( $workspace, $asset, $data['snapshots'] );
+				} else {
+					$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];
+					$items  = $market->fundamentals( $workspace, $asset, (int) $request['after'], $limit );
+					$result = array(
+						'items'       => $items,
+						'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+					);
+				}
+			} elseif ( in_array( $operation, array( 'market_status', 'provider_mappings', 'save_provider_mapping', 'refresh_provider_quote', 'save_quote_schedule', 'refresh_fundamentals' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
 				if ( 'market_status' === $operation ) {
 					$result = array(
-						'providers' => array(
+						'fundamentals_enabled' => FundamentalRefresh::enabled(),
+						'providers'            => array(
 							array(
 								'provider'        => 'fmp',
 								'enabled'         => QuoteRefresh::enabled( 'fmp' ),
@@ -234,14 +256,18 @@ final class Controller {
 					$result['queued'] = RecurringQuotes::queue( $workspace, (int) $result['id'] );
 					RecurringQuotes::boot();
 				} else {
-					Tracker::fields( $data, array(), array() );
+					$fundamental = 'refresh_fundamentals' === $operation;
+					Tracker::fields( $data, $fundamental ? array( 'dataset' ) : array(), array() );
+					if ( $fundamental && ( ! is_string( $data['dataset'] ) || ! in_array( $data['dataset'], array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) ) ) {
+						throw new \InvalidArgumentException( 'Choose a supported fundamental dataset.' );
+					}
 					$key = (string) $request->get_header( 'idempotency-key' );
 					if ( '' === $key || strlen( $key ) > 80 ) {
 						throw new \InvalidArgumentException( 'A bounded idempotency key is required for a refresh.' );
 					}
 					$mapping = (int) $request->get_url_params()['mapping'];
 					$market->current_mapping( $workspace, $mapping );
-					$result = QuoteRefresh::run( $workspace, get_current_user_id(), $mapping, $key, false );
+					$result = $fundamental ? FundamentalRefresh::run( $workspace, get_current_user_id(), $mapping, $data['dataset'], $key, false ) : QuoteRefresh::run( $workspace, get_current_user_id(), $mapping, $key, false );
 				}
 			} elseif ( in_array( $operation, array( 'record_observation', 'generate_report', 'save_view' ), true ) ) {
 				$result = $service->$operation( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
