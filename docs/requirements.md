@@ -45,3 +45,5 @@ Snapshot-backed exact fundamental metrics are now implemented internally. See [f
 Fundamental transport and internal owner-authorized one-shot jobs are implemented, separately disabled by default. See [worker contract](fundamental-refresh-worker.md). Review UI, recurring enrollment, comparable-period changes and AI summaries remain pending.
 
 Fundamental history, explicit snapshot metrics and owner-only on-demand refresh now have authenticated REST routes. See [API contract](fundamental-api.md). Research/journal controls, recurring enrollment and AI summaries remain pending.
+
+Development Research now exposes fundamental snapshot history, statement metric details and explicit owner-only single-dataset refresh controls. See the development section in [user guide](user-guide.md). AI investment reviews and recurring fundamentals remain pending.

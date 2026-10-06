@@ -24,6 +24,7 @@ test('Fundamental REST metrics require explicit compatible sources and reject cl
  wp_set_current_user($owner); [$s,$w,$asset,$mapping,$ids]=saved_metric_context();
  $path='workspaces/'.$w.'/assets/'.$asset.'/fundamental-metrics'; $before=$s->fundamentals($w,$asset);
  $response=provider_rest('POST',$path,['snapshots'=>$ids]); equal($response->get_status(),200);
+ file_put_contents(dirname(__DIR__).'/tmp/fundamental-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'asset'=>$asset,'mapping'=>$mapping,'snapshots'=>$ids]));
  equal($response->get_data()['data'],$s->fundamental_metrics($w,$asset,$ids));
  equal($response->get_data()['data']['reports'][0]['metrics']['free_cash_flow']['status'],'unknown_capex_convention');
  foreach([[],['snapshots'=>[]],['snapshots'=>$ids,'capex_convention'=>'positive_outflow'],['snapshots'=>['INCOME_STATEMENT'=>(string)$ids['INCOME_STATEMENT']]]] as $body) equal(provider_rest('POST',$path,$body)->get_status(),400);

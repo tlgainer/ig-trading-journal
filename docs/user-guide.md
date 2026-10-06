@@ -269,6 +269,14 @@ For a network failure during a transaction save, retry the unchanged form rather
 
 ## Backups and current limits
 
+### Development: stock fundamentals
+
+In the development source, open **Research → Stock fundamentals** and choose a stock asset. **Reload saved history** reads stored snapshots without contacting a provider. The table includes every page of saved history for that asset; **View** shows company overview evidence or metrics for the selected statement snapshot. Fiscal periods and unavailable metrics are shown explicitly. These are provider facts, not AI investment reviews.
+
+Owners can select one dataset and use **Refresh selected dataset** after configuring an enabled Alpha Vantage mapping in Settings and enabling the fundamental worker on the server. Each dataset consumes one request from the shared quote/fundamental allowance; four datasets require four requests. Viewers can read history but cannot refresh. If delivery is uncertain, use **Check refresh outcome**; it keeps the same request identity across page reloads and does not resend an uncertain dispatch. Missing data never becomes a fabricated zero. Free cash flow remains unavailable until the source's capex sign convention is verified.
+
+These controls are not included in the released 0.26.0 ZIP. AI summaries and recurring fundamental schedules remain pending.
+
 Back up the database and private image directory together. Database-only backups do not preserve image bytes. Deactivation/uninstall preserve portfolio data. Administrator backup, upgrade and recovery procedures are in [operations.md](operations.md).
 
 This build is still a staged implementation. Spreadsheet imports, reconciliation, export and automated restore verification are pending. Dividends/interest and several corporate-action/transfer workflows, provider feeds and broader performance/accessibility/production-host acceptance also remain. Some correction/replay/basis-resolution workflows exist through APIs without a complete admin UI. See [remaining work](remaining-work.md) for the current scope.

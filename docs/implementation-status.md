@@ -183,3 +183,9 @@ Configuration additionally requires TGIT_FUNDAMENTALS_ENABLED strictly true. Pri
 Added private workspace-scoped snapshot history, explicit-source metric calculations and strictly validated owner-only refresh routes. All four datasets use the existing separately disabled worker and shared quota. Completed retries return saved evidence without another provider call. Clients cannot override capex policy. No schema or UI change; no new release ZIP.
 
 Validation: 73 unit and 129 disposable WordPress/MySQL integration checks, coding standards, PHP/JavaScript syntax and six REST URL checks pass. No live requests. Browser fixtures were not rerun for this API-only change. See [API contract](fundamental-api.md). Next: Research history and refresh controls, journal navigation, recurring fundamentals and AI summaries/model/budget controls.
+
+## October 6, 2026: fundamental Research controls
+
+Added stock selection, complete saved snapshot history, selected-statement metric tables and overview evidence to Research. Owner refresh controls honor server enablement/current Alpha Vantage mapping and preserve uncertain request identity across reloads. Viewers have read-only access. Shared cards, controls, collection preferences and decimal formatting apply; mobile metrics tables remain contained. No schema change or release ZIP.
+
+73 unit and 129 disposable WordPress/MySQL integration checks, coding standards, syntax and six REST URL checks pass. The new browser fixture covers owner/viewer access, disabled refresh, exact metrics, uncertain retry identity and 360/768/1440 layouts. No live provider or AI calls. Next: journal-to-fundamentals navigation, recurring enrollment, comparable-period changes and configurable AI summaries/model/budget.

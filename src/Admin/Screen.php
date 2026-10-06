@@ -41,6 +41,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-research', plugins_url( 'assets/research.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -312,6 +313,20 @@ final class Screen {
 	<button type="button" id="tgit-research-cancel" class="button" hidden><?php esc_html_e( 'Cancel editing', 'ig-trading-journal' ); ?></button>
 	</form>
 	<div id="tgit-research-notes" class="tgit-cards"></div>
+	<div class="tgit-form" id="tgit-fundamental-card">
+	<h3><?php esc_html_e( 'Stock fundamentals', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Saved provider facts and calculated metrics. These are not AI investment reviews. Loading history sends no provider requests.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Stock asset', 'ig-trading-journal' ); ?><select id="tgit-fundamental-asset"></select></label>
+	<button type="button" class="button" id="tgit-fundamental-reload"><?php esc_html_e( 'Reload saved history', 'ig-trading-journal' ); ?></button>
+	<div id="tgit-fundamental-owner" hidden>
+	<label><?php esc_html_e( 'Dataset to refresh', 'ig-trading-journal' ); ?><select id="tgit-fundamental-dataset"><option value="OVERVIEW">Company overview</option><option value="INCOME_STATEMENT">Income statement</option><option value="BALANCE_SHEET">Balance sheet</option><option value="CASH_FLOW">Cash flow</option></select></label>
+	<button type="button" class="button" id="tgit-fundamental-refresh"><?php esc_html_e( 'Refresh selected dataset', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-fundamental-config"></p>
+	</div>
+	<p id="tgit-fundamental-status" role="status" aria-live="polite"></p>
+	<div id="tgit-fundamental-history"></div>
+	<div id="tgit-fundamental-detail"></div>
+	</div>
 	</section>
 		<?php JournalScreen::render(); ?>
 	<section id="tgit-market-data-section" hidden>
