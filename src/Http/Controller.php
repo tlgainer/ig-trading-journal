@@ -208,7 +208,7 @@ final class Controller {
 				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
 				$asset  = (int) $request->get_url_params()['asset_id'];
 				if ( 'fundamental_metrics' === $operation ) {
-					Tracker::fields( $data, array( 'snapshots' ), array() );
+					Tracker::fields( $data, array( 'snapshots' ), array( 'snapshots' ) );
 					if ( ! is_array( $data['snapshots'] ) || array_is_list( $data['snapshots'] ) ) {
 						throw new \InvalidArgumentException( 'A dataset to snapshot object is required.' );
 					}
@@ -257,7 +257,7 @@ final class Controller {
 					RecurringQuotes::boot();
 				} else {
 					$fundamental = 'refresh_fundamentals' === $operation;
-					Tracker::fields( $data, $fundamental ? array( 'dataset' ) : array(), array() );
+					Tracker::fields( $data, $fundamental ? array( 'dataset' ) : array(), $fundamental ? array( 'dataset' ) : array() );
 					if ( $fundamental && ( ! is_string( $data['dataset'] ) || ! in_array( $data['dataset'], array( 'OVERVIEW', 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) ) ) {
 						throw new \InvalidArgumentException( 'Choose a supported fundamental dataset.' );
 					}

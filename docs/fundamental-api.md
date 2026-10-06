@@ -35,3 +35,5 @@ Owner-only `GET /workspaces/{workspace}/market-data` now reports `fundamentals_e
 No screen or schema changed; browser fixtures were not rerun. No live provider, OpenAI or production request was made. Research history tables and refresh controls, journal navigation, recurring enrollment, comparable-period changes and configurable AI summaries/model/budget remain to implement. A release still requires the full browser/HTTP and packaging gates.
 
 Subsequent development now exposes history, selected-statement metrics and owner refresh controls in Research. See [user guide](user-guide.md). Journal navigation, recurring fundamental enrollment and AI review controls remain pending.
+
+Saved stock journal summaries now offer a guarded shortcut to Research for the same workspace asset. Navigation reads saved evidence only; it does not call the refresh API.

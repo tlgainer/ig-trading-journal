@@ -47,3 +47,5 @@ Fundamental transport and internal owner-authorized one-shot jobs are implemente
 Fundamental history, explicit snapshot metrics and owner-only on-demand refresh now have authenticated REST routes. See [API contract](fundamental-api.md). Research/journal controls, recurring enrollment and AI summaries remain pending.
 
 Development Research now exposes fundamental snapshot history, statement metric details and explicit owner-only single-dataset refresh controls. See the development section in [user guide](user-guide.md). AI investment reviews and recurring fundamentals remain pending.
+
+Development stock journals now link to the selected asset's saved fundamentals through guarded Research navigation. Unsaved-change confirmation, scoped selection, Back and reload are covered. Recurring enrollment, comparable-period changes and AI review controls remain pending.

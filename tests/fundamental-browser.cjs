@@ -7,6 +7,7 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
 (async () => {
  const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
  try {
+  let journalTrade = '';
   for (const actor of ['owner', 'viewer']) {
    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const session = sessions[actor === 'viewer' ? 'revoked' : 'owner'];
    await context.addCookies([{ name: session.cookie_name, value: session.cookie_value, url: 'http://127.0.0.1:19308', httpOnly: true }]);
@@ -17,6 +18,23 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    const income = page.locator('#tgit-fundamental-history tbody tr').filter({ hasText: 'income statement' }); await income.getByRole('button', { name: /View snapshot/ }).click();
    await page.locator('#tgit-fundamental-detail').getByText('net margin percent', { exact: true }).waitFor(); assert((await page.locator('#tgit-fundamental-detail').textContent()).includes('-5.00'));
    for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Fundamentals overflow at ${width}`); }
+   if (actor === 'owner') {
+    journalTrade = await page.evaluate(async (fixture) => {
+     const response = await fetch(tgitRestUrl(tgitConfig.root, `workspaces/${fixture.workspace}/trades`), { method: 'POST', headers: { 'X-WP-Nonce': tgitConfig.nonce, 'Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }, body: JSON.stringify({ asset_id: Number(fixture.asset), title: 'Fundamentals shortcut fixture', state: 'planned', transaction_ids: [], journal: {} }) });
+     const envelope = await response.json(); if (!response.ok) throw new Error(envelope.message); return String(envelope.data.trade.id);
+    }, fixture);
+   }
+   const journalUrl = `http://127.0.0.1:19308/preview?tgit_section=journal&tgit_workspace=${fixture.workspace}&tgit_trade=${journalTrade}`;
+   await page.goto(journalUrl); const shortcut = page.getByRole('button', { name: /View stock fundamentals for/ }); await shortcut.waitFor(); await page.waitForFunction(() => !window.tgitWriteBusy);
+   if (actor === 'owner') {
+    await page.getByRole('tab', { name: 'Plan and journal', exact: true }).click(); await page.locator('#tgit-trade-form [name=notes]').fill('Unsaved shortcut guard fixture'); await page.getByRole('tab', { name: 'Summary', exact: true }).click();
+    page.once('dialog', (dialog) => dialog.dismiss()); await shortcut.click(); assert.equal(await page.getByRole('tab', { name: 'Trade Journal', exact: true }).getAttribute('aria-selected'), 'true'); assert.equal(await page.locator('#tgit-trade-form [name=notes]').inputValue(), 'Unsaved shortcut guard fixture');
+    page.once('dialog', (dialog) => dialog.accept());
+   }
+   await shortcut.click(); await page.waitForFunction((asset) => document.getElementById('tgit-fundamental-asset').value === String(asset) && !document.getElementById('tgit-fundamental-reload').disabled, fixture.asset);
+   assert.equal(new URL(page.url()).searchParams.get('tgit_fundamental_asset'), String(fixture.asset)); assert.equal(await page.locator('#tgit-fundamental-history tbody tr').count(), 3);
+   await page.goBack(); await shortcut.waitFor(); await page.waitForFunction(() => !window.tgitWriteBusy); if (actor === 'owner') assert.equal(await page.locator('#tgit-trade-form [name=notes]').inputValue(), '');
+   await shortcut.click(); await page.waitForFunction(() => !document.getElementById('tgit-fundamental-reload').disabled); await page.reload(); await page.locator('#tgit-fundamental-history tbody tr').first().waitFor(); assert.equal(await page.locator('#tgit-fundamental-asset').inputValue(), String(fixture.asset));
    if (actor === 'owner') {
     assert(await page.locator('#tgit-fundamental-refresh').isDisabled()); const keys = [];
     await page.route('**/*', async (route) => {
@@ -31,6 +49,6 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    }
    assert.deepEqual(errors, []); await context.close();
   }
-  console.log('PASS Fundamental history and metrics: owner/viewer access, disabled refresh, uncertain retry identity and responsive tables.');
+  console.log('PASS Fundamental history and journal shortcuts: owner/viewer access, dirty cancellation/discard, Back/reload, exact metrics, disabled refresh, uncertain retry identity and responsive tables.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack); process.exitCode = 1; });

@@ -284,3 +284,7 @@ This build is still a staged implementation. Spreadsheet imports, reconciliation
 The guide documents available controls; it does not establish that the production host has passed the outstanding release gates. Use a disposable or staging workspace to learn the workflows before entering real records.
 
 Requested subaccount, stablecoin, margin, short and options capabilities are described in [next requirements](next-requirements.md); they are not delivered accounting/calculator features in this build.
+
+### Development: fundamentals from a trade journal
+
+For a saved stock trade, open its **Summary** and choose **View stock fundamentals**. Research selects that trade's saved stock asset and shows stored history. Unsaved journal or image changes use the normal discard confirmation: Cancel keeps the journal open; accepting discards the unsaved changes. Back reopens the saved journal, and reloading Research retains the selected asset in the URL. The shortcut is available to viewers with workspace membership and never starts a provider request or AI review.

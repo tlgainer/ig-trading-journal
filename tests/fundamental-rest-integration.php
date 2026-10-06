@@ -2,6 +2,15 @@
 /** Fundamental routes use synthetic saved evidence on the disposable site. */
 if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true) throw new RuntimeException('Disposable site required.');
 
+test('Fundamental missing required fields return validation errors without PHP warnings', function () use ($owner) {
+ wp_set_current_user($owner); [$s,$w,$asset,$mapping]=provider_context();
+ set_error_handler(static function($severity,$message,$file,$line) { throw new ErrorException($message,0,$severity,$file,$line); });
+ try {
+  equal(provider_rest('POST','workspaces/'.$w.'/assets/'.$asset.'/fundamental-metrics',[])->get_status(),400);
+  equal(provider_rest('POST','workspaces/'.$w.'/provider-mappings/'.$mapping.'/fundamentals/refresh',[],'missing-dataset')->get_status(),400);
+ } finally { restore_error_handler(); }
+});
+
 test('Fundamental REST history paginates private evidence and permits explicit viewer membership', function () use ($owner,$viewer,$tracker) {
  wp_set_current_user($owner); [$s,$w,$asset,$mapping,$ids]=saved_metric_context();
  $path='workspaces/'.$w.'/assets/'.$asset.'/fundamentals';

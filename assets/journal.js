@@ -338,6 +338,15 @@
   $('confluence-checklist').hidden = !data;
   for (const child of form.children) if (child.tagName !== 'LABEL') child.hidden = !data && child.dataset.minimal !== 'true';
   text('p', data ? `${data.trade.state} · ${context.assets.find((asset) => String(asset.id) === String(data.trade.asset_id))?.symbol || ''}` : 'Planned trade — no financial effect', $('trade-summary'));
+  if (data && context.assets.some((asset) => String(asset.id) === String(data.trade.asset_id) && asset.asset_class === 'stock')) {
+   const asset = String(data.trade.asset_id), workspace = String(context.workspace);
+   const fundamentals = button('View stock fundamentals', () => {
+    if (busy || window.tgitWriteBusy) return;
+    const research = $('tabs').querySelector('[data-tab="research"]'); research.click();
+    if (research.getAttribute('aria-selected') === 'true') window.dispatchEvent(new CustomEvent('tgit-open-fundamentals', { detail: { workspace, asset } }));
+   }, $('trade-summary'));
+   fundamentals.setAttribute('aria-label', `View stock fundamentals for ${context.assets.find((item) => String(item.id) === asset).symbol}`);
+  }
   selectDetail(data ? 'summary' : 'plan'); baseline = snapshot();
   routeTrade(data?.trade.id || 'new', Boolean(data) && new URL(location.href).searchParams.get('tgit_trade') === 'new');
  }

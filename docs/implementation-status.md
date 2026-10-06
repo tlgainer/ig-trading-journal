@@ -189,3 +189,11 @@ Validation: 73 unit and 129 disposable WordPress/MySQL integration checks, codin
 Added stock selection, complete saved snapshot history, selected-statement metric tables and overview evidence to Research. Owner refresh controls honor server enablement/current Alpha Vantage mapping and preserve uncertain request identity across reloads. Viewers have read-only access. Shared cards, controls, collection preferences and decimal formatting apply; mobile metrics tables remain contained. No schema change or release ZIP.
 
 73 unit and 129 disposable WordPress/MySQL integration checks, coding standards, syntax and six REST URL checks pass. The new browser fixture covers owner/viewer access, disabled refresh, exact metrics, uncertain retry identity and 360/768/1440 layouts. No live provider or AI calls. Next: journal-to-fundamentals navigation, recurring enrollment, comparable-period changes and configurable AI summaries/model/budget.
+
+## October 6, 2026: journal-to-fundamentals navigation
+
+Saved stock journal summaries now include View stock fundamentals. The action uses existing section navigation so unsaved journal/image changes retain the normal confirmation. Research selects only a current-workspace stock, waits for initialization, focuses the selector, and preserves the selected asset in a scoped URL. Back returns to the saved journal. Owners and viewers can navigate; no provider refresh, AI call, ledger write, schema change or new ZIP occurs.
+
+73 unit / 130 disposable WordPress/MySQL checks, coding standards, PHP/JavaScript syntax and six REST URL checks pass. Extended fundamental browser checks pass owner/viewer navigation, dirty cancellation/discard, Back/reload, exact metrics, disabled refresh, uncertain request identity and responsive tables. Next: recurring fundamental enrollment, comparable-period changes and configurable AI summaries/model/budget.
+
+Also repaired required-field declarations on the fundamental metric and refresh routes: missing snapshots/dataset now return 400 without PHP warnings. A regression test converts warnings into exceptions to verify this contract.

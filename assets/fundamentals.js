@@ -2,7 +2,7 @@
 (() => {
  'use strict';
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-fundamental-${id}`);
- let workspace = '', role = '', generation = 0, mappings = [], enabled = false, rows = [], loading = false;
+ let workspace = '', role = '', generation = 0, mappings = [], enabled = false, rows = [], loading = false, ready = false, focusPending = false;
  const keys = new Map();
  const storage = () => `tgit-fundamental-requests:${config.actorId}:${workspace}`;
  const persist = () => { try { sessionStorage.setItem(storage(), JSON.stringify([...keys])); } catch (_) { /* Keep identity in this page. */ } };
@@ -50,7 +50,26 @@
   } catch (error) { if (expected === generation) status(error.message, true); }
   finally { if (expected === generation) { loading = false; controls(); } }
  }
- $('asset').addEventListener('change', load); $('reload').addEventListener('click', load); $('dataset').addEventListener('change', controls);
+ function routeAsset() {
+  const url = new URL(location.href);
+  if (url.searchParams.get('tgit_section') !== 'research') return;
+  url.searchParams.set('tgit_fundamental_asset', $('asset').value); history.replaceState(null, '', url);
+ }
+ async function selectAsset(asset, focus = false) {
+  if (![...$('asset').options].some((option) => option.value === String(asset))) return;
+  $('asset').value = String(asset); routeAsset(); focusPending = focus;
+  if (!ready) return;
+  await load(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); }
+ }
+ $('asset').addEventListener('change', () => { routeAsset(); load(); }); $('reload').addEventListener('click', load); $('dataset').addEventListener('change', controls);
+ window.addEventListener('tgit-open-fundamentals', (event) => {
+  if (String(event.detail.workspace) !== String(workspace) || window.tgitWriteBusy || new URL(location.href).searchParams.get('tgit_section') !== 'research') return;
+  selectAsset(event.detail.asset, true);
+ });
+ window.addEventListener('popstate', () => {
+  const url = new URL(location.href), asset = url.searchParams.get('tgit_fundamental_asset');
+  if (url.searchParams.get('tgit_section') === 'research' && String(url.searchParams.get('tgit_workspace')) === String(workspace) && asset && asset !== $('asset').value) selectAsset(asset);
+ });
  $('refresh').addEventListener('click', async () => {
   const selected = mapping(); if (window.tgitWriteBusy || !selected || !enabled || role !== 'owner') return;
   window.tgitWriteBusy = true; controls(); const expected = generation, selectedSlot = slot(), key = keys.get(selectedSlot) || crypto.randomUUID(); keys.set(selectedSlot, key); persist();
@@ -64,14 +83,16 @@
   finally { window.tgitWriteBusy = false; controls(); }
  });
  window.addEventListener('tgit-workspace', async (event) => {
-  const expected = ++generation; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true;
+  const expected = ++generation; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true; ready = false; focusPending = false;
   $('owner').hidden = role !== 'owner'; $('history').replaceChildren(); $('detail').replaceChildren(); $('config').textContent = ''; $('asset').replaceChildren();
   for (const asset of event.detail.assets.filter((row) => row.asset_class === 'stock')) { const option = document.createElement('option'); option.value = asset.id; option.textContent = `${asset.symbol} · ${asset.exchange} (${asset.quote_currency})`; $('asset').append(option); }
+  const url = new URL(location.href), routedAsset = url.searchParams.get('tgit_fundamental_asset');
+  if (String(url.searchParams.get('tgit_workspace')) === String(workspace) && [...$('asset').options].some((option) => option.value === routedAsset)) $('asset').value = routedAsset;
   try { const saved = JSON.parse(sessionStorage.getItem(storage()) || '[]'); if (Array.isArray(saved) && saved.length <= 1000) for (const item of saved) if (Array.isArray(item) && typeof item[0] === 'string' && /^[1-9][0-9]*:(OVERVIEW|INCOME_STATEMENT|BALANCE_SHEET|CASH_FLOW)$/.test(item[0]) && typeof item[1] === 'string' && /^[0-9a-f-]{36}$/.test(item[1])) keys.set(...item); } catch (_) { /* Ignore malformed browser state. */ }
   controls();
   try {
    if (role === 'owner') { const configuration = await request('market-data'); const loaded = await all('provider-mappings', expected); if (expected !== generation) return; mappings = loaded; enabled = configuration.fundamentals_enabled === true; $('config').textContent = enabled ? 'Each selected dataset consumes one Alpha Vantage request, sharing the quote allowance. Confirm an enabled mapping in Settings.' : 'Refresh is disabled. Saved history remains readable. Configure fundamentals and an Alpha Vantage mapping before refreshing.'; }
   } catch (error) { if (expected === generation) $('config').textContent = error.message; }
-  if (expected === generation) await load();
+  if (expected === generation) { ready = true; await load(); if (focusPending && !loading) { focusPending = false; $('asset').focus(); $('card').scrollIntoView({ block: 'start' }); } }
  });
 })();

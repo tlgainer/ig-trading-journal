@@ -66,3 +66,5 @@ Next: corporate-action compatibility before displaying daily change, then fundam
 ## Development: fundamental Research screen
 
 Stock fundamentals now use the scoped page/card, full-cursor collection, readable decimal display and aligned View action patterns. Owners get explicit single-dataset refresh controls; members can browse immutable history and statement metrics. Configuration stays server-side. Uncertain request identities persist by actor/workspace/mapping/dataset across reloads. Generation guards prevent stale history/detail responses. Mobile tables scroll within the page card. Journal navigation, recurring review enrollment and AI review controls remain pending.
+
+Development stock journal summaries now offer a fundamentals shortcut through the existing section navigation, preserving unsaved journal/image confirmation and list context. Research selects only an asset from the current workspace's loaded stock choices, waits for initialization before loading it, focuses the selector and retains selection in its scoped URL. Back returns to the saved journal; no automatic provider refresh is triggered.
