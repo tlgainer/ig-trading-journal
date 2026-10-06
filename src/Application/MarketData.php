@@ -13,6 +13,7 @@ use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageFundamentals;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
+use GainerInteractive\IGTradingJournal\Domain\FundamentalMetrics;
 
 /** Internal application boundary; no external requests or key persistence. */
 final class MarketData {
@@ -528,6 +529,63 @@ final class MarketData {
 			throw new \InvalidArgumentException( 'Invalid fundamental history pagination.' );
 		}
 		return $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'fundamental_snapshots' ) . ' WHERE workspace_id = %d AND asset_id = %d AND id > %d ORDER BY id LIMIT %d', array( $workspace, $asset, $after, $limit ) );
+	}
+
+	/**
+	 * Calculate reproducible metrics from explicitly selected immutable snapshots.
+	 * A capex convention is trusted server policy, never inferred from a client value.
+	 *
+	 * @param int         $workspace Workspace identifier.
+	 * @param int         $asset Asset identifier.
+	 * @param array       $snapshots Dataset to snapshot identifier.
+	 * @param string|null $capex_convention Verified source sign convention.
+	 * @return array
+	 * @throws \InvalidArgumentException On invalid selection.
+	 * @throws \UnexpectedValueException On incompatible or damaged saved evidence.
+	 */
+	public function fundamental_metrics( int $workspace, int $asset, array $snapshots, ?string $capex_convention = null ): array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_view' );
+		$this->db->object( 'assets', $workspace, $asset );
+		if ( ! $snapshots || count( $snapshots ) > 3 ) {
+			throw new \InvalidArgumentException( 'Select one to three statement snapshots.' );
+		}
+		$evidence = array();
+		$sources  = array();
+		$mapping  = null;
+		foreach ( $snapshots as $dataset => $id ) {
+			if ( ! in_array( $dataset, array( 'INCOME_STATEMENT', 'BALANCE_SHEET', 'CASH_FLOW' ), true ) || ! is_int( $id ) || $id <= 0 ) {
+				throw new \InvalidArgumentException( 'Invalid statement snapshot selection.' );
+			}
+			$row = $this->db->object( 'fundamental_snapshots', $workspace, $id );
+			if ( (int) $row['asset_id'] !== $asset || $row['dataset'] !== $dataset || 'av-fundamentals-1' !== $row['evidence_version'] || ! hash_equals( $row['evidence_fingerprint'], hash( 'sha256', $row['evidence_json'] ) ) || ( null !== $mapping && $mapping !== (int) $row['mapping_id'] ) ) {
+				throw new \UnexpectedValueException( 'Statement snapshots are incompatible or damaged.' );
+			}
+			$mapping = (int) $row['mapping_id'];
+			try {
+				$parsed = json_decode( $row['evidence_json'], true, 64, JSON_THROW_ON_ERROR );
+			} catch ( \JsonException $error ) {
+				throw new \UnexpectedValueException( 'Saved statement evidence is not valid JSON.' );
+			}
+			if ( ! is_array( $parsed ) || ( $parsed['provider'] ?? null ) !== $row['provider'] || ( $parsed['provider_symbol'] ?? null ) !== $row['provider_symbol'] || ( $parsed['dataset'] ?? null ) !== $dataset ) {
+				throw new \UnexpectedValueException( 'Saved statement identity is inconsistent.' );
+			}
+			$evidence[ $dataset ] = $parsed;
+			$sources[ $dataset ]  = array(
+				'snapshot_id'  => $id,
+				'fingerprint'  => $row['evidence_fingerprint'],
+				'retrieved_at' => $row['retrieved_at'],
+			);
+		}
+		ksort( $evidence, SORT_STRING );
+		ksort( $sources, SORT_STRING );
+		return array_merge(
+			FundamentalMetrics::calculate( $evidence, $capex_convention ),
+			array(
+				'workspace_id' => $workspace,
+				'asset_id'     => $asset,
+				'sources'      => $sources,
+			)
+		);
 	}
 
 	/**

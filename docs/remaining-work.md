@@ -39,3 +39,5 @@ Linear leveraged crypto scenarios are available in 0.20.0. Stock long/short prof
 Fundamental parsing foundation: exact overview and annual/quarterly statement normalization is implemented internally; snapshot persistence, comparable metrics, fundamental dispatch/scheduling and AI review controls remain pending. See [evidence contract](fundamental-evidence-contract.md).
 
 Development schema 11 now stores immutable fundamental snapshots and binds provider requests to datasets under the existing shared quota. See [migration](011-fundamental-snapshots.sql). Fundamental transport, metrics, review UI and AI processing remain pending.
+
+Snapshot-backed exact fundamental metrics are now implemented internally. See [formula contract](fundamental-metric-formulas.md). Growth/comparison contracts, provider transport and fundamental/AI review workflows remain pending.
