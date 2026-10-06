@@ -60,4 +60,35 @@ final class Valuation {
 			'unrealized_gain' => null === $value || null === $basis ? null : Decimal::sub( $value, $basis ),
 		);
 	}
+
+	/**
+	 * Calculate fixed-quantity price movement, not transaction-aware daily P&L.
+	 * Caller must establish session and corporate-action compatibility first.
+	 *
+	 * @param string      $quantity Current owned units.
+	 * @param string|null $price Current compatible quote.
+	 * @param string|null $previous_close Previous regular-session close.
+	 * @return array
+	 */
+	public static function price_movement( string $quantity, ?string $price, ?string $previous_close ): array {
+		Decimal::input( $quantity );
+		if ( null !== $price ) {
+			Decimal::input( $price );
+		}
+		if ( null !== $previous_close ) {
+			Decimal::input( $previous_close );
+		}
+		$result = array(
+			'per_unit' => null,
+			'amount'   => null,
+			'percent'  => null,
+		);
+		if ( null === $price || null === $previous_close ) {
+			return $result;
+		}
+		$result['per_unit'] = Decimal::sub( $price, $previous_close );
+		$result['amount']   = Decimal::mul( $quantity, $result['per_unit'] );
+		$result['percent']  = Decimal::compare( $previous_close, '0' ) > 0 ? Decimal::mul( Decimal::div( $result['per_unit'], $previous_close ), '100' ) : null;
+		return $result;
+	}
 }

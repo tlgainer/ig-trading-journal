@@ -219,4 +219,6 @@ test('Valuation excludes future observations and deterministically labels stale 
  $rows = [['id'=>1,'effective_date'=>'2026-01-01','expires_on'=>'2026-01-02','value'=>'10'],['id'=>2,'effective_date'=>'2026-01-03','expires_on'=>'2026-01-03','value'=>'20'],['id'=>3,'effective_date'=>'2026-01-03','expires_on'=>'2026-01-04','value'=>'21']];
  equal(Valuation::select($rows,'2025-12-31')['status'],'missing'); equal(Valuation::select($rows,'2026-01-02')['observation']['id'],1); equal(Valuation::select($rows,'2026-01-04')['observation']['id'],3); equal(Valuation::select($rows,'2026-01-05')['status'],'stale');
 });
+require_once __DIR__ . '/provider-unit.php';
+
 echo "$passed tests passed.\n";

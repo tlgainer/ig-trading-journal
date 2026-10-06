@@ -2,6 +2,8 @@
 
 Owner-requested additions, October 5, 2026. These extend the original PRD; they are not claims of delivered financial support. Existing decimal-string, workspace-scope, immutable-posting, replay, privacy and separate-SQL contracts remain mandatory.
 
+The latest owner priority is [financial data integration](financial-data-integration.md): automatic stock valuations and daily change, scheduled/on-demand fundamental snapshots **with AI summaries**, then related news/events. FMP and Alpha Vantage are both on their free tiers. This takes precedence over queued subaccount/currency work below; that work remains pending.
+
 ## Delivery order
 
 1. Finish Holdings/Transactions readability using the shared tables. Transactions already use the shared table in 0.18.0; Holdings is delivered in 0.19.0. Preserve account names, exact values, missing-price/basis statuses, whole-result search and scoped preferences.

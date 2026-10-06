@@ -12,6 +12,16 @@ Known boundaries: no historical correction/backdating or draft promotion, no pri
 
 No existing production WordPress database was modified. The initial schema is supplied separately in `001-ledger-foundation.sql` and installed on activation. The plugin is not deployed.
 
+## Financial data integration: scope recorded October 5, 2026
+
+Owner confirmed FMP free (250 requests/day), Alpha Vantage free (25 requests/day), and AI summaries as part of scheduled/on-demand fundamental reviews. The [integration plan](financial-data-integration.md) records delivery order, quota/entitlement limits, end-of-day freshness, observation provenance, exact-decimal calculations, immutable reviews, workspace authorization and AI cost controls. This is the latest priority ahead of queued subaccount/currency extensions. Existing valuation and authored-research contracts were reviewed. Runtime remains 0.26.0/schema 8; no provider calls, code changes, migration or release occurred. Next implementation is the mocked provider/quote foundation. Owner subsequently confirmed a configurable $10-$15 monthly OpenAI budget; the plan proposes an initial $15 cap, owner-only settings, shared-credential accounting, warnings and conservative atomic reservations. These controls are documented, not yet implemented; paid processing remains disabled until configured.
+
+Owner also requested configurable OpenAI model selection. The integration plan now specifies owner-only model settings, server-side capability/access checks, per-model budget accounting, preserved model provenance on reviews and no silent model substitution. This remains documented scope; runtime code is unchanged.
+
+## Financial data foundation: first implementation slice
+
+Implemented bounded lossless provider JSON decoding and scientific-number expansion without binary-float conversion; Alpha Vantage free EOD quote normalization with identity/date/positive-price validation and redacted provider errors; and exact fixed-quantity daily movement distinct from unrealized gain. Quote exchange/currency are deliberately unresolved until verified mappings are implemented. New deterministic fixtures pass 51 unit checks; PHP/JavaScript syntax, Composer coding standards and six REST URL checks pass. The disposable WordPress/MySQL regression suite passes 84 checks. No live requests, credentials, schema changes or production release occurred. Persistence, quota reservations, FMP adapter, scheduling/UI and AI reviews remain in progress; see the [integration progress](financial-data-integration.md).
+
 ## PHP 8.1 hosting compatibility update
 
 The owner confirmed a target of PHP 8.1 and WordPress 7.1.2; the supplied screenshot identifies MySQL 8.0.46, nginx and utf8mb4 but reports PHP 7.4.33 for phpMyAdmin. The plugin header, activation/readiness checks, Composer requirement/lock metadata and installation documentation now require PHP 8.1+ with BCMath. No SQL migration is needed.

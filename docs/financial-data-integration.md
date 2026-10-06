@@ -1,0 +1,100 @@
+# Financial data integration and AI fundamental reviews
+
+Owner-confirmed scope, October 5, 2026. This extends the original PRD. Current runtime remains build 0.26.0, schema 8; this document records planned work, not delivered functionality.
+
+## Scope and priority
+
+1. Automatically value stock holdings, showing unrealized gain/loss, daily price movement and combined stock totals across accounts.
+2. Collect fundamental snapshots on a schedule and on demand from the trade journal. **Include an AI summary of these fundamentals**, changes since the preceding review and implications for the recorded investment thesis. AI is part of the fundamental review, not only a separate news feature.
+3. Add sourced news, related-company relationships and upcoming company/economic events to identify indirect exposure and catalysts.
+
+This is the latest owner priority, ahead of queued subaccount/currency extensions. Reuse the existing WordPress admin shell, cards, collections, controls and readable decimal display. No React migration.
+
+## Free-tier constraints
+
+Owner has FMP Basic/free (250 requests/day) and Alpha Vantage free (25 requests/day). Request allowance is separate from endpoint/symbol entitlement. FMP Basic emphasizes end-of-day historical and profile/reference data; other datasets/symbols can be restricted. Alpha Vantage's default quote updates at end of day. Do not promise intraday freshness, quarterly statements, calendars, peers or transcripts before verifying permitted access for the requested identity.
+
+References checked October 5, 2026: [FMP plans](https://site.financialmodelingprep.com/developer/docs/pricing), [Alpha Vantage documentation](https://www.alphavantage.co/documentation/), [Alpha Vantage limits](https://www.alphavantage.co/support/), [OpenAI web search](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+Keys belong in server configuration, never repository, browser responses, logs or exports. Development uses deterministic mocked responses; no real keys, production portfolio records or paid API calls are needed.
+
+## Slice 1: provider foundation and stock valuations
+
+- Add server-side provider adapters and safe JSON normalization: financial numbers remain decimal strings, including exponent notation, without binary-float rounding.
+- Resolve identity by symbol, exchange and currency. Unsupported or unresolved mappings cannot supply a quote.
+- Preserve append-only provider observations with market/retrieval timestamps, source, currency, session, delay/status and previous regular-session close. Existing date-only manual observations lack this detail; do not silently repurpose them. Document explicit provider/manual selection policy.
+- Calculate market value and unrealized gain from existing quantities and remaining basis. Unknown basis or missing/stale prices produce explicit incomplete coverage, never invented zero values. Provider refreshes do not change posted cash, basis, units or immutable report snapshots.
+- Fixed-holding daily movement is quantity times (quote minus previous regular-session close); percentage uses that prior close. Current-quantity price movement is not transaction-aware account-day P&L when shares were bought/sold during the day. Combined percentages use compatible value denominators, not averages of individual percentages.
+- Mixed session dates, missing FX and incomplete quotes produce partial totals with coverage. Require compatible split-adjusted prior close and quantities around corporate actions.
+- Default to trading-day end-of-day refresh with a bounded later retry. A second fetch cannot imply a second fresh intraday quote on a free EOD feed. Use New York-aware scheduling and session/holiday dates.
+- Use persistent atomic quota reservations shared across every job/workspace using the same credential. Count attempts/retries conservatively; keep capacity for explicit refresh. A rolling 24-hour cap is a conservative default until provider reset behavior is verified. Back off rate limits; stop unsupported/entitlement errors without repeated retries.
+- Cache and deduplicate internally without exposing another workspace's data; never fetch on each page load. Server cron invokes bounded WordPress jobs with leases/idempotency to prevent overlapping runs.
+
+Acceptance: exact numeric decoding; identity/currency rejection; session/prior-close handling; missing/stale/partial totals; quota concurrency and retries; revoked access; transport failures; unchanged financial history.
+
+## Slice 2: fundamental snapshots with AI summaries
+
+- Proposed default: staggered weekly updates, refresh after newly available statements and an Analyze holding action in the trade journal. Spread initial collection over days within Alpha Vantage's allowance; reuse unchanged evidence.
+- Select FMP where entitled and Alpha Vantage for supported overview, income statement, balance-sheet and cash-flow inputs. Never silently merge conflicting currencies or fiscal periods.
+- Preserve immutable snapshots with provider, fiscal period/type, reporting currency, retrieval time and available publication/revision evidence. Compare like periods; annual, quarterly and trailing figures are distinct. Restatements append new evidence.
+- Calculate growth, margins, free cash flow, debt/liquidity and valuation metrics in decimal code with defined formulas. Missing inputs and zero denominators remain unavailable.
+- Reviews link to a workspace asset, optional trade and the exact thesis revision used. Preserve review history separately from authored journal/research notes.
+- AI output: financial overview; changes since the preceding review; strengths; deterioration/risks; evidence supporting or weakening the thesis; missing/stale data; conditions or questions requiring an investment review. No automated sell decision or ledger action.
+- Send a bounded evidence bundle of computed metrics, source identifiers, periods and approved thesis text. Account balances, private images, keys and unrelated notes are excluded by default. External text is untrusted evidence, never operational instructions.
+- Separate reported facts from interpretation and validate citations against supplied evidence identifiers. Save input fingerprint, evidence links, prompt/model version, generation time, status and usage. Failed or truncated output is visibly failed; unchanged evidence reuses its review unless explicitly regenerated.
+- OpenAI processing starts disabled. Owner configures the server key, enables external processing with its stated data scope and selects a spending cap. Mock development continues independently; scheduled AI calls await budget configuration. Verify model pricing when choosing the implementation model.
+
+### Configurable OpenAI model
+
+Owner requested configurable model selection. Add owner-only Settings for the OpenAI model used by fundamental summaries, with an optional separate selection for later web research. Store explicit model identifiers; do not silently substitute a different model after a failure or availability change. Model selection does not itself enable paid processing.
+
+- Offer supported models compatible with the required API/output capabilities; show configured pricing and whether capability/access validation is pending or confirmed. Do not assume every model supports web search or the same request parameters.
+- Validate the selected identifier and required capabilities server-side. Unknown pricing, unavailable access or unsupported capabilities prevent new requests with an actionable status while saved reviews remain readable.
+- Apply the monthly spending limit using the selected model's applicable input, cached-input, output and tool pricing. Verify current official pricing/capabilities when implementing the catalog; do not hard-code an unverified default in this requirements document.
+- Capture the actual model identifier and prompt version on every review. Changing models affects future requests; previous reviews and in-flight request reservations retain their original model and pricing evidence.
+- Audit configuration changes. No automatic fallback to a more expensive model; any future fallback policy requires explicit owner configuration and its own budget checks.
+
+Acceptance includes invalid/unavailable selections, capability incompatibility, pricing-dependent reservations, model changes during an in-flight request and immutable review provenance.
+
+### Configurable OpenAI budget
+
+Owner confirmed an initial range of $10-$15 per month. Proposed initial setting: `15.00` USD, editable to `10.00` or another non-negative decimal amount in owner-only Settings; zero pauses new paid requests. This is a planned plugin control, not a provider billing setting or a delivered feature.
+
+- Enforce a site-wide monthly cap for the shared OpenAI credential, with optional workspace limits underneath it. Multiple workspaces must not each receive the entire shared budget. Record configuration changes with actor and audit evidence.
+- Display estimated month-to-date spend, reserved in-flight spend, remaining budget and next reset. Proposed reset: calendar month in the configured budget timezone, initially America/New_York. Changing timezone cannot reset accrued usage mid-period.
+- Show warnings at 80% and 90%. Before each call, atomically reserve a conservative maximum using bounded input/output and tool use at configured model prices. Block new scheduled and on-demand calls when the remaining budget cannot cover the reservation; no silent override.
+- Reconcile reservations with reported usage. Include retries and separately priced tools such as web search. Keep uncertain charges reserved until reconciled, including across monthly boundaries. Fail closed if required pricing is unknown or outdated; label totals as estimates rather than guaranteed invoice amounts.
+- At the limit, retain existing reviews and continue free-tier data updates. Explain why AI generation is paused; it can resume next month or after an owner increases the cap.
+- The control covers requests made by this plugin. Calls using the same key elsewhere, provider billing adjustments and differences in pricing cannot be constrained by this local cap; recommend a dedicated OpenAI project/key for clearer accounting.
+
+Acceptance adds concurrent reservation enforcement, configurable limits, lowering a cap below existing spend, zero-budget pause, warning thresholds, month rollover, uncertain request outcomes and retained access to saved reviews. Live paid processing remains disabled until the owner explicitly saves its configuration.
+
+Acceptance: reproducible evidence; comparable fiscal periods; immutable review history; valid citations; missing-data handling; thesis revision links; workspace/revocation checks; bounded payloads; failure/retry deduplication; cost controls.
+
+## Slice 3: related news and events
+
+- Track sourced news/events for holdings/watchlists and owner-approved related companies. AI can suggest sourced suppliers, customers, competitors and infrastructure dependencies; business relationships remain separate from changing price correlations.
+- Show event source, timezone, estimated/confirmed status, last check and relationship to the holding. Distinguish publication dates from event dates and deduplicate repeated news.
+- Proposed output: daily digest and on-demand pre-trade review. Missing calendar/news access is explicit; no claim of exhaustive catalyst detection.
+- Web research is a separately configurable cost/data scope. Slice 2 summaries of structured fundamentals do not depend on paid web searches.
+
+## Persistence, operations and release
+
+New schema changes belong in separate numbered `docs/*.sql` files with prefix substitution, backup and forward-repair instructions. No migration/schema bump has been introduced in this planning step.
+
+Every customer relationship/read/job is workspace scoped. Scheduled jobs retain an authorizing membership and recheck revocation. Site administrators still require membership. A configured provider key grants no workspace access. Deactivation stops processing and preserves data; uninstall preserves data.
+
+Required unit, PHP syntax/coding standards, REST URL, JavaScript and disposable WordPress/database/browser gates apply before a release. No production calls, purchases or deployments are authorized by development fixtures.
+
+## Progress
+
+| Work | Status | Next step |
+| --- | --- | --- |
+| Scope and free-tier design | Documented | Owner confirmed both free tiers and AI summaries of fundamentals. Existing valuation/research separation reviewed. |
+| Provider foundation and stock valuations | In progress | Lossless bounded JSON decoding, Alpha Vantage EOD quote parsing and exact fixed-holding daily movement implemented and unit tested. Next: FMP adapter, persisted identity/observations, shared quota reservations, scheduler and UI integration. |
+| Fundamental snapshots and AI summaries | Planned | Build on provider evidence; configurable model and monthly budget confirmed, initially $10-$15 with proposed $15 cap. |
+| Related news/events | Planned | Verify entitlement coverage and approved relationships. |
+
+Initial foundation code is implemented in `src/Infrastructure/ProviderJson.php`, `src/Infrastructure/AlphaVantageQuote.php` and `src/Domain/Valuation.php`. Five deterministic test groups cover numeric fidelity/exponents, malformed and excessive inputs, quote identity/dates/prices, provider error redaction and movement versus unrealized gain. Provider quote currency/exchange remain unknown until verified mapping supplies them; the parser is not authorization to value a holding.
+
+Validation: 51 unit checks, PHP syntax, Composer coding standards, six REST URL checks and JavaScript syntax pass. Disposable WordPress/database regression evidence is recorded in implementation-status. No live provider requests, credentials, SQL migrations or new production package have been introduced; runtime integration remains incomplete.
