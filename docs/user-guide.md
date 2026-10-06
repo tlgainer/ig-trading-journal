@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-For **plugin 0.24.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.25.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
@@ -31,7 +31,7 @@ For **plugin 0.24.0**, used inside WordPress administration. This guide describe
 
 The workspace creator becomes its owner. Each workspace has separate members and records. Select the intended workspace before entering data; being a WordPress administrator does not automatically grant access to another person's workspace.
 
-For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.24.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
+For installation and updates, see [Installation, SQL and recovery](operations.md). Install the latest package directly; older ZIPs do not need to be installed sequentially. Versions 0.11.0–0.25.0 use schema 8. Older schemas require the documented backup and activation upgrade procedure. Ordinary installation handles the bundled SQL; manual SQL is an administrator task.
 
 The server needs PHP 8.1+ with BCMath, a supported database and HTTPS outside local development. Private images also need GD and private storage. BCMath and GD are PHP extensions, not WordPress plugins. Have the host verify them in the PHP runtime serving WordPress, rather than relying on the phpMyAdmin or command-line PHP version.
 
@@ -110,15 +110,15 @@ If the purchase is rejected for insufficient cash, it has not created a holding 
 ### Edit or post a draft
 
 1. Filter the table to **Draft**.
-2. Select **Edit draft** to load its latest revision.
+2. Select **Edit** (Edit draft) to load its latest revision.
 3. Change the fields and select **Save draft changes**.
-4. Return to the table and select **Post draft** when ready.
+4. Return to the table and select **Post** (Post draft) when ready.
 
 Posting preserves the draft as a **Promoted source** and creates a separate **Posted** transaction. The two rows are retained evidence, not two financial postings. The **Promoted sources** filter shows these source records. Contributors can edit their own drafts but cannot post them.
 
 ### View details and recover from a conflict
 
-Select **View transaction** to see the original facts, current replayed realized gain where available, revisions and related entries. Select **View revision** for a historical snapshot. The raw revision payload is available in a separate disclosure. Related-entry buttons let you follow a promoted draft or correction relationship. These views do not edit posted entries.
+Select **View** (View transaction) to see the original facts, current replayed realized gain where available, revisions and related entries. Select **View** (View revision) for a historical snapshot. The raw revision payload is available in a separate disclosure. Related-entry buttons let you follow a promoted draft or correction relationship. These views do not edit posted entries. Compact table buttons retain full action names on hover and for screen readers.
 
 If a draft changed elsewhere, a stale save is rejected and your typed values remain. **Reload latest transaction** offers the discard prompt before replacing them. Dismiss the prompt to keep your input; copy anything you need before accepting a reload.
 
@@ -155,7 +155,7 @@ In **Transactions**, choose eligible buy/sell fills for the selected asset. Tran
 
 Owners/managers can select **Strategies → New strategy**, enter a name, description, rules and tags, then select **Create strategy**. Description/rules currently use textareas with basic HTML support, rather than a rich editor.
 
-**Edit strategy → Save new version** appends an immutable version. **View versions** lets members inspect previous versions. A trade journal retains its captured strategy version when the strategy is revised; choose the intended version when assigning a strategy to a trade.
+**Edit → Save new version** appends an immutable version. **Versions** lets members inspect previous versions. A trade journal retains its captured strategy version when the strategy is revised; choose the intended version when assigning a strategy to a trade.
 
 The strategy collection offers Active/Archived/All views. Unsaved-change and conflict-reload behavior follows the same pattern as the Journal and Transactions editors.
 

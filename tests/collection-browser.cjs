@@ -51,6 +51,14 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   await page.getByRole('button', { name: 'Clear filters', exact: true }).click(); assert.equal(await page.locator('tbody tr').count(), 25);
   await page.getByLabel('Trade view', { exact: true }).selectOption('closed'); await page.getByText('34 records. View: Closed.', { exact: true }).waitFor();
   for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); }
+  const searchBox = await page.getByRole('searchbox', { name: 'Search Trade fixtures' }).boundingBox();
+  const clearBox = await page.getByRole('button', { name: 'Clear search', exact: true }).boundingBox();
+  const filterBox = await page.getByLabel('Trade view', { exact: true }).boundingBox();
+  const resetBox = await page.getByRole('button', { name: 'Clear filters', exact: true }).boundingBox();
+  assert(Math.abs(searchBox.y + searchBox.height - clearBox.y - clearBox.height) < 1.5, 'Clear search aligns with its input');
+  assert(Math.abs(filterBox.y + filterBox.height - resetBox.y - resetBox.height) < 1.5, 'Clear filters aligns with its dropdown');
+  await page.getByText('Columns and density', { exact: true }).click();
+  assert.equal((await page.getByRole('searchbox', { name: 'Search Trade fixtures' }).boundingBox()).y, searchBox.y, 'Opening column options must not shift toolbar inputs');
   await page.evaluate(() => { tgitResetCollection(document.getElementById('rows')); window.renderFixture('4'); });
   assert.equal(await page.locator('tbody tr').count(), 25, 'Resetting a collection must recreate its visible controls and rows.');
   assert.deepEqual(errors, []);

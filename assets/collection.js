@@ -60,6 +60,7 @@
    const columns = options.columns.filter((column) => visible.has(column.key)); const header = node('tr', undefined, head);
    for (const column of columns) {
     const cell = node('th', undefined, header); cell.scope = 'col';
+    if (column.key === 'actions') cell.classList.add('tgit-actions-cell');
     if (column.sort) {
      cell.setAttribute('aria-sort', order === column.key ? (descending ? 'descending' : 'ascending') : 'none');
      const sort = node('button', column.label, cell); sort.type = 'button'; sort.setAttribute('aria-label', `Sort by ${column.label}`);
@@ -79,6 +80,17 @@
      const cell = node(column.identity ? 'th' : 'td', undefined, tr); if (column.identity) cell.scope = 'row'; cell.dataset.label = column.label;
      if (column.numeric) cell.className = 'tgit-number';
      const value = column.render(row); if (value instanceof Node) cell.append(value); else cell.textContent = value ?? 'Not set';
+     if (column.key === 'actions') {
+      cell.classList.add('tgit-actions-cell');
+      let group = cell.firstElementChild;
+      if (!group || group.tagName !== 'DIV') { group = document.createElement('div'); group.append(...cell.childNodes); cell.append(group); }
+      group.classList.add('tgit-row-actions');
+      const captions = { 'View transaction': 'View', 'Edit draft': 'Edit', 'Post draft': 'Post', 'View versions': 'Versions', 'Edit strategy': 'Edit', 'View version': 'View', 'View revision': 'View' };
+      for (const button of group.querySelectorAll('button')) {
+       const original = button.textContent;
+       if (captions[original]) { if (!button.hasAttribute('aria-label')) button.setAttribute('aria-label', original); button.title = original; button.textContent = captions[original]; }
+      }
+     }
     }
    }
    previous.disabled = page === 0; next.disabled = page >= pages - 1; pageInfo.textContent = `Page ${page + 1} of ${pages}`; clear.disabled = !query;
