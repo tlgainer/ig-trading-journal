@@ -6,6 +6,7 @@ require_once __DIR__ . '/../src/Infrastructure/AlphaVantageQuote.php';
 require_once __DIR__ . '/../src/Infrastructure/FmpEodQuote.php';
 require_once __DIR__ . '/fundamentals-unit.php';
 require_once __DIR__ . '/fundamental-metrics-unit.php';
+require_once __DIR__ . '/ai-budget-unit.php';
 use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\ProviderJson;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;
