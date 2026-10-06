@@ -28,7 +28,10 @@ test('Fill candidates paginate eligible asset transactions and revalidate correc
  try { $jt->save_trade($workspace, $id, array_replace($facts, ['transaction_ids' => [(int) $source['id']], 'expected_revision' => 1]), 'picker-stale-source'); throw new LogicException('Corrected source linked.'); } catch (UnexpectedValueException $e) {}
  equal((int) $jt->trade($workspace, $id)['trade']['revision'], 1);
  $saved = $jt->save_trade($workspace, $id, array_replace($facts, ['transaction_ids' => [(int) $linked['id'], (int) $free['id']], 'expected_revision' => 1]), 'picker-links-save'); equal(count($saved['fills']), 2);
- equal($tracker->list_objects($workspace, 'accounts'), $cash); equal($tracker->holdings($workspace), $holdings);
+ equal($tracker->list_objects($workspace, 'accounts'), $cash);
+ $afterHoldings = $tracker->holdings($workspace);
+ // The response timestamp advances independently of the financial facts.
+ unset($afterHoldings['as_of'], $holdings['as_of']); equal($afterHoldings, $holdings);
  $tracker->set_member($workspace, ['wp_user_id' => $viewer, 'role' => 'viewer', 'state' => 'active']);
  $reader = new \GainerInteractive\IGTradingJournal\Application\Journal($db, $viewer, wp_generate_uuid4()); equal(count($reader->fill_candidates($workspace, $id, 0, 0, 100)['items']), 3);
  wp_set_current_user($owner); $route = '/tgit/v1/workspaces/' . $workspace . '/trades/' . $id . '/fill-candidates';

@@ -49,3 +49,5 @@ Build 0.26.0 applies white section cards and consistent `1px solid #949494` cont
 Build 0.26.0 separates collection headings from toolbar controls, aligns clear/filter/pagination buttons to input baselines and applies consistent inline table action groups and action column widths. Compact visible View/Edit/Post labels retain full accessible names and title text; financial actions and permissions are unchanged.
 
 Build 0.26.0 adopts the owner-provided `.tgit-pages` white background, 15px padding and 10px radius. Sections inside the page card have no additional outer borders or padding; tables, calculator accordions and focused editors keep their own boundaries.
+
+Development market-data Settings reuses the shared collection and form controls: complete current-mapping cursor loading, scoped preferences, readable decimal strings, aligned row actions, role-gated controls, unsaved-edit guards and stale-response protection. It shows explicit end-of-day sessions and configuration/coverage limitations. Recurring enrollment and holdings valuation selection remain pending; this does not change released 0.26.0 coverage.

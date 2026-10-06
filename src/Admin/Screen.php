@@ -40,6 +40,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-calculators', plugins_url( 'assets/calculators.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-research', plugins_url( 'assets/research.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -308,6 +309,23 @@ final class Screen {
 	<div id="tgit-research-notes" class="tgit-cards"></div>
 	</section>
 		<?php JournalScreen::render(); ?>
+	<section id="tgit-market-data-section" hidden>
+	<h2><?php esc_html_e( 'Stock market data', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Confirm the provider symbol, exchange and currency before requesting a price. These are end-of-day observations. Holdings still use your manual prices until automatic valuation selection is available.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-market-config"></p>
+	<p id="tgit-market-status" role="status" aria-live="polite"></p>
+	<form id="tgit-market-form" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Stock asset', 'ig-trading-journal' ); ?><select name="asset_id" required></select></label>
+	<label><?php esc_html_e( 'Price provider', 'ig-trading-journal' ); ?><select name="provider"><option value="fmp">FMP</option><option value="alpha_vantage">Alpha Vantage</option></select></label>
+	<label><?php esc_html_e( 'Provider symbol', 'ig-trading-journal' ); ?><input name="provider_symbol" required maxlength="80"></label>
+	<label><?php esc_html_e( 'Exchange', 'ig-trading-journal' ); ?><input name="exchange" readonly required></label>
+	<label><?php esc_html_e( 'Quote currency', 'ig-trading-journal' ); ?><input name="currency" readonly required></label>
+	<label><?php esc_html_e( 'Price requests', 'ig-trading-journal' ); ?><select name="enabled"><option value="true"><?php esc_html_e( 'Enabled for this mapping', 'ig-trading-journal' ); ?></option><option value="false"><?php esc_html_e( 'Disabled', 'ig-trading-journal' ); ?></option></select></label>
+	<label><?php esc_html_e( 'How you verified this symbol', 'ig-trading-journal' ); ?><input name="evidence" required maxlength="500"></label>
+	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save provider mapping', 'ig-trading-journal' ); ?></button>
+	</form>
+	<div id="tgit-market-mappings"></div>
+	</section>
 	<section id="tgit-members-section" hidden><h2><?php esc_html_e( 'Workspace members', 'ig-trading-journal' ); ?></h2><div id="tgit-members" class="tgit-cards"></div>
 	<form id="tgit-member-form" class="tgit-form">
 		<label><?php esc_html_e( 'Existing WordPress user ID', 'ig-trading-journal' ); ?><input name="wp_user_id" type="number" min="1" step="1" required></label>

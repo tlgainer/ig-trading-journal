@@ -120,3 +120,13 @@ FMP daily-history transport and persistence now share the authorized, immutable 
 53 unit and 100 disposable WordPress/MySQL integration checks pass. Required coding standards, PHP/JavaScript syntax and six REST URL checks pass. Eleven real HTTP media checks pass. Provider responses and credentials are synthetic and restricted to the disposable test process. Next: owner-facing configuration, recurring refresh enrollment and explicit provider/manual valuation selection for holdings, then fundamental snapshots and configurable AI reviews.
 
 The continuation also passed the locked desktop/mobile journal workflow (multiple uploads, image actions, exact saved journal fields, dirty navigation guards, list context and deep links) and all eight admin sections at 360/768/1440px with no overflow. These are disposable-site regressions; no production-host or live API test is claimed.
+
+## October 6, 2026: owner market-data Settings (0.27.0-dev, schema 9)
+
+Added owner-only stock provider mapping controls and on-demand quote refresh to Settings, using the shared collection/form/decimal patterns. REST enforces ownership, workspace scope, current mapping revisions, bounded pagination and refresh retry keys. Configuration status exposes neither credentials nor their digests. The table shows the latest quote for each current mapping; this is not automatic holdings valuation. Unsaved edits have navigation guards, stale workspace responses are ignored, and uncertain retry identities survive reload in tab-scoped session storage.
+
+53 unit and 102 disposable WordPress/MySQL integration checks pass, plus coding standards, PHP/JavaScript syntax and six REST URL checks. A fill-picker regression fixture was corrected to exclude only the non-financial response timestamp when asserting unchanged holdings. Schema stays at development version 9; this slice requires no additional SQL. No new production package or live provider verification is claimed. Remaining integration work includes recurring enrollment, explicit valuation selection, holding/portfolio totals and fundamentals/AI reviews.
+
+The dedicated market-data browser fixture passed mapping save/revision, disabled-provider controls, unsaved-edit cancellation, stock identity fields, table widths at 360/768/1440px, and uncertain refresh retry identity after reload. The retry fixture intercepts both configuration and refresh responses in the browser; it cannot send provider traffic. Eleven real HTTP media checks also passed.
+
+Existing desktop/mobile journal workflows and all eight admin sections at 360/768/1440px passed again with the new Settings section loaded. No browser errors or viewport overflow were reported.

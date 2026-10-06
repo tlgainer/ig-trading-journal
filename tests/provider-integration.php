@@ -229,3 +229,36 @@ test('FMP failures preserve quota and uncertain delivery is never resent', funct
  }
  equal($s->quotes($w,$asset),[]);
 });
+
+function provider_rest(string $method, string $path, ?array $body=null, string $key='') {
+ $parts=explode('?', $path, 2); $request=new WP_REST_Request($method,'/tgit/v1/'.$parts[0]);
+ if (isset($parts[1])) { parse_str($parts[1],$query); $request->set_query_params($query); }
+ if ($body!==null) { $request->set_header('content-type','application/json'); $request->set_body(wp_json_encode((object)$body)); }
+ if ($key!=='') $request->set_header('idempotency-key',$key);
+ return rest_do_request($request);
+}
+
+test('Owner REST mapping controls paginate current revisions and hide credentials', function () use ($owner,$viewer,$tracker) {
+ wp_set_current_user($owner); [$s,$w,$asset,$mapping,$input]=provider_context(); $base='workspaces/'.$w;
+ $status=provider_rest('GET',$base.'/market-data'); equal($status->get_status(),200); equal(count($status->get_data()['data']['providers']),2); equal(str_contains(wp_json_encode($status->get_data()),TGIT_FMP_API_KEY),false);
+ $updated=$s->save_mapping($w,$asset,array_replace($input,['expected_mapping_id'=>$mapping,'enabled'=>false]));
+ $list=provider_rest('GET',$base.'/provider-mappings?limit=1'); equal($list->get_status(),200); $data=$list->get_data()['data']; equal(count($data['items']),1); equal($data['items'][0]['id'],$updated['id']); equal($data['items'][0]['price'],null);
+ equal(provider_rest('GET',$base.'/provider-mappings?after='.$updated['id'])->get_data()['data']['items'],[]); equal(provider_rest('GET',$base.'/provider-mappings?limit=101')->get_status(),400);
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'manager','state'=>'active']); wp_set_current_user($viewer);
+ foreach (['/market-data','/provider-mappings'] as $route) equal(provider_rest('GET',$base.$route)->get_status(),403);
+ equal(provider_rest('POST',$base.'/assets/'.$asset.'/provider-mappings',$input)->get_status(),403);
+ wp_set_current_user($owner);
+ [$other,$w2,$asset2,$mapping2]=provider_context(); equal(provider_rest('POST',$base.'/assets/'.$asset2.'/provider-mappings',$input)->get_status(),404);
+ equal(provider_rest('POST',$base.'/assets/'.$asset.'/provider-mappings',$input)->get_status(),409);
+});
+
+test('Owner REST refresh is bounded, idempotent and workspace scoped', function () use ($owner,$viewer,$tracker) {
+ wp_set_current_user($owner); [$s,$w,$asset,$mapping]=provider_context(); $target='workspaces/'.$w.'/provider-mappings/'.$mapping.'/refresh';
+ equal(provider_rest('POST',$target,[])->get_status(),400); equal(provider_rest('POST',$target,['unexpected'=>true],'rest-bad')->get_status(),400);
+ $response=provider_http_mock(provider_http_response(provider_body()),fn()=>provider_rest('POST',$target,[],'rest-refresh'),$calls); equal($calls,1); equal($response->get_status(),200); equal($response->get_data()['data']['state'],'completed');
+ $again=provider_http_mock(new WP_Error('fixture','Do not resend'),fn()=>provider_rest('POST',$target,[],'rest-refresh'),$calls); equal($calls,0); equal($again->get_data()['data'],$response->get_data()['data']);
+ $rows=provider_rest('GET','workspaces/'.$w.'/provider-mappings')->get_data()['data']['items']; decimal($rows[0]['price'],'320'); equal($rows[0]['session_date'],'2026-01-02');
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']); wp_set_current_user($viewer);
+ $denied=provider_http_mock(provider_http_response(provider_body()),fn()=>provider_rest('POST',$target,[],'rest-denied'),$calls); equal($calls,0); equal($denied->get_status(),403);
+ wp_set_current_user($owner); [$other,$w2,$asset2,$mapping2]=provider_context(); equal(provider_rest('POST','workspaces/'.$w2.'/provider-mappings/'.$mapping.'/refresh',[],'foreign-refresh')->get_status(),404);
+});

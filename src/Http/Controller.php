@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace GainerInteractive\IGTradingJournal\Http;
 
 use GainerInteractive\IGTradingJournal\Application\Tracker;
+use GainerInteractive\IGTradingJournal\Application\MarketData;
+use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Infrastructure\Installer;
 
@@ -64,6 +66,10 @@ final class Controller {
 		self::route( '/workspaces', 'GET', 'workspaces' );
 		self::route( '/workspaces', 'POST', 'create_workspace' );
 		$base = '/workspaces/(?P<workspace>[1-9][0-9]*)';
+		self::route( $base . '/market-data', 'GET', 'market_status' );
+		self::route( $base . '/provider-mappings', 'GET', 'provider_mappings' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/provider-mappings', 'POST', 'save_provider_mapping' );
+		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/refresh', 'POST', 'refresh_provider_quote' );
 		self::route( $base . '/observations', 'GET', 'observations' );
 		self::route( $base . '/observations', 'POST', 'record_observation' );
 		self::route( $base . '/reports', 'POST', 'generate_report' );
@@ -140,7 +146,7 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'after' => array(
 						'type'    => 'integer',
 						'minimum' => 0,
@@ -186,7 +192,46 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'record_observation', 'generate_report', 'save_view' ), true ) ) {
+			if ( in_array( $operation, array( 'market_status', 'provider_mappings', 'save_provider_mapping', 'refresh_provider_quote' ), true ) ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
+				if ( 'market_status' === $operation ) {
+					$result = array(
+						'providers' => array(
+							array(
+								'provider'        => 'fmp',
+								'enabled'         => QuoteRefresh::enabled( 'fmp' ),
+								'daily_limit'     => 250,
+								'scheduled_limit' => 245,
+							),
+							array(
+								'provider'        => 'alpha_vantage',
+								'enabled'         => QuoteRefresh::enabled( 'alpha_vantage' ),
+								'daily_limit'     => 25,
+								'scheduled_limit' => 20,
+							),
+						),
+					);
+				} elseif ( 'provider_mappings' === $operation ) {
+					$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];
+					$items  = $market->mappings( $workspace, (int) $request['after'], $limit );
+					$result = array(
+						'items'       => $items,
+						'next_cursor' => count( $items ) === $limit ? (string) end( $items )['id'] : null,
+					);
+				} elseif ( 'save_provider_mapping' === $operation ) {
+					$result = $market->save_mapping( $workspace, (int) $request->get_url_params()['asset_id'], $data );
+				} else {
+					Tracker::fields( $data, array(), array() );
+					$key = (string) $request->get_header( 'idempotency-key' );
+					if ( '' === $key || strlen( $key ) > 80 ) {
+						throw new \InvalidArgumentException( 'A bounded idempotency key is required for a refresh.' );
+					}
+					$mapping = (int) $request->get_url_params()['mapping'];
+					$market->current_mapping( $workspace, $mapping );
+					$result = QuoteRefresh::run( $workspace, get_current_user_id(), $mapping, $key, false );
+				}
+			} elseif ( in_array( $operation, array( 'record_observation', 'generate_report', 'save_view' ), true ) ) {
 				$result = $service->$operation( $workspace, $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'observations' === $operation ) {
 				$limit  = null === $request['limit'] ? 100 : (int) $request['limit'];

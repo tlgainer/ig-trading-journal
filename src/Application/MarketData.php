@@ -52,6 +52,25 @@ final class MarketData {
 	}
 
 	/**
+	 * Read current mapping revisions, including disabled mappings, for an owner.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $after Cursor identifier.
+	 * @param int $limit Maximum records.
+	 * @return array
+	 * @throws \InvalidArgumentException On invalid pagination.
+	 */
+	public function mappings( int $workspace, int $after = 0, int $limit = 100 ): array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid mapping pagination.' );
+		}
+		$table  = $this->db->table( 'provider_mappings' );
+		$quotes = $this->db->table( 'provider_quotes' );
+		return $this->db->rows( 'SELECT m.*, q.price, q.session_date, q.retrieved_at FROM ' . $table . ' m LEFT JOIN ' . $quotes . ' q ON q.workspace_id = m.workspace_id AND q.mapping_id = m.id AND q.id = (SELECT latest.id FROM ' . $quotes . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.mapping_id = m.id ORDER BY latest.session_date DESC, latest.id DESC LIMIT 1) WHERE m.workspace_id = %d AND m.id > %d AND NOT EXISTS (SELECT newer.id FROM ' . $table . ' newer WHERE newer.workspace_id = m.workspace_id AND newer.asset_id = m.asset_id AND newer.provider = m.provider AND newer.id > m.id) ORDER BY m.id LIMIT %d', array( $workspace, $after, $limit ) );
+	}
+
+	/**
 	 * Serialize a workspace operation and recheck explicit owner membership.
 	 *
 	 * @param int $workspace Workspace identifier.
