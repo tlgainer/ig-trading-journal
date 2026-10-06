@@ -88,6 +88,8 @@ Required unit, PHP syntax/coding standards, REST URL, JavaScript and disposable 
 
 ## Progress
 
+October 6 continuation: added `FmpEodQuote`, a parsing-only boundary for the documented stable historical-price-eod/light endpoint (https://site.financialmodelingprep.com/developer/docs/stable/historical-price-eod-light). It preserves numeric precision, validates every symbol/date/positive price, selects the latest two distinct sessions regardless of input order, and rejects conflicting duplicate sessions, incomplete history, error objects and oversized collections. Currency/exchange still require verified mapping; corporate-action compatibility remains a separate gate before displaying daily movement. This parser does not establish free-tier entitlement or send requests. FMP transport, recurring settings, holdings integration and AI reviews remain pending. No schema change or production SQL is needed for this parsing-only addition. Validation: 53 unit checks, coding standards and six REST URL checks passed. Database/HTTP/browser checks from the previous milestone were not rerun for this isolated parser; this is not a production release.
+
 | Work | Status | Next step |
 | --- | --- | --- |
 | Scope and free-tier design | Documented | Owner confirmed both free tiers and AI summaries of fundamentals. Existing valuation/research separation reviewed. |

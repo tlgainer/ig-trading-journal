@@ -3,9 +3,24 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../src/Infrastructure/ProviderJson.php';
 require_once __DIR__ . '/../src/Infrastructure/AlphaVantageQuote.php';
+require_once __DIR__ . '/../src/Infrastructure/FmpEodQuote.php';
+use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\ProviderJson;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;
 use GainerInteractive\IGTradingJournal\Domain\Valuation;
+
+test('FMP daily history preserves numeric precision and selects distinct sessions', function () {
+ $body = '[{"symbol":"FIXTURE","date":"2026-10-01","price":315},{"symbol":"FIXTURE","date":"2026-10-02","price":320.123456789123456789},{"symbol":"FIXTURE","date":"2026-10-02","price":"320.123456789123456789"}]';
+ $quote = FmpEodQuote::parse($body, 'FIXTURE'); equal($quote['price'],'320.123456789123456789'); equal($quote['previous_close'],'315'); equal($quote['session_date'],'2026-10-02'); equal($quote['currency'],null); equal($quote['exchange'],null);
+ rejects(fn() => FmpEodQuote::parse($body,'OTHER'));
+});
+
+test('FMP rejects errors, absent prior sessions and conflicting daily evidence', function () {
+ foreach (['{"Error Message":"sensitive-request-value"}', '[]', '[{"symbol":"FIXTURE","date":"2026-10-02","price":320}]'] as $body) rejects(fn() => FmpEodQuote::parse($body,'FIXTURE'));
+ $row = ['symbol'=>'FIXTURE','date'=>'2026-10-02','price'=>'320'];
+ foreach ([['date'=>'2026-02-30'],['symbol'=>'OTHER'],['price'=>'0'],['price'=>'None'],['price'=>'321']] as $change) rejects(fn() => FmpEodQuote::parse(json_encode([$row,array_replace($row,$change)],JSON_THROW_ON_ERROR),'FIXTURE'));
+ rejects(fn() => FmpEodQuote::parse(json_encode(array_fill(0,501,$row),JSON_THROW_ON_ERROR),'FIXTURE'));
+});
 
 test('Provider JSON preserves exact tokens, exponents, strings and nested data', function () {
  $data = ProviderJson::decode('{"price":0.123456789123456789,"large":123456789123456789123,"small":1.234e-8,"signed":-2E+3,"text":"price 1e3 \\"quoted\\"","rows":[0,true,null]}');
