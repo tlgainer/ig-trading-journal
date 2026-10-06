@@ -28,6 +28,7 @@ final class Plugin {
 		add_action( 'tgit_media_cleanup', array( \GainerInteractive\IGTradingJournal\Infrastructure\MediaJobs::class, 'cleanup' ), 10, 2 );
 		add_action( 'admin_notices', array( self::class, 'notice' ) );
 		add_action( 'tgit_quote_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::class, 'job' ), 10, 4 );
+		add_action( 'tgit_fundamental_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh::class, 'job' ), 10, 5 );
 		add_action( 'init', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'boot' ) );
 		add_action( 'tgit_quote_schedule_scan', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'scan' ) );
 		add_action( 'tgit_scheduled_quote_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::class, 'job' ), 10, 3 );

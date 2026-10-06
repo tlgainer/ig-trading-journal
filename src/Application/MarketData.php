@@ -248,6 +248,22 @@ final class MarketData {
 	}
 
 	/**
+	 * Retrieve completed fundamental evidence without repeating its external request.
+	 *
+	 * @param int $workspace Workspace identifier.
+	 * @param int $request Request identifier.
+	 * @return array|null
+	 */
+	public function completed_fundamentals( int $workspace, int $request ): ?array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		$row = $this->request( $workspace, $request );
+		if ( 'completed' !== $row['state'] || 'quote' === $row['dataset'] ) {
+			return null;
+		}
+		return $this->db->row( 'SELECT * FROM ' . $this->db->table( 'fundamental_snapshots' ) . ' WHERE workspace_id = %d AND request_id = %d', array( $workspace, $request ) );
+	}
+
+	/**
 	 * Commit one credential-wide reservation before any network request.
 	 * The fingerprint is a trusted server-side SHA-256 digest, never a client field.
 	 *
