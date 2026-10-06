@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Infrastructure/ProviderJson.php';
 require_once __DIR__ . '/../src/Infrastructure/AlphaVantageQuote.php';
 require_once __DIR__ . '/../src/Infrastructure/FmpEodQuote.php';
+require_once __DIR__ . '/fundamentals-unit.php';
 use GainerInteractive\IGTradingJournal\Infrastructure\FmpEodQuote;
 use GainerInteractive\IGTradingJournal\Infrastructure\ProviderJson;
 use GainerInteractive\IGTradingJournal\Infrastructure\AlphaVantageQuote;

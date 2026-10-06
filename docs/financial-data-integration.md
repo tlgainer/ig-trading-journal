@@ -1,6 +1,6 @@
 # Financial data integration and AI fundamental reviews
 
-Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 9; provider integration is unfinished and no new installable release is claimed.
+Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 10; provider integration is unfinished and no new installable release is claimed.
 
 ## Scope and priority
 
@@ -140,3 +140,8 @@ Provider valuations require the latest enabled matching mapping and a saved quot
 Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
 
 Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.
+## October 6 continuation: fundamental parsing
+
+Added an internal lossless Alpha Vantage overview/income/balance-sheet/cash-flow parser. It keeps annual, quarterly and trailing figures distinct, preserves signed decimals and reported currencies, distinguishes missing values from zero and excludes provider narrative. The [fundamental evidence contract](fundamental-evidence-contract.md) records bounds, validation and the next persistence/metric/request/UI steps. This does not yet deliver scheduled or on-demand fundamental reviews or AI summaries. Daily-change corporate-action compatibility remains open; no paid endpoint is enabled.
+
+Validation: 66 unit checks, coding standards, PHP/JavaScript syntax and six REST URL checks passed. This isolated parser changes no database or browser workflow, so the preceding milestone's 110 integration/HTTP/browser checks are prior evidence, not newly rerun checks. No new SQL or installation ZIP; source remains 0.27.0-dev/schema 10 and the released ZIP remains 0.26.0/schema 8.

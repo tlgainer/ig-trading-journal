@@ -35,3 +35,5 @@ Current fixtures cover domain accounting/roles, real WordPress/database isolatio
 No production database, server or deployed plugin was changed. Missing/stale quotes and FX are explicit; base report values are calculated only with declared coverage; cash/security corrections and historical cash/security posting are available through private APIs, with trade-linked fill corrections still gated.
 
 Linear leveraged crypto scenarios are available in 0.20.0. Stock long/short profit and short risk are available in 0.21.0. Bought call/put premium and expiry scenarios are available in 0.22.0. Remaining extensions include subaccount and currency identity design, then reviewed product-specific margin/derivative accounting. Sold options are deferred by owner request. These extensions do not enable margin/short/options ledger posting.
+
+Fundamental parsing foundation: exact overview and annual/quarterly statement normalization is implemented internally; snapshot persistence, comparable metrics, fundamental dispatch/scheduling and AI review controls remain pending. See [evidence contract](fundamental-evidence-contract.md).
