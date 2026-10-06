@@ -17,6 +17,34 @@ use GainerInteractive\IGTradingJournal\Domain\Valuation;
 trait ReportingOperations {
 
 	/**
+	 * Calculate totals from every authorized asset page, never just a loaded UI page.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param string $source Explicit stock quote source.
+	 * @return array
+	 * @throws \RuntimeException On excessive synchronous position history.
+	 */
+	public function stock_summary( int $workspace, string $source = 'manual' ): array {
+		$this->authorize( $workspace, 'tgit_view' );
+		$positions = array();
+		$after     = 0;
+		do {
+			$page      = $this->holdings( $workspace, $after, 100, $source );
+			$positions = array_merge( $positions, $page['items'] );
+			if ( count( $positions ) > 10000 ) {
+				throw new \RuntimeException( 'Stock summary exceeds the synchronous position limit.' );
+			}
+			$after = (int) $page['next_cursor'];
+		} while ( null !== $page['next_cursor'] );
+		return array(
+			'currency_groups' => \GainerInteractive\IGTradingJournal\Domain\StockTotals::calculate( $positions ),
+			'price_source'    => $source,
+			'scope'           => 'all_accounts_open_stocks',
+			'as_of'           => gmdate( 'c' ),
+		);
+	}
+
+	/**
 	 * Calculate equity change less external funding only with comparable coverage.
 	 *
 	 * @param array       $accounts Scoped accounts.
@@ -92,24 +120,46 @@ trait ReportingOperations {
 	}
 
 	/**
-	 * Enrich current native positions with independently dated manual quotes.
+	 * Enrich native positions with the explicitly selected stock quote source.
 	 *
-	 * @param int   $workspace Workspace identifier.
-	 * @param array $positions Current ledger positions.
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $positions Current ledger positions.
+	 * @param string $source Explicit stock price source.
 	 * @return array
 	 * @throws \RuntimeException When observation bounds are exceeded.
 	 */
-	private function value_holdings( int $workspace, array $positions ): array {
+	private function value_holdings( int $workspace, array $positions, string $source = 'manual' ): array {
 		$settings = $this->authorize( $workspace, 'tgit_view' );
 		$date     = ( new \DateTimeImmutable( 'now', new \DateTimeZone( $settings['timezone'] ) ) )->format( 'Y-m-d' );
 		$rows     = $this->db->rows( 'SELECT o.* FROM ' . $this->db->table( 'market_observations' ) . ' o LEFT JOIN ' . $this->db->table( 'market_observations' ) . ' s ON s.workspace_id = o.workspace_id AND s.supersedes_id = o.id WHERE o.workspace_id = %d AND s.id IS NULL ORDER BY o.id LIMIT 10001', array( $workspace ) );
 		if ( count( $rows ) > 10000 ) {
 			throw new \RuntimeException( 'Observation history exceeds the synchronous valuation limit.' );
 		}
+		$quotes = 'manual' === $source ? array() : $this->holding_quotes( $workspace, $positions, $source, $date );
 		foreach ( $positions as &$position ) {
-			$asset_id                      = $position['asset_id'];
-			$price                         = Valuation::select( array_filter( $rows, static fn( array $row ): bool => 'price' === $row['kind'] && (int) $row['asset_id'] === $asset_id ), $date );
-			$value                         = Valuation::position( $position['quantity'], $price['observation']['value'] ?? null, $position['remaining_basis'] );
+			$asset_id = $position['asset_id'];
+			$price    = Valuation::select( array_filter( $rows, static fn( array $row ): bool => 'price' === $row['kind'] && (int) $row['asset_id'] === $asset_id ), $date );
+			if ( 'manual' !== $source && 'stock' === $position['asset_class'] ) {
+				$quote   = $quotes[ $asset_id ] ?? null;
+				$expires = $quote ? ( new \DateTimeImmutable( $quote['session_date'] ) )->modify( '+3 days' )->format( 'Y-m-d' ) : null;
+				$price   = array(
+					'status'      => null === $quote ? 'missing' : ( $expires < $date ? 'stale' : 'complete' ),
+					'observation' => $quote ? array(
+						'id'             => $quote['id'],
+						'kind'           => 'provider_price',
+						'source'         => $source . ' end-of-day',
+						'effective_date' => $quote['session_date'],
+						'expires_on'     => $expires,
+						'value'          => $quote['price'],
+						'retrieved_at'   => $quote['retrieved_at'],
+						'mapping_id'     => $quote['mapping_id'],
+					) : null,
+				);
+			}
+			$value = Valuation::position( $position['quantity'], $price['observation']['value'] ?? null, $position['remaining_basis'] );
+			if ( 'manual' !== $source && 'stock' === $position['asset_class'] && 'complete' !== $price['status'] ) {
+				$value = Valuation::position( $position['quantity'], null, $position['remaining_basis'] );
+			}
 			$position['market_value']      = $value['market_value'];
 			$position['unrealized_gain']   = $value['unrealized_gain'];
 			$position['price_status']      = $price['status'];
@@ -118,6 +168,29 @@ trait ReportingOperations {
 		}
 		unset( $position );
 		return $positions;
+	}
+
+	/**
+	 * Select dated quotes from current enabled mappings with matching asset identity.
+	 *
+	 * @param int    $workspace Workspace identifier.
+	 * @param array  $positions Current page of positions.
+	 * @param string $source Selected provider.
+	 * @param string $date Valuation date.
+	 * @return array
+	 */
+	private function holding_quotes( int $workspace, array $positions, string $source, string $date ): array {
+		$ids = array_values( array_unique( array_column( $positions, 'asset_id' ) ) );
+		if ( ! $ids ) {
+			return array();
+		}
+		$q     = $this->db->table( 'provider_quotes' );
+		$m     = $this->db->table( 'provider_mappings' );
+		$a     = $this->db->table( 'assets' );
+		$slots = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$sql   = 'SELECT q.* FROM ' . $q . ' q JOIN ' . $m . ' m ON m.workspace_id = q.workspace_id AND m.id = q.mapping_id JOIN ' . $a . ' a ON a.workspace_id = q.workspace_id AND a.id = q.asset_id WHERE q.workspace_id = %d AND m.provider = %s AND m.enabled = 1 AND a.asset_class = %s AND m.asset_id = q.asset_id AND m.provider = q.provider AND m.provider_symbol = q.provider_symbol AND m.currency = q.currency AND m.exchange = q.exchange AND a.quote_currency = q.currency AND a.exchange = q.exchange AND q.asset_id IN (' . $slots . ') AND NOT EXISTS (SELECT newer.id FROM ' . $m . ' newer WHERE newer.workspace_id = m.workspace_id AND newer.asset_id = m.asset_id AND newer.provider = m.provider AND newer.id > m.id) AND q.id = (SELECT latest.id FROM ' . $q . ' latest WHERE latest.workspace_id = q.workspace_id AND latest.mapping_id = q.mapping_id AND latest.session_date <= %s ORDER BY latest.session_date DESC, latest.id DESC LIMIT 1)';
+		$rows  = $this->db->rows( $sql, array_merge( array( $workspace, $source, 'stock' ), $ids, array( $date ) ) );
+		return array_column( $rows, null, 'asset_id' );
 	}
 	/**
 	 * Filter an event or position using the same scoped identities and journal context.

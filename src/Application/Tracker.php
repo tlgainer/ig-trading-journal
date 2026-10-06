@@ -2046,16 +2046,17 @@ final class Tracker {
 	/**
 	 * Report native quantities and basis with explicit missing valuation.
 	 *
-	 * @param int $workspace workspace input.
-	 * @param int $after after input.
-	 * @param int $limit limit input.
+	 * @param int    $workspace workspace input.
+	 * @param int    $after after input.
+	 * @param int    $limit limit input.
+	 * @param string $price_source Explicit stock price source.
 	 * @return array
 	 * @throws \InvalidArgumentException When the operation contract cannot be satisfied.
 	 * @throws \RuntimeException When the stored projection is inconsistent.
 	 */
-	public function holdings( int $workspace, int $after = 0, int $limit = 100 ): array {
+	public function holdings( int $workspace, int $after = 0, int $limit = 100, string $price_source = 'manual' ): array {
 		$this->authorize( $workspace, 'tgit_view' );
-		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+		if ( $after < 0 || $limit < 1 || $limit > 100 || ! in_array( $price_source, array( 'manual', 'fmp', 'alpha_vantage' ), true ) ) {
 			throw new \InvalidArgumentException( 'Invalid list parameters.' );
 		}
 		// Project each account once so corrected rows never contribute twice.
@@ -2096,6 +2097,7 @@ final class Tracker {
 					'basis_status'    => $unknown ? 'unresolved' : 'complete',
 					'asset_id'        => $asset_id,
 					'symbol'          => $asset['symbol'],
+					'asset_class'     => $asset['asset_class'],
 					'currency'        => $asset['quote_currency'],
 					'realized_gain'   => Decimal::money( $gain ),
 					'market_value'    => null,
@@ -2104,7 +2106,7 @@ final class Tracker {
 				);
 			}
 		}
-		$positions = $this->value_holdings( $workspace, $positions );
+		$positions = $this->value_holdings( $workspace, $positions, $price_source );
 		$coverage  = in_array( 'missing', array_column( $positions, 'price_status' ), true ) ? 'missing' : ( in_array( 'stale', array_column( $positions, 'price_status' ), true ) ? 'stale' : 'complete' );
 		return array(
 			'items'               => $positions,
@@ -2112,6 +2114,7 @@ final class Tracker {
 			'calculation_version' => Ledger::VERSION,
 			'valuation_coverage'  => $coverage,
 			'base_totals'         => null,
+			'price_source'        => $price_source,
 			'as_of'               => gmdate( 'c' ),
 		);
 	}

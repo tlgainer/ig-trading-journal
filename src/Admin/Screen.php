@@ -164,7 +164,12 @@ final class Screen {
 		<button type="submit" class="button button-primary"><?php esc_html_e( 'Save transaction', 'ig-trading-journal' ); ?></button>
 	</form>
 	</section>
-	<section><h2><?php esc_html_e( 'Holdings', 'ig-trading-journal' ); ?></h2><div id="tgit-holdings" class="tgit-cards"></div><button id="tgit-more-holdings" class="button" hidden><?php esc_html_e( 'Load more holdings', 'ig-trading-journal' ); ?></button></section>
+	<section><h2><?php esc_html_e( 'Holdings', 'ig-trading-journal' ); ?></h2>
+	<label><?php esc_html_e( 'Stock price source', 'ig-trading-journal' ); ?><select id="tgit-price-source"><option value="manual"><?php esc_html_e( 'Manual prices', 'ig-trading-journal' ); ?></option><option value="fmp">FMP</option><option value="alpha_vantage">Alpha Vantage</option></select></label>
+	<p><?php esc_html_e( 'Provider prices require current enabled mappings in Settings. Quotes older than three calendar days are stale and are excluded from provider valuations. No manual fallback is applied to stocks. Other assets retain manual pricing.', 'ig-trading-journal' ); ?></p>
+	<h3><?php esc_html_e( 'Open stock totals — all accounts', 'ig-trading-journal' ); ?></h3><p><?php esc_html_e( 'Totals are grouped by native currency and exclude cash. Table filters do not change these totals. Daily movement awaits corporate-action compatibility checks.', 'ig-trading-journal' ); ?></p>
+	<div id="tgit-stock-summary" class="tgit-cards"></div>
+	<div id="tgit-holdings" class="tgit-cards"></div><button id="tgit-more-holdings" class="button" hidden><?php esc_html_e( 'Load more holdings', 'ig-trading-journal' ); ?></button></section>
 	<section><h2><?php esc_html_e( 'Transactions', 'ig-trading-journal' ); ?></h2><div id="tgit-transactions" class="tgit-cards"></div><button id="tgit-more-transactions" class="button" hidden><?php esc_html_e( 'Load more transactions', 'ig-trading-journal' ); ?></button></section>
 	<section id="tgit-calculators-section">
 	<h2><?php esc_html_e( 'Scenario calculators', 'ig-trading-journal' ); ?></h2>
@@ -311,7 +316,7 @@ final class Screen {
 		<?php JournalScreen::render(); ?>
 	<section id="tgit-market-data-section" hidden>
 	<h2><?php esc_html_e( 'Stock market data', 'ig-trading-journal' ); ?></h2>
-	<p><?php esc_html_e( 'Confirm the provider symbol, exchange and currency before requesting a price. These are end-of-day observations. Holdings still use your manual prices until automatic valuation selection is available.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Confirm the provider symbol, exchange and currency before requesting a price. These are end-of-day observations. Choose the stock price source in Overview to use saved provider prices.', 'ig-trading-journal' ); ?></p>
 	<p id="tgit-market-config"></p>
 	<p id="tgit-market-status" role="status" aria-live="polite"></p>
 	<form id="tgit-market-form" class="tgit-form tgit-grid">

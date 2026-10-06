@@ -47,9 +47,10 @@
      try {
       const result = await request(`workspaces/${selected}/provider-mappings/${row.id}/refresh`, {}, key);
       if (expected !== generation) return;
-      const messages = { completed: 'End-of-day price saved. Holdings currently continue to use manual prices.', uncertain: 'Delivery is uncertain. Checking this outcome will not resend the request.', failed: 'Provider request failed. This attempt still counts toward the quota.', invalid_response: 'Provider returned incomplete or unavailable price data. This attempt still counts toward the quota.', disabled: 'Enable this provider in the server configuration before refreshing.', blocked: 'Refresh blocked. Reload the current mapping and check permissions.', unavailable: 'Refresh unavailable. Check the outcome before starting another request.' };
+      const messages = { completed: 'End-of-day price saved. Holdings use the selected stock price source.', uncertain: 'Delivery is uncertain. Checking this outcome will not resend the request.', failed: 'Provider request failed. This attempt still counts toward the quota.', invalid_response: 'Provider returned incomplete or unavailable price data. This attempt still counts toward the quota.', disabled: 'Enable this provider in the server configuration before refreshing.', blocked: 'Refresh blocked. Reload the current mapping and check permissions.', unavailable: 'Refresh unavailable. Check the outcome before starting another request.' };
       if (['completed', 'failed', 'invalid_response', 'disabled', 'blocked'].includes(result.state)) { refreshKeys.delete(slot); persistKeys(); }
       await load(false); status(messages[result.state] || 'Refresh did not complete.', result.state !== 'completed');
+      if (result.state === 'completed') window.dispatchEvent(new CustomEvent('tgit-prices-updated', { detail: { workspace: selected } }));
      } catch (error) { if (expected === generation) status(error.message, true); }
      finally { window.tgitWriteBusy = false; if (expected === generation) render(); }
     });

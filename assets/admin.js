@@ -5,6 +5,7 @@
  const $ = (id) => document.getElementById(`tgit-${id}`);
  const status = (message, error = false) => { $('status').textContent = message; $('status').dataset.error = String(error); $('status').setAttribute('role', error ? 'alert' : 'status'); };
  let workspaces = [], accounts = [], assets = [], workspace = '', generation = 0;
+ let valuationGeneration = 0;
  let transactionBaseline = null, transactionRows = [];
  let pending = null, editingDraft = null, transactionViewGeneration = 0;
  const promotionKeys = new Map();
@@ -39,7 +40,7 @@
  }
  async function all(suffix, expected) {
   const rows = []; let cursor = 0;
-  do { const result = await request(path(`${suffix}?after=${cursor}&limit=100`)); if (expected !== generation) return []; rows.push(...result.items); cursor = result.next_cursor; } while (cursor !== null);
+  do { const result = await request(path(`${suffix}${suffix.includes('?') ? '&' : '?'}after=${cursor}&limit=100`)); if (expected !== generation) return []; rows.push(...result.items); cursor = result.next_cursor; } while (cursor !== null);
   return rows;
  }
  function renderTransactions(items) {
@@ -98,9 +99,29 @@
     { key: 'realized', label: 'Realized gain', numeric: true, render: (row) => decimal(row.realized_gain, row.currency) },
     { key: 'market', label: 'Market value', numeric: true, render: (row) => decimal(row.market_value, row.currency) },
     { key: 'unrealized', label: 'Unrealized gain', numeric: true, render: (row) => decimal(row.unrealized_gain, row.currency) },
-    { key: 'price', label: 'Price coverage', render: (row) => row.price_status === 'missing' ? 'Missing price — enter a manual price in Reports' : `${row.price_status}: ${row.price_observation?.source || 'Manual observation'} / ${row.price_observation?.effective_date || 'Date unavailable'}` }
+    { key: 'price', label: 'Price coverage', render: (row) => row.price_status === 'missing' ? `Missing price — ${$('price-source').value !== 'manual' && row.asset_class === 'stock' ? 'check provider mapping and saved quotes in Settings' : 'enter a manual price in Reports'}` : `${row.price_status}: ${row.price_observation?.source || 'Manual observation'} / ${row.price_observation?.effective_date || 'Date unavailable'}` }
    ] }, items.map((row) => ({ ...row, id: `${row.account_id}:${row.asset_id}` })));
  }
+ async function loadValuations(expected = generation) {
+  const valuation = ++valuationGeneration, selected = workspace, source = $('price-source').value;
+  const [holdings, summary] = await Promise.all([all(`holdings?price_source=${source}`, expected), request(`workspaces/${selected}/stock-summary?price_source=${source}`)]);
+  if (expected !== generation || valuation !== valuationGeneration || selected !== workspace) return;
+  renderHoldings(holdings);
+  const amount = (value, currency) => value === null ? 'Unavailable' : `${tgitDisplayDecimal(value)} ${currency}`;
+  cards($('stock-summary'), summary.currency_groups, (row) => [
+   `${row.currency} · ${row.status === 'complete' ? 'Complete' : 'Partial coverage'}`,
+   `Market value: ${amount(row.market_value, row.currency)}${row.market_value === null ? ` · covered subtotal: ${amount(row.covered_market_value, row.currency)}` : ''}`,
+   `Unrealized gain/loss: ${amount(row.unrealized_gain, row.currency)}${row.unrealized_gain === null ? ` · covered subtotal: ${amount(row.covered_unrealized_gain, row.currency)}` : ''}`,
+   `Price coverage: ${row.priced_positions} / ${row.positions} positions. Gain coverage: ${row.gain_positions} / ${row.positions} positions.`,
+   `Price sessions: ${row.session_dates.join(', ') || 'Unavailable'}. Mixed sessions produce partial totals.`
+  ]);
+  if (!summary.currency_groups.length) $('stock-summary').textContent = 'No open stock positions.';
+ }
+ $('price-source').addEventListener('change', () => {
+  try { sessionStorage.setItem(`tgit-stock-source:${config.actorId}:${workspace}`, $('price-source').value); } catch (_) { /* Keep the current page selection. */ }
+  loadValuations().catch((error) => status(error.message, true));
+ });
+ window.addEventListener('tgit-prices-updated', (event) => { if (String(event.detail.workspace) === workspace) loadValuations().catch((error) => status(error.message, true)); });
  function cancelEdit() {
   transactionViewGeneration++; transactionDetail.hidden = true; transactionDetail.replaceChildren(); transactionError.textContent = ''; reloadTransaction.hidden = true;
   transactionBaseline = null; $('entry').hidden = true; $('transactions').closest('section').hidden = false;
@@ -189,6 +210,8 @@
  window.addEventListener('popstate', () => { if (!dirtyTransaction()) return; if (leaveTransaction()) cancelEdit(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'transactions'); history.pushState(null, '', url); window.tgitSelectSection('transactions'); } });
  async function refresh() {
   cancelEdit();
+  let priceSource = 'manual'; try { const saved = sessionStorage.getItem(`tgit-stock-source:${config.actorId}:${workspace}`); if (['manual', 'fmp', 'alpha_vantage'].includes(saved)) priceSource = saved; } catch (_) { /* Manual is the safe default. */ }
+  $('price-source').value = priceSource;
   const expected = ++generation; status(config.i18n.loading); pending = null;
   const member = workspaces.find((row) => String(row.id) === workspace);
   $('management').hidden = !['owner', 'manager'].includes(member.role);
@@ -198,7 +221,7 @@
   const loaded = await Promise.all([all('accounts', expected), all('assets', expected)]);
   if (expected !== generation) return;
   [accounts, assets] = loaded;
-  const [transactions, holdings] = await Promise.all([all('transactions', expected), all('holdings', expected)]);
+  const [transactions] = await Promise.all([all('transactions', expected), loadValuations(expected)]);
   if (expected !== generation) return;
   tgitCollection($('accounts'), { actor: config.actorId, workspace, key: 'accounts', title: 'Cash accounts', search: (row) => `${row.name} ${row.broker} ${row.native_currency}`, columns: [
    { key: 'name', label: 'Account', identity: true, required: true, sort: (a, b) => a.name.localeCompare(b.name), render: (row) => row.name },
@@ -212,7 +235,6 @@
   const posted = form.elements.state.querySelector('[value="posted"]'); posted.disabled = member.role === 'contributor';
   if (member.role === 'contributor') form.elements.state.value = 'draft';
   renderTransactions(transactions);
-  renderHoldings(holdings);
   $('more-transactions').hidden = true; $('more-holdings').hidden = true;
   if (member.role === 'owner') {
    const members = await request(path('members')); if (expected !== generation) return;

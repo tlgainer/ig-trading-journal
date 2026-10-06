@@ -72,3 +72,24 @@ test('Weekday quote slots preserve New York DST and skip weekends', function () 
 test('Weekday schedule disables explicitly and rejects unrecognized frequency', function () {
  equal(QuoteSchedule::next(new DateTimeImmutable('2026-10-06T00:00:00Z'),'off'),null); rejects(fn()=>QuoteSchedule::next(new DateTimeImmutable('2026-10-06T00:00:00Z'),'hourly'));
 });
+
+require_once __DIR__.'/../src/Domain/StockTotals.php';
+use GainerInteractive\IGTradingJournal\Domain\StockTotals;
+
+test('Stock totals separate currencies and retain exact coverage subtotals', function () {
+ $row=['asset_class'=>'stock','quantity'=>'1','currency'=>'USD','price_status'=>'complete','market_value'=>'0.123456789123456789','unrealized_gain'=>'-0.1'];
+ $rows=StockTotals::calculate([$row,array_replace($row,['market_value'=>null,'unrealized_gain'=>null,'price_status'=>'missing']),array_replace($row,['currency'=>'EUR','market_value'=>'20','unrealized_gain'=>'5']),array_replace($row,['asset_class'=>'crypto']),array_replace($row,['quantity'=>'0'])]);
+ equal(count($rows),2); equal($rows[0]['currency'],'EUR'); decimal($rows[0]['market_value'],'20'); equal($rows[1]['market_value'],null); equal($rows[1]['unrealized_gain'],null); decimal($rows[1]['covered_market_value'],'0.123456789123456789'); decimal($rows[1]['covered_unrealized_gain'],'-0.1'); equal($rows[1]['priced_positions'],1); equal($rows[1]['positions'],2);
+});
+
+test('Stock totals exclude stale values and preserve unknown basis and documented zero', function () {
+ $row=['asset_class'=>'stock','quantity'=>'1','currency'=>'USD','price_status'=>'stale','market_value'=>'100','unrealized_gain'=>'50'];
+ $group=StockTotals::calculate([$row])[0]; equal($group['covered_market_value'],null); equal($group['covered_unrealized_gain'],null);
+ $group=StockTotals::calculate([array_replace($row,['price_status'=>'complete','unrealized_gain'=>null])])[0]; decimal($group['market_value'],'100'); equal($group['unrealized_gain'],null);
+ $group=StockTotals::calculate([array_replace($row,['price_status'=>'complete','market_value'=>'0','unrealized_gain'=>'-50'])])[0]; decimal($group['market_value'],'0'); decimal($group['unrealized_gain'],'-50'); equal($group['status'],'complete');
+});
+
+test('Mixed price sessions cannot present a complete combined stock total', function () {
+ $row=['asset_class'=>'stock','quantity'=>'1','currency'=>'USD','price_status'=>'complete','market_value'=>'100','unrealized_gain'=>'20','price_observation'=>['effective_date'=>'2026-10-05']];
+ $group=StockTotals::calculate([$row,array_replace($row,['price_observation'=>['effective_date'=>'2026-10-06']])])[0]; equal($group['market_value'],null); equal($group['status'],'partial'); decimal($group['covered_market_value'],'200'); equal($group['session_dates'],['2026-10-05','2026-10-06']);
+});

@@ -4,7 +4,7 @@ A private investment tracker and trading journal for WordPress, implementing the
 
 See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
 
-Development source is now **0.27.0-dev/schema 10** for the [financial data integration](docs/financial-data-integration.md). The latest released ZIP remains **0.26.0/schema 8**. Development adds provider evidence/quotas, disabled-by-default FMP and Alpha Vantage workers, owner mapping controls and explicit weekday refresh enrollment. Holdings integration and AI reviews remain pending. Future packaging must include all ten SQL files through `010-provider-schedules.sql` and follow [operations](docs/operations.md). The installation instructions below describe the released package.
+Development source is now **0.27.0-dev/schema 10** for the [financial data integration](docs/financial-data-integration.md). The latest released ZIP remains **0.26.0/schema 8**. Development adds provider evidence/quotas, disabled-by-default FMP and Alpha Vantage workers, owner mapping controls and explicit weekday refresh enrollment. Explicit manual/provider stock valuations and all-account stock totals are implemented. Daily-change compatibility and fundamental/AI reviews remain pending. Future packaging must include all ten SQL files through `010-provider-schedules.sql` and follow [operations](docs/operations.md). The installation instructions below describe the released package.
 
 ## Installation
 

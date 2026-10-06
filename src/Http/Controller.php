@@ -96,6 +96,7 @@ final class Controller {
 		self::route( $base . '/historical-cash', 'POST', 'post_historical_cash' );
 		self::route( $base . '/historical-transactions', 'POST', 'post_historical_security' );
 		self::route( $base . '/holdings', 'GET', 'holdings' );
+		self::route( $base . '/stock-summary', 'GET', 'stock_summary' );
 		self::route( $base . '/calculators/(?P<calculator>crypto|risk|leveraged|stock|short-risk|option)', 'POST', 'scenario' );
 		self::route( $base . '/watchlists', 'GET', 'watchlists' );
 		self::route( $base . '/watchlists', 'POST', 'create_watchlist' );
@@ -148,19 +149,24 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
-					'after' => array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
+					'price_source' => array(
+						'type'    => 'string',
+						'enum'    => array( 'manual', 'fmp', 'alpha_vantage' ),
+						'default' => 'manual',
+					),
+					'after'        => array(
 						'type'    => 'integer',
 						'minimum' => 0,
 						'default' => 0,
 					),
-					'limit' => array(
+					'limit'        => array(
 						'type'    => 'integer',
 						'minimum' => 1,
 						'maximum' => 100,
 						'default' => 100,
 					),
-					'asset' => array(
+					'asset'        => array(
 						'type'    => 'integer',
 						'minimum' => 1,
 					),
@@ -290,7 +296,9 @@ final class Controller {
 			} elseif ( in_array( $operation, array( 'edit_draft', 'promote_draft', 'correct_cash', 'resolve_opening_basis' ), true ) ) {
 				$result = $service->$operation( $workspace, (int) $request->get_url_params()['transaction'], $data, (string) $request->get_header( 'idempotency-key' ) );
 			} elseif ( 'holdings' === $operation ) {
-				$result = $service->holdings( $workspace, (int) $request['after'], (int) $request['limit'] );
+				$result = $service->holdings( $workspace, (int) $request['after'], (int) $request['limit'], (string) $request['price_source'] );
+			} elseif ( 'stock_summary' === $operation ) {
+				$result = $service->stock_summary( $workspace, (string) $request['price_source'] );
 			} elseif ( 'scenario' === $operation ) {
 				$result = $service->scenario( $workspace, (string) $request->get_url_params()['calculator'], $data );
 			} elseif ( in_array( $operation, array( 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) {

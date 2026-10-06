@@ -306,3 +306,48 @@ test('Schedule audit rollback preserves the prior enrollment and scan recovers m
  $at=GainerInteractive\IGTradingJournal\Domain\QuoteSchedule::next(new DateTimeImmutable('now',new DateTimeZone('UTC')),'once'); equal(wp_next_scheduled('tgit_scheduled_quote_refresh',[$w,$id,$at]),$at);
  $s->save_mapping($w,$asset,array_replace($input,['expected_mapping_id'=>$mapping,'enabled'=>false])); equal(RecurringQuotes::queue($w,$id),false); QuoteRefresh::deactivate();
 });
+
+function valuation_body(string $date, string $price='320'): string {
+ return wp_json_encode(['Global Quote'=>['01. symbol'=>'FIXTURE','05. price'=>$price,'08. previous close'=>'315','07. latest trading day'=>$date]]);
+}
+
+test('Provider holdings honor explicit source, staleness and immutable manual reports', function () use ($tracker,$db) {
+ [$s,$w,$asset,$mapping]=provider_context(); $date=(new DateTimeImmutable('now',new DateTimeZone('America/New_York')))->format('Y-m-d');
+ $account=$tracker->create_object($w,'accounts',['name'=>'Synthetic holdings','native_currency'=>'USD']);
+ $tracker->opening_balance($w,['account_id'=>(int)$account['id'],'asset_id'=>$asset,'kind'=>'lot','effective_date'=>'2026-01-02','acquired_on'=>'2026-01-01','quantity'=>'2','basis_status'=>'complete','amount'=>'500','source_note'=>'Synthetic statement'],'provider-opening');
+ $tracker->record_observation($w,['kind'=>'price','asset_id'=>$asset,'currency'=>'USD','value'=>'100','effective_date'=>'2026-01-02','expires_on'=>$date,'source'=>'Synthetic manual','reason'=>'Fixture'],'provider-manual');
+ $report=$tracker->generate_report($w,['type'=>'holdings','as_of'=>$date],'provider-report-before'); $cash=$tracker->list_objects($w,'accounts'); $transactions=$tracker->list_objects($w,'transactions');
+ $old=(new DateTimeImmutable($date))->modify('-4 days')->format('Y-m-d'); $request=$s->reserve($w,$mapping,provider_fingerprint('valuation'),'old-price'); $s->dispatch($w,$request['id']); $s->complete_alpha_quote($w,$request['id'],valuation_body($old));
+ $position=$tracker->holdings($w,0,100,'alpha_vantage')['items'][0]; equal($position['price_status'],'stale'); equal($position['market_value'],null); equal($position['unrealized_gain'],null);
+ $request=$s->reserve($w,$mapping,provider_fingerprint('valuation'),'current-price'); $s->dispatch($w,$request['id']); $s->complete_alpha_quote($w,$request['id'],valuation_body($date));
+ $position=$tracker->holdings($w,0,100,'alpha_vantage')['items'][0]; decimal($position['market_value'],'640'); decimal($position['unrealized_gain'],'140'); equal($position['price_status'],'complete'); equal($position['price_observation']['effective_date'],$date);
+ decimal($tracker->holdings($w)['items'][0]['market_value'],'200'); equal($tracker->holdings($w,0,100,'fmp')['items'][0]['price_status'],'missing'); equal($tracker->holdings($w,0,100,'fmp')['items'][0]['market_value'],null);
+ $summary=$tracker->stock_summary($w,'alpha_vantage'); decimal($summary['currency_groups'][0]['market_value'],'640'); decimal($summary['currency_groups'][0]['unrealized_gain'],'140');
+ equal($tracker->report_run($w,(int)$report['id']),$report); equal($tracker->list_objects($w,'accounts'),$cash); equal($tracker->list_objects($w,'transactions'),$transactions);
+ file_put_contents(dirname(__DIR__).'/tmp/provider-valuation-fixtures.json',wp_json_encode(['workspace'=>$w,'asset'=>$asset]));
+});
+
+test('Provider values reject superseded mappings and preserve unknown basis', function () use ($tracker) {
+ [$s,$w,$asset,$mapping,$input]=provider_context(); $date=(new DateTimeImmutable('now',new DateTimeZone('America/New_York')))->format('Y-m-d'); $account=$tracker->create_object($w,'accounts',['name'=>'Unresolved basis','native_currency'=>'USD']);
+ $tracker->opening_balance($w,['account_id'=>(int)$account['id'],'asset_id'=>$asset,'kind'=>'lot','effective_date'=>'2026-01-02','acquired_on'=>'2026-01-01','quantity'=>'1','basis_status'=>'unresolved','source_note'=>'Synthetic incomplete statement'],'unknown-provider-opening');
+ $request=$s->reserve($w,$mapping,provider_fingerprint('unknown-valuation'),'current'); $s->dispatch($w,$request['id']); $s->complete_alpha_quote($w,$request['id'],valuation_body($date));
+ $position=$tracker->holdings($w,0,100,'alpha_vantage')['items'][0]; decimal($position['market_value'],'320'); equal($position['unrealized_gain'],null);
+ equal($tracker->stock_summary($w,'alpha_vantage')['currency_groups'][0]['unrealized_gain'],null);
+ $s->save_mapping($w,$asset,array_replace($input,['expected_mapping_id'=>$mapping,'enabled'=>false])); equal($tracker->holdings($w,0,100,'alpha_vantage')['items'][0]['price_status'],'missing');
+});
+
+test('Stock valuation REST defaults manual, validates sources and enforces membership', function () use ($owner,$viewer) {
+ [$s,$w,$asset,$mapping]=provider_context(); wp_set_current_user($owner);
+ $base='workspaces/'.$w; equal(provider_rest('GET',$base.'/holdings')->get_data()['data']['price_source'],'manual');
+ equal(provider_rest('GET',$base.'/stock-summary?price_source=fmp')->get_status(),200); equal(provider_rest('GET',$base.'/stock-summary?price_source=unknown')->get_status(),400); equal(provider_rest('GET',$base.'/holdings?price_source=unknown')->get_status(),400);
+ wp_set_current_user($viewer); equal(provider_rest('GET',$base.'/stock-summary')->get_status(),403); equal(provider_rest('GET',$base.'/holdings?price_source=fmp')->get_status(),403); wp_set_current_user($owner);
+});
+
+test('Stock summary traverses all authorized asset pages rather than a single holdings page', function () use ($tracker) {
+ $w=(int)$tracker->create_workspace(['name'=>'Summary pagination fixture'])['id'];
+ for ($i=0;$i<100;$i++) $tracker->create_object($w,'assets',['symbol'=>'PAGE'.$i,'exchange'=>'FIXTURE','asset_class'=>'stock','quote_currency'=>'USD']);
+ $asset=$tracker->create_object($w,'assets',['symbol'=>'LAST','exchange'=>'FIXTURE','asset_class'=>'stock','quote_currency'=>'USD']); $account=$tracker->create_object($w,'accounts',['name'=>'Last-page holding','native_currency'=>'USD']);
+ $tracker->opening_balance($w,['account_id'=>(int)$account['id'],'asset_id'=>(int)$asset['id'],'kind'=>'lot','effective_date'=>'2026-01-02','acquired_on'=>'2026-01-01','quantity'=>'2','basis_status'=>'complete','amount'=>'100','source_note'=>'Synthetic statement'],'summary-page-opening');
+ $date=(new DateTimeImmutable('now',new DateTimeZone('America/New_York')))->format('Y-m-d'); $tracker->record_observation($w,['kind'=>'price','asset_id'=>(int)$asset['id'],'currency'=>'USD','value'=>'75','effective_date'=>$date,'expires_on'=>$date,'source'=>'Synthetic close','reason'=>'Pagination fixture'],'summary-page-price');
+ equal($tracker->holdings($w,0,100)['items'],[]); $group=$tracker->stock_summary($w)['currency_groups'][0]; decimal($group['market_value'],'150'); decimal($group['unrealized_gain'],'50'); equal($group['positions'],1);
+});

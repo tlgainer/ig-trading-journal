@@ -140,3 +140,13 @@ The separate additive migration is `docs/010-provider-schedules.sql`; future pac
 Schedule controls passed the dedicated desktop/mobile Settings fixture, including a durable enabled frequency with honest pending queue status when the server provider is disabled, followed by explicit disabling. Eleven real HTTP media checks passed. Remaining browser regressions are recorded once complete below.
 
 All eight admin sections passed again at 360/768/1440px, and the desktop/mobile journal workflow passed with multiple private images, exact journal fields, dirty guards, list context and deep links. Schedule controls passed in the same scoped shell. No production-host or real provider check is claimed.
+
+## October 6, 2026: cached provider holdings and stock totals
+
+Development source remains 0.27.0-dev/schema 10; the released ZIP remains 0.26.0/schema 8. Overview now offers an explicit manual/FMP/Alpha Vantage stock price source and exact open-stock market value and unrealized gain/loss totals across all authorized accounts and asset pages. Other asset classes keep manual pricing. Values are grouped by native currency, exclude cash and closed positions, and do not change with table filters.
+
+Provider valuations require the latest enabled matching mapping and a saved quote no more than three calendar days old. Missing/stale provider prices remain unavailable without fallback. Unknown basis leaves gain unavailable. Partial coverage shows covered subtotals; mixed price dates cannot claim a complete total. Source preference is scoped to the current user/workspace browser session. Existing posted facts, manual observations and saved reports remain unchanged; reads send no external requests.
+
+Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
+
+Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.

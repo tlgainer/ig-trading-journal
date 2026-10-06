@@ -56,3 +56,13 @@ Schema 10 code refuses incompatible markers. Earlier code expects schema 1 throu
 Create two workspaces; confirm that a viewer/member cannot access foreign data and loses future access after revocation. Deposit 2000, buy 10 at 100 with fee 5, sell 4 at 120 with fee 2: expect cash 1473, units 6, basis 603 and gain 76. Retry with the same key; no duplicate should appear.
 
 Create a strategy and trade journal with optional fields and fills. Edit the strategy and verify the trade retains its captured version. Save a journal with zero images, then three valid images plus one rejected file. Ready images should work and failed images should retry independently. Caption/order/compare, delete and restore; originals and thumbnails must deny anonymous, revoked and foreign-workspace requests. Verify the directory has no public URL. Complete the remaining release gates before production.
+
+## October 6, 2026: cached provider holdings and stock totals
+
+Development source remains 0.27.0-dev/schema 10; the released ZIP remains 0.26.0/schema 8. Overview now offers an explicit manual/FMP/Alpha Vantage stock price source and exact open-stock market value and unrealized gain/loss totals across all authorized accounts and asset pages. Other asset classes keep manual pricing. Values are grouped by native currency, exclude cash and closed positions, and do not change with table filters.
+
+Provider valuations require the latest enabled matching mapping and a saved quote no more than three calendar days old. Missing/stale provider prices remain unavailable without fallback. Unknown basis leaves gain unavailable. Partial coverage shows covered subtotals; mixed price dates cannot claim a complete total. Source preference is scoped to the current user/workspace browser session. Existing posted facts, manual observations and saved reports remain unchanged; reads send no external requests.
+
+Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
+
+Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.

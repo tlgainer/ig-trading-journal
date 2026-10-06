@@ -53,3 +53,13 @@ Build 0.26.0 adopts the owner-provided `.tgit-pages` white background, 15px padd
 Development market-data Settings reuses the shared collection and form controls: complete current-mapping cursor loading, scoped preferences, readable decimal strings, aligned row actions, role-gated controls, unsaved-edit guards and stale-response protection. It shows explicit end-of-day sessions and configuration/coverage limitations. Recurring enrollment and holdings valuation selection remain pending; this does not change released 0.26.0 coverage.
 
 Development schema 10 adds an explicit weekday refresh control and frequency column in the existing owner Settings form/table. Enrollment has its own Save action, revision checks and clear pending-queue status. The existing full-result collection, scoped preferences, decimal formatting, aligned actions and unsaved-edit guard remain in use. New York/DST slots and weekend/holiday/site-cron limitations are stated in the control help.
+
+## October 6, 2026: cached provider holdings and stock totals
+
+Development source remains 0.27.0-dev/schema 10; the released ZIP remains 0.26.0/schema 8. Overview now offers an explicit manual/FMP/Alpha Vantage stock price source and exact open-stock market value and unrealized gain/loss totals across all authorized accounts and asset pages. Other asset classes keep manual pricing. Values are grouped by native currency, exclude cash and closed positions, and do not change with table filters.
+
+Provider valuations require the latest enabled matching mapping and a saved quote no more than three calendar days old. Missing/stale provider prices remain unavailable without fallback. Unknown basis leaves gain unavailable. Partial coverage shows covered subtotals; mixed price dates cannot claim a complete total. Source preference is scoped to the current user/workspace browser session. Existing posted facts, manual observations and saved reports remain unchanged; reads send no external requests.
+
+Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
+
+Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.

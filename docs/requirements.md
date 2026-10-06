@@ -2,7 +2,7 @@
 
 Source: `TG_Investment_Tracker_PRD.pdf`, v1.0, October 2, 2026. Current build: 0.26.0, schema 8. Coverage describes implemented development workflows; complete PRD phase/MVP and production acceptance are not claimed.
 
-Development source: 0.27.0-dev/schema 10. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, owner mapping/refresh controls and explicit weekday enrollment are implemented. Holdings selection/UI integration, exchange-holiday calendars and fundamental/AI reviews remain pending. The released ZIP is unchanged.
+Development source: 0.27.0-dev/schema 10. Owner's latest priority is [financial data integration](financial-data-integration.md). Provider identity/quote evidence, credential-wide request reservations, exact daily movement and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally; FMP transport, owner mapping/refresh controls and explicit weekday enrollment are implemented. Explicit manual/provider stock valuation selection and all-account totals are implemented. Corporate-action compatibility for daily change, exchange-holiday calendars and fundamental/AI reviews remain pending. The released ZIP is unchanged.
 
 | Requirements | Current implementation | Remaining gate |
 | --- | --- | --- |
@@ -26,3 +26,13 @@ Development source: 0.27.0-dev/schema 10. Owner's latest priority is [financial 
 The owner's order is authoritative: **journals/strategies/multiple images; remaining ledger revisions/replay/opening balances; watchlists/research/calculators/reports; imports/reconciliation/exports/restore testing**. See `remaining-work.md` for current gates within that order.
 
 Established workspace defaults: USD and America/New_York. Proposed media defaults are prefilled but require an explicit owner policy save; local private storage requires host configuration. Full source discovery, retention/backup operations, licensed providers and commercial policies remain open. No production migration or deployment has occurred.
+
+## October 6, 2026: cached provider holdings and stock totals
+
+Development source remains 0.27.0-dev/schema 10; the released ZIP remains 0.26.0/schema 8. Overview now offers an explicit manual/FMP/Alpha Vantage stock price source and exact open-stock market value and unrealized gain/loss totals across all authorized accounts and asset pages. Other asset classes keep manual pricing. Values are grouped by native currency, exclude cash and closed positions, and do not change with table filters.
+
+Provider valuations require the latest enabled matching mapping and a saved quote no more than three calendar days old. Missing/stale provider prices remain unavailable without fallback. Unknown basis leaves gain unavailable. Partial coverage shows covered subtotals; mixed price dates cannot claim a complete total. Source preference is scoped to the current user/workspace browser session. Existing posted facts, manual observations and saved reports remain unchanged; reads send no external requests.
+
+Validation: 58 deterministic unit checks and 110 disposable WordPress/MySQL integration checks passed, including full pagination, source validation, membership, staleness, mapping replacement, unknown basis and immutable manual reports. Coding standards, PHP/JavaScript syntax and six REST URL checks passed. The cached valuation browser fixture passed source switching, exact values, missing coverage, scoped restoration and desktop/mobile layout. No new SQL, live provider calls or release ZIP.
+
+Next: corporate-action compatibility before displaying daily change, then fundamental snapshots and AI summaries with configurable model and monthly budget. Exchange holidays and operational monitoring remain open.
