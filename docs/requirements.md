@@ -57,3 +57,5 @@ The internal [AI spending policy](ai-budget-policy.md) supplies exact token cost
 Development AI owner controls now prepare shared model/monthly budget and separate workspace consent through private revisioned routes. Processing remains unavailable; catalog-to-dispatch verification, approved evidence bundles and saved reviews remain pending. See [AI Settings](ai-settings.md).
 
 AI summary input foundation now projects immutable snapshot metrics and an explicitly selected current thesis revision into a bounded deterministic preview. No approval, paid processing or new UI is enabled. See [preview contract](ai-evidence-preview.md).
+
+Internal fingerprint-bound owner approval and immutable evidence storage are implemented in development schema 14, with actor-bound idempotent retries and transactional audit rollback. No approval UI or paid processing is enabled. See [approval contract](ai-evidence-approvals.md).

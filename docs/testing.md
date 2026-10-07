@@ -120,3 +120,9 @@ The schema-13 integration suite now includes owner-only Settings API checks for 
 Run `node tests/ai-settings-browser.cjs` against the disposable HTTP adapter after the integration suite. The adapter's local-only `tgit_ai_fixture=1` flag selects that validated synthetic prefix for preview and REST requests. It is unavailable outside the CLI disposable development server. Browser checks cover actual owner saves, viewer exclusion, unsaved field preservation, cancel/discard, reload, zero-budget pause and 360/768/1440 layouts. No credentials or paid transport are involved.
 
 AI evidence preview tests are included in the unit and full WordPress integration suites. They use saved synthetic snapshots and journals, assert unchanged financial/spending/audit history on preview reads, and restore deliberate damaged-journal fixture mutations. No provider or AI request is made.
+
+## Immutable evidence approval — October 7, 2026
+
+93 unit / 156 disposable WordPress/MySQL checks pass. Schema-14 fixtures cover upgrading from schema 13 and repeated activation without losing saved evidence. Approval fixtures verify exact canonical JSON/fingerprints, sorted-selection retries, actor-bound identities, stale or changed evidence rejection, scoped owner reads and immutable history after journal changes. An audit fault rolls back both approval and retry records; a safe retry succeeds after the fault is removed. Damaged stored evidence is rejected and fixture bytes are restored. No budget reservation or external request occurs.
+
+Schema-14 browser/HTTP regressions pass for AI Settings, market-data Settings, fundamentals/weekly schedules/journal shortcuts, desktop/mobile journal workflows, all eleven real HTTP private-image checks and all eight admin sections at 360/768/1440px. No live provider/AI calls were used.
