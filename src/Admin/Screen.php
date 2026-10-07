@@ -325,10 +325,11 @@ final class Screen {
 	<label><?php esc_html_e( 'Dataset to refresh', 'ig-trading-journal' ); ?><select id="tgit-fundamental-dataset"><option value="OVERVIEW">Company overview</option><option value="INCOME_STATEMENT">Income statement</option><option value="BALANCE_SHEET">Balance sheet</option><option value="CASH_FLOW">Cash flow</option></select></label>
 	<button type="button" class="button" id="tgit-fundamental-refresh"><?php esc_html_e( 'Refresh selected dataset', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-fundamental-config"></p>
+	<p id="tgit-fundamental-schedule-availability" role="status" aria-live="polite"></p>
 	<form id="tgit-fundamental-schedule-form" class="tgit-grid">
-	<label><?php esc_html_e( 'Automatic refresh for selected dataset', 'ig-trading-journal' ); ?><select name="frequency"><option value="off">Off</option><option value="weekly">Weekly</option></select></label>
-	<label><?php esc_html_e( 'Weekday at 7:30 PM New York', 'ig-trading-journal' ); ?><select name="weekday"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option></select></label>
-	<button type="submit" class="button"><?php esc_html_e( 'Save fundamental schedule', 'ig-trading-journal' ); ?></button>
+	<label><?php esc_html_e( 'Automatic refresh for selected dataset', 'ig-trading-journal' ); ?><select name="frequency" disabled aria-describedby="tgit-fundamental-schedule-availability"><option value="off">Off</option><option value="weekly">Weekly</option></select></label>
+	<label><?php esc_html_e( 'Weekday at 7:30 PM New York', 'ig-trading-journal' ); ?><select name="weekday" disabled aria-describedby="tgit-fundamental-schedule-availability"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option></select></label>
+	<button type="submit" class="button" disabled aria-describedby="tgit-fundamental-schedule-availability"><?php esc_html_e( 'Save fundamental schedule', 'ig-trading-journal' ); ?></button>
 	<p><?php esc_html_e( 'Each dataset uses one request per week and shares the quote allowance. Spread stocks and datasets across weekdays. Site cron, quota and provider availability can delay or skip a refresh; missed slots are not replayed.', 'ig-trading-journal' ); ?></p>
 	</form>
 	<p id="tgit-fundamental-schedule-status" role="status" aria-live="polite"></p>
@@ -360,6 +361,15 @@ final class Screen {
 	</div>
 	</section>
 		<?php JournalScreen::render(); ?>
+	<section id="tgit-api-setup">
+	<h2><?php esc_html_e( 'API setup', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Provider keys currently belong in wp-config.php on your server, before the line that loads WordPress. Ask your host to edit this file if needed. Keys are not entered into these forms or saved in journal notes.', 'ig-trading-journal' ); ?></p>
+	<details><summary><?php esc_html_e( 'FMP and Alpha Vantage configuration', 'ig-trading-journal' ); ?></summary>
+	<pre><?php echo esc_html( "define('TGIT_FMP_API_KEY', 'YOUR_FMP_KEY');\ndefine('TGIT_ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_KEY');\ndefine('TGIT_MARKET_DATA_ENABLED', false);\ndefine('TGIT_FUNDAMENTALS_ENABLED', false);" ); ?></pre>
+	<p><?php esc_html_e( 'Replace only the placeholder for each provider you use. Do not duplicate an existing definition. Keep both switches false while preparing mappings. When ready to allow real requests, set TGIT_MARKET_DATA_ENABLED to true for prices; also set TGIT_FUNDAMENTALS_ENABLED to true for Alpha Vantage fundamentals. Then reload the page. Server enablement does not create a mapping or schedule.', 'ig-trading-journal' ); ?></p>
+	</details>
+	<p><?php esc_html_e( 'OpenAI: API key entry and summary generation are not available in this build. Model, budget, consent and evidence approval are preparation only. There is no supported OpenAI key setting to configure yet.', 'ig-trading-journal' ); ?></p>
+	</section>
 		<section id="tgit-ai-section" hidden>
 	<h2><?php esc_html_e( 'AI summary settings', 'ig-trading-journal' ); ?></h2>
 	<p><?php esc_html_e( 'Prepare your model and shared monthly budget. AI summaries are not available yet; saving sends no financial data to an AI provider.', 'ig-trading-journal' ); ?></p>

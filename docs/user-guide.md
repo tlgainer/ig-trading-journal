@@ -1,9 +1,11 @@
 # IG Trading Journal user guide
 
-For **plugin 0.26.0**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
+For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 ## Contents
 
+- [New features: setup and everyday use](#new-features-setup-and-everyday-use)
+- [API keys and server configuration](#api-keys-and-server-configuration)
 - [Getting started](#getting-started)
 - [Navigation and tables](#navigation-and-tables)
 - [Accounts, assets and starting balances](#accounts-assets-and-starting-balances)
@@ -18,6 +20,40 @@ For **plugin 0.26.0**, used inside WordPress administration. This guide describe
 - [Members and access](#members-and-access)
 - [Troubleshooting](#troubleshooting)
 - [Backups and current limits](#backups-and-current-limits)
+
+## New features: setup and everyday use
+
+Research and Settings have a top menu of section shortcuts. Use these to jump straight to Stock fundamentals, API setup, Stock market data or AI settings. They move within the page without discarding a form or starting a request. Hidden role-restricted sections are excluded. On smaller screens the shortcuts wrap.
+
+For your Merrill and Interactive Brokers stocks:
+
+1. Check the stock's symbol, exchange and quote currency in Settings → Accounts and assets. Crypto is not supported by these stock data adapters.
+2. Configure the server keys as described below. Then open Settings → Stock market data, select a stock and provider, verify its provider symbol against the exchange/currency, add a verification note, and save the mapping. A mapping identifies the stock; saving it does not fetch data.
+3. Once the server provider is enabled, use the mapping table's Refresh action for an end-of-day price. In Overview, select that provider as the stock price source. Saved quotes supply market value and unrealized gain/loss for covered open stocks. Totals cover all authorized accounts and remain grouped by currency. Missing/stale prices and unknown basis remain explicit. Daily price change is not available yet.
+4. For fundamentals, create an enabled **Alpha Vantage** mapping even if FMP is your price source. In Research → Stock fundamentals, choose the stock and dataset, then **Refresh selected dataset**. Company overview, income statement, balance sheet and cash flow are separate requests. FMP does not supply this fundamental workflow.
+5. **Reload saved history** reads local snapshots without using quota. Choose **View** beside a snapshot to read its saved facts and metrics. Unavailable values are not zero. Period changes compare the previous available period and do not establish verified year/quarter growth.
+6. To automate fundamentals, choose a dataset, set **Weekly**, choose a weekday, and save. Repeat separately for the datasets you want. **Off** disables automatic refresh; the weekday dropdown is disabled while Off. Saving a schedule does not fetch immediately. A saved schedule can remain pending while server refresh is disabled.
+
+Start with on-demand refresh for a few stocks. Alpha Vantage's 25 requests per rolling 24 hours are shared between quotes and fundamentals across workspaces; four fundamental datasets for ten stocks would require 40 requests. FMP has a separate 250-request allowance. Scheduled work reserves room for on-demand requests. Spread stocks/datasets across weekdays rather than scheduling the entire portfolio together. Provider endpoint access must also be available under your plan; a key and quota do not establish entitlement. Site cron, holidays and provider availability can delay or skip work.
+
+**AI preparation versus generation:** Settings → AI settings lets you save the model, monthly budget and separate workspace consent. Research → AI evidence lets you preview and approve saved statements and an optional saved trade thesis. These operations send no data to OpenAI and spend nothing. **Saved AI reviews** reads previously stored reviews; a new installation normally has none. This build cannot generate a summary, research news or monitor related-company events yet. Do not expect approval or consent to create a review.
+
+## API keys and server configuration
+
+There is currently no API-key entry form. A WordPress/server administrator adds provider keys to `wp-config.php`, before the line that loads `wp-settings.php`. The same instructions are visible at Settings → API setup. Never enter keys into provider-symbol, verification-note, research or model fields. Do not send your keys in chat.
+
+```php
+define('TGIT_FMP_API_KEY', 'YOUR_FMP_KEY');
+define('TGIT_ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_KEY');
+define('TGIT_MARKET_DATA_ENABLED', false);
+define('TGIT_FUNDAMENTALS_ENABLED', false);
+```
+
+Replace the relevant placeholders with your keys. Add only the provider you intend to use and do not duplicate existing definitions. Keep the switches `false` while preparing mappings. When you are ready to permit real requests, set `TGIT_MARKET_DATA_ENABLED` to `true` for quotes. For Alpha Vantage fundamentals, also set `TGIT_FUNDAMENTALS_ENABLED` to `true`. Reload the plugin page afterward. Adding keys does not enroll schedules or fetch a stock automatically. Scheduled jobs need reliable WordPress cron; ask your host to configure server-driven cron if needed.
+
+**OpenAI:** no supported key setting or sender exists yet. Do not add a guessed constant or key to the model field. Key handling will be documented when summary generation is implemented. You can prepare the model, budget, consent and approved evidence now.
+
+**Why a control is disabled:** no stock means no history to select; no enabled Alpha Vantage mapping means no fundamental schedule to edit; failed schedule loading requires Reload saved history; disabled server refresh prevents fetching while preserving saved-history reads. AI consent requires a saved model/budget policy, and the shared policy can be edited only from its controlling workspace. Disabled controls now show their inactive state and accompanying explanation. Choose Weekly before choosing a fundamental weekday.
 
 ## Getting started
 

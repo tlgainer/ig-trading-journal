@@ -9,6 +9,7 @@
  const persist = (approved = null) => { try { sessionStorage.setItem(storage(), JSON.stringify({ pending, approved })); } catch (_) { /* The same retry identity remains in this page. */ } };
  const controls = () => {
   form.inert = !ready || busy || !!window.tgitWriteBusy || !!pending;
+  for (const element of form.querySelectorAll('input, select')) element.disabled = form.inert;
   $('preview').disabled = !ready || busy || !!window.tgitWriteBusy || !!pending || !$('snapshots').querySelector('select');
   $('approve').disabled = !ready || busy || !!window.tgitWriteBusy || !!pending || !preview;
   $('retry').hidden = !pending; $('retry').disabled = !ready || busy || !!window.tgitWriteBusy;

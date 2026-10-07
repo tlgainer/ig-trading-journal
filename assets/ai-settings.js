@@ -4,7 +4,9 @@
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-ai-${id}`);
  const policy = $('policy'), consent = $('consent'), section = $('section');
  let workspace = '', role = '', generation = 0, saved = null, baseline = '';
- const snapshot = () => JSON.stringify([Object.fromEntries(new FormData(policy)), Object.fromEntries(new FormData(consent))]);
+ const values = (form) => Object.fromEntries([...form.elements].filter((element) => element.name).map((element) => [element.name, element.value]));
+ const snapshot = () => JSON.stringify([values(policy), values(consent)]);
+ const lock = (form, blocked) => { form.inert = blocked; for (const element of form.querySelectorAll('input, select, textarea, button')) element.disabled = blocked; };
  const dirty = () => role === 'owner' && baseline && snapshot() !== baseline;
  const status = (message, error = false) => { $('status').textContent = message; $('status').setAttribute('role', error ? 'alert' : 'status'); };
  async function request(path, body) {
@@ -21,8 +23,8 @@
   policy.elements.monthly_cap.value = tgitDisplayDecimal(saved.monthly_cap);
   policy.elements.model.value = saved.model;
   consent.elements.enabled.value = String(saved.enrolled);
-  policy.inert = !saved.can_configure;
-  consent.inert = !saved.configured;
+  lock(policy, !saved.can_configure);
+  lock(consent, !saved.configured);
   policy.querySelector('[type=submit]').disabled = policy.inert;
   consent.querySelector('[type=submit]').disabled = consent.inert;
   summarize();
@@ -37,7 +39,7 @@
  async function save(form, path, body) {
   if (window.tgitWriteBusy || !saved || form.inert) return;
   const expected = generation;
-  window.tgitWriteBusy = true; form.inert = true; form.querySelector('[type=submit]').disabled = true;
+  window.tgitWriteBusy = true; lock(form, true); form.querySelector('[type=submit]').disabled = true;
   try {
    const result = await request(path, body);
    if (expected !== generation) return;
@@ -52,7 +54,7 @@
    summarize();
    status('Settings saved. No AI request was sent.');
   } catch (error) { if (expected === generation) status(`${error.message} Reload AI settings before retrying if the save outcome is uncertain.`, true); }
-  finally { window.tgitWriteBusy = false; if (expected === generation) { policy.inert = !saved?.can_configure; consent.inert = !saved?.configured; policy.querySelector('[type=submit]').disabled = policy.inert; consent.querySelector('[type=submit]').disabled = consent.inert; } }
+  finally { window.tgitWriteBusy = false; if (expected === generation) { lock(policy, !saved?.can_configure); lock(consent, !saved?.configured); policy.querySelector('[type=submit]').disabled = policy.inert; consent.querySelector('[type=submit]').disabled = consent.inert; } }
  }
  policy.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -63,14 +65,14 @@
   save(consent, 'ai-enrollment', { enabled: consent.elements.enabled.value === 'true', expected_enrollment_id: saved?.enrollment_id || 0 });
  });
  const leave = () => !window.tgitWriteBusy && (!dirty() || confirm('Discard unsaved AI settings?'));
- $('reload').addEventListener('click', () => { if (leave()) { policy.inert = true; consent.inert = true; load().then(() => status('AI settings reloaded.')).catch((error) => status(error.message, true)); } });
+ $('reload').addEventListener('click', () => { if (leave()) { lock(policy, true); lock(consent, true); load().then(() => status('AI settings reloaded.')).catch((error) => status(error.message, true)); } });
  document.getElementById('tgit-workspace').addEventListener('change', (event) => { if (!leave()) { event.target.value = workspace; event.stopImmediatePropagation(); } }, true);
  document.getElementById('tgit-tabs').addEventListener('click', (event) => { const tab = event.target.closest('[data-tab]'); if (!tab || tab.dataset.tab === 'settings') return; if (!leave()) { event.preventDefault(); event.stopImmediatePropagation(); } else fill(); }, true);
  document.getElementById('tgit-tabs').addEventListener('keydown', (event) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return; if (!leave()) { event.preventDefault(); event.stopImmediatePropagation(); } else fill(); }, true);
  window.addEventListener('popstate', () => { if (!dirty()) return; if (leave()) fill(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'settings'); history.pushState(null, '', url); window.tgitSelectSection('settings'); } });
  window.addEventListener('beforeunload', (event) => { if (dirty() || window.tgitWriteBusy) { event.preventDefault(); event.returnValue = ''; } });
  window.addEventListener('tgit-workspace', (event) => {
-  ++generation; ({ workspace, role } = event.detail); saved = null; baseline = ''; policy.reset(); consent.reset(); section.hidden = role !== 'owner'; policy.inert = true; consent.inert = true; $('summary').textContent = ''; status('');
+  ++generation; ({ workspace, role } = event.detail); saved = null; baseline = ''; policy.reset(); consent.reset(); section.hidden = role !== 'owner'; lock(policy, true); lock(consent, true); $('summary').textContent = ''; status('');
   if (role === 'owner') { const expected = generation; load().catch((error) => { if (expected === generation) status(error.message, true); }); }
  });
 })();

@@ -16,7 +16,7 @@
   calculators: [document.getElementById('tgit-calculators-section')],
   research: [document.getElementById('tgit-research-section')],
   reports: [document.getElementById('tgit-reports-section')],
-  settings: ['management', 'opening-section', 'members-section', 'media-settings-section', 'market-data-section', 'ai-section'].map((id) => document.getElementById(`tgit-${id}`))
+  settings: ['management', 'opening-section', 'members-section', 'media-settings-section', 'api-setup', 'market-data-section', 'ai-section'].map((id) => document.getElementById(`tgit-${id}`))
  };
  for (const tab of tabs) {
   const panel = document.createElement('div');
@@ -34,6 +34,23 @@
  const pages = document.createElement('div'); pages.className = 'tgit-pages';
  header.after(body); body.append(nav, pages);
  for (const panel of panels.values()) pages.append(panel);
+ // In-page shortcuts preserve forms, selection and dirty-state guards.
+ const shortcuts = {
+  research: [['watchlist-form', 'Watchlists'], ['watchlist-items', 'Watchlist items'], ['research-note-form', 'Research notes'], ['fundamental-card', 'Stock fundamentals'], ['ai-evidence', 'AI evidence'], ['ai-reviews', 'Saved AI reviews']],
+  settings: [['management', 'Accounts and assets'], ['opening-section', 'Opening balances'], ['media-settings-section', 'Private images'], ['api-setup', 'API setup'], ['market-data-section', 'Stock market data'], ['ai-section', 'AI settings'], ['members-section', 'Members']]
+ };
+ for (const [name, entries] of Object.entries(shortcuts)) {
+  const panel = panels.get(name), shortcutNav = document.createElement('nav');
+  shortcutNav.className = 'tgit-section-shortcuts'; shortcutNav.setAttribute('aria-label', `${name === 'research' ? 'Research' : 'Settings'} section shortcuts`);
+  const links = entries.map(([id, label]) => {
+   const target = document.getElementById(`tgit-${id}`), link = document.createElement('a');
+   link.className = 'button'; link.href = `#${target.id}`; link.textContent = label;
+   link.addEventListener('click', (event) => { event.preventDefault(); if (target.matches('details')) target.open = true; target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'start' }); });
+   shortcutNav.append(link); target.classList.add('tgit-shortcut-target'); return { target, link };
+  });
+  const update = () => { for (const { target, link } of links) { const hidden = !!target.closest('[hidden]'); if (link.hidden !== hidden) link.hidden = hidden; } };
+  panel.prepend(shortcutNav); new MutationObserver(update).observe(panel, { subtree: true, attributes: true, attributeFilter: ['hidden'] }); update();
+ }
  menu.addEventListener('click', () => {
   const expanded = menu.getAttribute('aria-expanded') !== 'true';
   menu.setAttribute('aria-expanded', String(expanded)); nav.classList.toggle('tgit-nav-open', expanded);

@@ -124,3 +124,9 @@
 }
 #tgit-confluence-items input[type="checkbox"] { width: auto; }
 #tgit-confluence-items label { display: block; margin: 8px 0; }
+.tgit .tgit-section-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; top: 32px; z-index: 20; background: #fff; padding: 12px 0; border-bottom: 1px solid #dcdcde; margin-bottom: 16px; }
+.tgit .tgit-shortcut-target { scroll-margin-top: 140px; }
+.tgit #tgit-api-setup pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tgit input:disabled, .tgit select:disabled, .tgit textarea:disabled { background: #f0f0f1; color: #646970; cursor: not-allowed; opacity: 1; }
+.tgit form[inert] { opacity: .65; }
+@media (max-width: 782px) { .tgit .tgit-section-shortcuts { top: 46px; } .tgit .tgit-shortcut-target { scroll-margin-top: 220px; } }

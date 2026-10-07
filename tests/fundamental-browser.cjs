@@ -23,6 +23,7 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Fundamentals overflow at ${width}`); }
    if (actor === 'owner') {
     const schedule = page.locator('#tgit-fundamental-schedule-form'); await page.waitForFunction(() => !document.getElementById('tgit-fundamental-schedule-form').inert);
+    assert.equal(await schedule.locator('[name=weekday]').isDisabled(), (await schedule.locator('[name=frequency]').inputValue()) === 'off');
     await schedule.locator('[name=frequency]').selectOption('weekly'); await schedule.locator('[name=weekday]').selectOption('3'); await schedule.getByRole('button', { name: 'Save fundamental schedule', exact: true }).click();
     await page.locator('#tgit-fundamental-schedule-status').getByText('Schedule saved; queueing is pending. Check server configuration and site cron.', { exact: true }).waitFor();
     await page.locator('#tgit-fundamental-dataset').selectOption('CASH_FLOW'); assert.equal(await schedule.locator('[name=frequency]').inputValue(), 'off'); await schedule.locator('[name=frequency]').selectOption('weekly');
@@ -58,6 +59,9 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
     await open(); await page.locator('#tgit-fundamental-refresh').click(); await page.waitForFunction(() => !window.tgitWriteBusy && document.getElementById('tgit-fundamental-refresh').textContent === 'Check refresh outcome');
     await open(); await page.locator('#tgit-fundamental-refresh').click(); await page.waitForFunction(() => !window.tgitWriteBusy);
     assert.equal(keys.length, 2); assert.equal(keys[0], keys[1]);
+    await page.route('**/*', async route => { const path = new URL(route.request().url()).searchParams.get('rest_route') || ''; if (path.endsWith('/provider-mappings') && route.request().method() === 'GET') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { items: [], next_cursor: null } }) }); return route.fallback(); });
+    await open(); await page.waitForFunction(() => document.getElementById('tgit-fundamental-schedule-availability').textContent.includes('save an enabled Alpha Vantage mapping'));
+    const unavailableSchedule = page.locator('#tgit-fundamental-schedule-form'); assert.equal(await unavailableSchedule.locator('[name=frequency]').isDisabled(),true); assert.equal(await unavailableSchedule.locator('[name=weekday]').isDisabled(),true); assert.equal(await unavailableSchedule.getByRole('button',{name:'Save fundamental schedule',exact:true}).isDisabled(),true);
    }
    assert.deepEqual(errors, []); await context.close();
   }

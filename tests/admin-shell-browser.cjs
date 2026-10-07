@@ -18,6 +18,11 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
    for (const name of ['Overview', 'Transactions', 'Trade Journal', 'Strategies', 'Calculators', 'Research', 'Reports', 'Settings']) {
     if (width < 782) await menu.click(); await page.getByRole('tab', { name, exact: true }).click();
     assert.equal(await page.locator('#tgit-page-title').textContent(), name);
+    if (name === 'Settings' || name === 'Research') {
+     const shortcuts = page.getByRole('navigation', { name: `${name} section shortcuts`, exact: true });
+     const link = shortcuts.getByRole('link', { name: name === 'Settings' ? 'API setup' : 'Stock fundamentals', exact: true }); await link.click();
+     assert.equal(await page.evaluate(() => document.activeElement.id), name === 'Settings' ? 'tgit-api-setup' : 'tgit-fundamental-card');
+    }
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name} overflows at ${width}px`);
    }
   }

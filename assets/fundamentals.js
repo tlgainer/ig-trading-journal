@@ -6,7 +6,7 @@
  const keys = new Map();
  let schedules = [], scheduleGeneration = 0, scheduleBusy = false, scheduleReady = false, scheduleBaseline = '', priorAsset = '', priorDataset = 'OVERVIEW';
  const scheduleForm = $('schedule-form');
- const scheduleSnapshot = () => JSON.stringify(Object.fromEntries(new FormData(scheduleForm)));
+ const scheduleSnapshot = () => JSON.stringify({ frequency: scheduleForm.elements.frequency.value, weekday: scheduleForm.elements.weekday.value });
  const scheduleDirty = () => role === 'owner' && scheduleBaseline && scheduleBaseline !== scheduleSnapshot();
  const leaveSchedule = () => !window.tgitWriteBusy && (!scheduleDirty() || confirm('Discard unsaved fundamental schedule changes?'));
  const storage = () => `tgit-fundamental-requests:${config.actorId}:${workspace}`;
@@ -19,7 +19,11 @@
   $('refresh').disabled = loading || !enabled || !mapping() || !!window.tgitWriteBusy;
   $('refresh').textContent = keys.has(slot()) ? 'Check refresh outcome' : 'Refresh selected dataset';
   $('asset').disabled = loading || !!window.tgitWriteBusy; $('dataset').disabled = loading || !!window.tgitWriteBusy;
-  scheduleForm.inert = loading || scheduleBusy || !scheduleReady || !!window.tgitWriteBusy || !mapping();
+  const blocked = role !== 'owner' || loading || scheduleBusy || !scheduleReady || !!window.tgitWriteBusy || !mapping();
+  scheduleForm.elements.frequency.disabled = blocked;
+  scheduleForm.elements.weekday.disabled = blocked || scheduleForm.elements.frequency.value === 'off';
+  scheduleForm.querySelector('[type=submit]').disabled = blocked;
+  $('schedule-availability').textContent = loading || scheduleBusy ? 'Loading schedule controls…' : !mapping() ? 'To use these controls, save an enabled Alpha Vantage mapping for this stock in Settings → Stock market data. API keys are configured on the server under Settings → API setup.' : !scheduleReady ? 'Schedule controls could not load. Use Reload saved history to retry.' : !enabled ? 'You can save a schedule, but it will not fetch data until the Alpha Vantage key and refresh switches are configured on the server. See Settings → API setup.' : scheduleForm.elements.frequency.value === 'off' ? 'Automatic refresh is off. Choose Weekly to enable the weekday selector, then save.' : 'Save enrolls this dataset for the selected weekday; it does not refresh immediately.';
  }
  async function request(path, body, key) {
   const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/${path}`), { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce, ...(body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -43,7 +47,7 @@
   scheduleBaseline = scheduleSnapshot(); priorAsset = $('asset').value; priorDataset = $('dataset').value;
  }
  scheduleForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const selected = mapping(); if (role !== 'owner' || !selected || window.tgitWriteBusy || scheduleBusy) return;
+  event.preventDefault(); const selected = mapping(); if (role !== 'owner' || !selected || !scheduleReady || window.tgitWriteBusy || scheduleBusy || loading) return;
   const expected = scheduleGeneration, selectedWorkspace = workspace, dataset = $('dataset').value, previous = schedules.find((row) => row.dataset === dataset);
   window.tgitWriteBusy = true; controls();
   try {
@@ -53,6 +57,7 @@
   } catch (error) { if (expected === scheduleGeneration) $('schedule-status').textContent = `${error.message} Reload saved history before retrying if the save outcome is uncertain.`; }
   finally { window.tgitWriteBusy = false; controls(); }
  });
+ scheduleForm.elements.frequency.addEventListener('change', controls);
  async function detail(row) {
   const expected = generation; $('detail').replaceChildren();
   const heading = document.createElement('h4'); heading.textContent = `${label(row.dataset)} snapshot #${row.id}`; $('detail').append(heading);
@@ -128,7 +133,7 @@
   finally { window.tgitWriteBusy = false; controls(); }
  });
  window.addEventListener('tgit-workspace', async (event) => {
-  const expected = ++generation; ++scheduleGeneration; schedules = []; scheduleBusy = false; scheduleForm.reset(); $('schedule-status').textContent = ''; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true; ready = false; focusPending = false;
+  const expected = ++generation; ++scheduleGeneration; schedules = []; scheduleBusy = false; scheduleReady = false; scheduleBaseline = ''; priorAsset = ''; priorDataset = 'OVERVIEW'; scheduleForm.reset(); $('schedule-status').textContent = ''; ({ workspace, role } = event.detail); mappings = []; enabled = false; rows = []; keys.clear(); loading = true; ready = false; focusPending = false;
   $('owner').hidden = role !== 'owner'; $('history').replaceChildren(); $('detail').replaceChildren(); $('config').textContent = ''; $('asset').replaceChildren();
   for (const asset of event.detail.assets.filter((row) => row.asset_class === 'stock')) { const option = document.createElement('option'); option.value = asset.id; option.textContent = `${asset.symbol} · ${asset.exchange} (${asset.quote_currency})`; $('asset').append(option); }
   const url = new URL(location.href), routedAsset = url.searchParams.get('tgit_fundamental_asset');
