@@ -1,6 +1,6 @@
 # Prioritized remaining work
 
-Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev/schema 17. This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
+Latest released build: 0.26.0/schema 8; development source: 0.27.0-dev.1/schema 18 (latest test ZIP: 0.27.0-dev.1/schema 17). This checklist follows the owner's explicit order. The ledger and journal workflows are usable development slices; complete PRD MVP and production acceptance remain pending.
 
 Latest owner priority: [financial data integration](financial-data-integration.md), before queued subaccount/currency extensions. Exact quote parsing/daily movement, provider mapping/quote persistence, shared request quotas and disabled-by-default Alpha Vantage transport/one-shot jobs are implemented internally. FMP transport, owner controls and explicit weekday scheduling are now implemented. Provider/manual stock valuation selection and all-account totals are implemented. Next: corporate-action compatibility for daily change, exchange-holiday calendars, fundamental snapshots with AI summaries and configurable model/monthly budget, then related news/events. Imports and other original PRD gates remain pending below.
 
@@ -69,3 +69,7 @@ Development schema 16 now binds AI reservations to an exact approval ID and enfo
 Development schema 17 now records immutable server Responses receipts and budget settlement atomically, with separate guarded publication. Exact model/usage validation, refusal/incomplete handling, unknown-cost holds, token-bound quarantine and immutable recovery are implemented internally. Sending/generation remains disabled and unimplemented pending the full prompt/token-bound contract. See [response receipt contract](ai-response-receipts.md) and [migration](017-ai-response-receipts.sql).
 
 The versioned complete prompt and input-count projection are now implemented internally, preserving exact approved evidence and including instructions, message framing and JSON schema. Schema remains 17. Trusted token-count receipts, persisted execution binding, HTTP transport and owner generation controls remain pending. See [prompt contract](ai-prompt-contract.md).
+
+## Current AI summary milestone
+
+Verified complete input counts and immutable execution manifests now bind approved evidence, exact model, credential, prompt, output ceiling and conservative reserved cost. Schema 18 is additive; see [execution contract](ai-execution-manifests.md). Next highest priority: consent-gated count/Responses HTTP transport, credential setup and explicit owner generation controls. AI summary generation remains unavailable. No new ZIP is produced for this internal slice.

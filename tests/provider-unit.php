@@ -104,3 +104,4 @@ require_once __DIR__.'/ai-review-unit.php';
 
 require_once __DIR__.'/ai-response-unit.php';
 require_once __DIR__.'/ai-prompt-unit.php';
+require_once __DIR__.'/ai-token-count-unit.php';

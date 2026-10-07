@@ -10,6 +10,8 @@ namespace GainerInteractive\IGTradingJournal\Application;
 
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Domain\AiBudget;
+use GainerInteractive\IGTradingJournal\Domain\AiPrompt;
+use GainerInteractive\IGTradingJournal\Domain\AiTokenCount;
 use GainerInteractive\IGTradingJournal\Domain\AiResponse;
 use GainerInteractive\IGTradingJournal\Domain\AiJson;
 use GainerInteractive\IGTradingJournal\Domain\AiModelCatalog;
@@ -175,27 +177,51 @@ final class AiSpending {
 	 * @param int    $output_tokens Generated output bound.
 	 * @param int    $approval Exact approval, or zero for legacy internal reservations.
 	 * @param array  $catalog Trusted credential-bound model evidence.
+	 * @param array  $execution Trusted count context, response body and actual HTTP status.
 	 * @return array
 	 * @throws \InvalidArgumentException On invalid identity.
 	 */
-	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens, int $approval = 0, array $catalog = array() ): array {
+	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens, int $approval = 0, array $catalog = array(), array $execution = array() ): array {
 		if ( $approval < 0 || ! preg_match( '/^[a-f0-9]{64}$/D', $credential ) || ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) || '' === trim( $key ) || strlen( $key ) > 80 ) {
 			throw new \InvalidArgumentException( 'Invalid AI reservation identity.' );
 		}
 		$key = hash( 'sha256', $key );
 		return $this->locked(
 			$workspace,
-			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens, $approval, $catalog ): array {
+			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens, $approval, $catalog, $execution ): array {
 				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'ai_requests' ) . ' WHERE workspace_id = %d AND request_key = %s FOR UPDATE', array( $workspace, $key ) );
 				if ( $prior ) {
 					if ( (int) ( $prior['approval_id'] ?? 0 ) !== $approval || (int) $prior['actor_id'] !== $this->actor || $prior['credential_fingerprint'] !== $credential || $prior['input_fingerprint'] !== $fingerprint || (int) $prior['input_tokens'] !== $input_tokens || (int) $prior['output_tokens'] !== $output_tokens ) {
 						throw new \UnexpectedValueException( 'AI retry identity conflicts with its original context.' );
+					}
+					$manifest = $this->manifest( $workspace, (int) $prior['id'] );
+					if ( (bool) $manifest !== (bool) $execution || ( $manifest && $manifest['receipt'] !== $this->count_receipt( $execution ) ) ) {
+						throw new \UnexpectedValueException( 'AI retry cannot replace its verified execution receipt.' );
 					}
 					return $this->request( $workspace, (int) $prior['id'] );
 				}
 				list( $config, $enrollment, $pricing ) = $this->active( $workspace, $pool );
 				if ( $approval ) {
 					$this->execution_evidence( $workspace, $approval, $fingerprint, $config, $credential, $catalog );
+				}
+				$manifest = null;
+				if ( $execution ) {
+					if ( ! $approval ) {
+						throw new \UnexpectedValueException( 'Verified execution requires an exact approval.' );
+					}
+					$source   = $this->db->object( 'ai_evidence_bundles', $workspace, $approval );
+					$plan     = AiPrompt::build( $source['bundle_json'], $fingerprint, $config['model'], $output_tokens );
+					$receipt  = $this->count_receipt( $execution );
+					$verified = AiTokenCount::verify( $plan, $receipt['context'], wp_json_encode( $receipt['response'] ), $receipt['http_status'], $credential, $pricing, $this->now );
+					if ( $verified['bound']['input_tokens'] !== $input_tokens ) {
+						throw new \UnexpectedValueException( 'Reservation tokens differ from the verified complete input.' );
+					}
+					$manifest = array(
+						'version'  => 'ai-execution-1',
+						'plan'     => $plan,
+						'receipt'  => $receipt,
+						'verified' => $verified,
+					);
 				}
 				$cost      = AiBudget::estimate( $pricing, $input_tokens, $output_tokens, $this->now );
 				$totals    = $this->totals();
@@ -225,6 +251,21 @@ final class AiSpending {
 						'expires_at'             => $this->now->modify( '+10 minutes' )->format( 'Y-m-d H:i:s' ),
 					)
 				);
+				if ( $manifest ) {
+					$json = wp_json_encode( $manifest );
+					$this->db->insert(
+						'ai_execution_manifests',
+						array(
+							'workspace_id' => $workspace,
+							'request_id'   => $id,
+							'actor_id'     => $this->actor,
+							'approval_id'  => $approval,
+							'fingerprint'  => hash( 'sha256', $json ),
+							'payload_json' => $json,
+							'created_at'   => $this->stamp(),
+						)
+					);
+				}
 				$this->event( $workspace, $id, 'reserved' );
 				return $this->request( $workspace, $id );
 			}
@@ -238,13 +279,14 @@ final class AiSpending {
 	 * @param int    $id Request.
 	 * @param string $credential Current server credential digest.
 	 * @param array  $catalog Fresh trusted model evidence for bound requests.
+	 * @param bool   $require_execution Future senders must require the complete verified plan.
 	 * @return array
 	 * @throws \UnexpectedValueException On stale or previously claimed reservations.
 	 */
-	public function dispatch( int $workspace, int $id, string $credential, array $catalog = array() ): array {
+	public function dispatch( int $workspace, int $id, string $credential, array $catalog = array(), bool $require_execution = false ): array {
 		return $this->locked(
 			$workspace,
-			function ( ?array $pool ) use ( $workspace, $id, $credential, $catalog ): array {
+			function ( ?array $pool ) use ( $workspace, $id, $credential, $catalog, $require_execution ): array {
 				$row = $this->request( $workspace, $id );
 				if ( 'reserved' !== $row['state'] || (int) $row['actor_id'] !== $this->actor ) {
 					throw new \UnexpectedValueException( 'AI request is already claimed or belongs to a different authorizer.' );
@@ -259,9 +301,68 @@ final class AiSpending {
 				if ( (int) ( $row['approval_id'] ?? 0 ) ) {
 					$this->execution_evidence( $workspace, (int) $row['approval_id'], $row['input_fingerprint'], $row, $credential, $catalog );
 				}
+				$manifest = $this->manifest( $workspace, $id );
+				if ( $require_execution && ! $manifest ) {
+					throw new \UnexpectedValueException( 'Sending requires an immutable verified execution plan.' );
+				}
+				if ( $manifest ) {
+					$receipt  = $manifest['receipt'];
+					$verified = AiTokenCount::verify( $manifest['plan'], $receipt['context'], wp_json_encode( $receipt['response'] ), $receipt['http_status'], $credential, $this->pricing_evidence( $row ), $this->now );
+					if ( $verified !== $manifest['verified'] || $verified['bound']['input_tokens'] !== (int) $row['input_tokens'] || $verified['bound']['output_tokens'] !== (int) $row['output_tokens'] || $verified['bound']['evidence_fingerprint'] !== $row['input_fingerprint'] || $verified['bound']['maximum_cost'] !== $row['maximum_cost'] ) {
+						throw new \UnexpectedValueException( 'Execution plan no longer matches its reservation.' );
+					}
+				}
 				$this->event( $workspace, $id, 'dispatched' );
 				return $this->request( $workspace, $id );
 			}
+		);
+	}
+
+	/**
+	 * Read private immutable execution evidence; never expose as browser JSON.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $id Request.
+	 * @return array|null
+	 * @throws \UnexpectedValueException On damaged provenance or stored bytes.
+	 */
+	public function manifest( int $workspace, int $id ): ?array {
+		$request = $this->request( $workspace, $id );
+		$row     = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'ai_execution_manifests' ) . ' WHERE workspace_id = %d AND request_id = %d', array( $workspace, $id ) );
+		if ( ! $row ) {
+			return null;
+		}
+		$approval = (int) ( $request['approval_id'] ?? 0 );
+		if ( (int) $row['actor_id'] !== (int) $request['actor_id'] || (int) $row['approval_id'] !== $approval || ! hash_equals( $row['fingerprint'], hash( 'sha256', $row['payload_json'] ) ) ) {
+			throw new \UnexpectedValueException( 'AI execution manifest is damaged or has incompatible provenance.' );
+		}
+		$manifest = AiJson::decode( $row['payload_json'] );
+		if ( 'ai-execution-1' !== ( $manifest['version'] ?? null ) || ! is_array( $manifest['receipt'] ?? null ) || ! is_array( $manifest['verified'] ?? null ) || ! is_array( $manifest['plan'] ?? null ) ) {
+			throw new \UnexpectedValueException( 'AI execution manifest format is unsupported.' );
+		}
+		return $manifest;
+	}
+
+	/**
+	 * Normalize trusted execution metadata without storing arbitrary HTTP bodies.
+	 *
+	 * @param array $execution Actual server count execution, never a client submission.
+	 * @return array
+	 * @throws \InvalidArgumentException On incomplete or unsupported count evidence.
+	 */
+	private function count_receipt( array $execution ): array {
+		$fields = array( 'context', 'body', 'http_status' );
+		if ( array_diff( array_keys( $execution ), $fields ) || array_diff( $fields, array_keys( $execution ) ) || ! is_array( $execution['context'] ) || ! is_string( $execution['body'] ) || ! is_int( $execution['http_status'] ) ) {
+			throw new \InvalidArgumentException( 'Trusted count execution is incomplete.' );
+		}
+		$context = $execution['context'];
+		ksort( $context, SORT_STRING );
+		$response = AiJson::decode( $execution['body'], 4096 );
+		ksort( $response, SORT_STRING );
+		return array(
+			'context'     => $context,
+			'response'    => $response,
+			'http_status' => $execution['http_status'],
 		);
 	}
 

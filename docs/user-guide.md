@@ -2,6 +2,8 @@
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
+For an **on-demand price check**, open **Settings → Stock market data** and click **Refresh price** beside the stock's enabled provider mapping. Provider keys and refresh must be enabled first. Each check shares the provider allowance with scheduled work. It retrieves the latest available end-of-day session, so repeated checks can return the same price; it is not a live quote. Reloading saved data uses no provider request. If a request is uncertain, use its existing retry action rather than creating another request.
+
 ## Contents
 
 - [New features: setup and everyday use](#new-features-setup-and-everyday-use)
