@@ -1,0 +1,23 @@
+# Immutable AI review storage (development schema 15)
+
+This internal foundation stores normalized AI output against an immutable approved evidence record and the matching settled request. It does not introduce transport, jobs, REST write controls, generated summaries in the browser or a release ZIP. Synthetic fixtures supply fictional responses; no AI provider is called.
+
+## Output and provenance contract
+
+`AiReview::build` is independent of WordPress and financial arithmetic. It requires an exact model ID and bounded response ID, a nonblank UTF-8 summary of at most 4,000 bytes, and 1–12 findings of at most 2,000 bytes each. Every finding cites a nonempty list of distinct integer snapshot IDs from the approved bundle. Source IDs are sorted for canonical retries; finding order and untrusted text are preserved. Unknown/missing fields, wrong models, foreign or duplicate citations, invalid UTF-8/control characters and canonical output over 32 KiB are rejected.
+
+Stored `ai-review-1` JSON includes explicit limitations. Citation validation confirms only source membership, **not that a claim is correct or supported by those sources**. Model text remains untrusted; future screens must render it as escaped text, without executing HTML or automatically linking model-provided URLs. Semantic/numeric claim checks, refusal/incomplete response handling and the real prompt/response adapter remain transport work.
+
+`AiReviews::save` is server-only. There is no client output-submission endpoint. Before saving, it checks current owner membership, scoped approval/asset/request relationships, matching evidence fingerprint and original approval/request actor, exact model and settled usage. Only the original requesting owner may write; unsent/dispatched/uncertain/cancelled/overrun requests cannot be published by this operation. Overrun/quarantine result handling remains pending and must preserve spending facts.
+
+The existing spending reservation binds an evidence fingerprint rather than an approval ID. The future execution adapter must bind the explicitly chosen approval ID before admission/dispatch and verify provider response identity/model/usage; this store does not prove provider delivery by itself or authorize a network call. Aliased/dated model identities need a reviewed catalog relationship; this initial validator requires exact equality.
+
+One immutable row exists per workspace/request, containing the selected approval ID, evidence/output fingerprints, original actor, normalized output and creation time. Actor/approval/request/output fingerprint determine the deterministic retry identity. Identical canonical retries return original metadata; changed output/provenance conflicts. Workspace serialization, unique request identity, insert, audit and retry record share one transaction. Review persistence never reserves/reconciles spending and never nests a spending transaction. Settled request facts are terminal; reads do not require a current enabled policy or the original author's continued membership.
+
+Owner-only reads verify all scoped relationships, saved hashes and the supported output schema before returning output. Current owners can read history after the original author's revocation; revoked readers are denied. Internal cursor history returns metadata for one scoped asset, omitting output text, actor/credential/pricing fields. Consumers must load every page before claiming a complete dataset. Full REST/UI review history remains pending. No edit/delete/purge operation is provided.
+
+## Upgrade and forward repair
+
+Back up the database and private media, keep external processing disabled, deploy compatible development code containing **all fifteen migrations**, and explicitly reactivate. [015-ai-reviews.sql](015-ai-reviews.sql) is additive; the installer accepts schema 14 and preserves approvals, provider snapshots, spending and financial history. Replace `{{prefix}}` with the configured WordPress prefix for manual execution (confirmed hosting uses `wp_`). Do not run unchanged placeholders.
+
+After a partial failure, retain the backup/history, correct missing migration files or database permissions/definitions and repeat explicit activation with complete matching code. Do not delete results, reset spending or downgrade the schema marker. Deactivation/uninstall preserve data. Development remains 0.27.0-dev/schema 15; released 0.26.0/schema-8 ZIP is unchanged. No production migration is performed by this work.

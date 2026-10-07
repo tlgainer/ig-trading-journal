@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '14';
+	public const VERSION = '15';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -140,6 +140,12 @@ final class Installer {
 				throw new \RuntimeException( 'AI evidence migration is missing.' );
 			}
 			$sql .= $evidence_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads bundled additive review migration.
+			$review_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/015-ai-reviews.sql' );
+			if ( false === $review_sql ) {
+				throw new \RuntimeException( 'AI review migration is missing.' );
+			}
+			$sql .= $review_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {

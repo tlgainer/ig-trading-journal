@@ -100,3 +100,4 @@ test('Mixed price sessions cannot present a complete combined stock total', func
 require_once __DIR__.'/ai-model-catalog-unit.php';
 
 require_once __DIR__.'/ai-evidence-unit.php';
+require_once __DIR__.'/ai-review-unit.php';

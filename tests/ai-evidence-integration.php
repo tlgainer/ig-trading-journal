@@ -68,7 +68,7 @@ test('AI evidence previews reject foreign evidence and non-owner membership',fun
 test('Schema 14 upgrades from 13 and retains saved fundamental history',function() use($db) {
  $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('fundamental_snapshots'))['total'];
  update_option('tgit_schema_version','13'); GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();
- equal(get_option('tgit_schema_version'),'14'); equal($db->row('SHOW TABLE STATUS LIKE %s',[$db->table('ai_evidence_bundles')])['Engine'],'InnoDB');
+ equal(get_option('tgit_schema_version'),GainerInteractive\IGTradingJournal\Infrastructure\Installer::VERSION); equal($db->row('SHOW TABLE STATUS LIKE %s',[$db->table('ai_evidence_bundles')])['Engine'],'InnoDB');
  GainerInteractive\IGTradingJournal\Infrastructure\Installer::install(); equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('fundamental_snapshots'))['total'],$before);
 });
 
