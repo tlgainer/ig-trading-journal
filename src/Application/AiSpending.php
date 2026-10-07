@@ -10,6 +10,8 @@ namespace GainerInteractive\IGTradingJournal\Application;
 
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Domain\AiBudget;
+use GainerInteractive\IGTradingJournal\Domain\AiResponse;
+use GainerInteractive\IGTradingJournal\Domain\AiJson;
 use GainerInteractive\IGTradingJournal\Domain\AiModelCatalog;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 
@@ -280,35 +282,167 @@ final class AiSpending {
 		return $this->locked(
 			$workspace,
 			function () use ( $workspace, $id, $usage, $cancel ): array {
-				$row = $this->request( $workspace, $id );
-				if ( (int) $row['actor_id'] !== $this->actor || ( $cancel && null !== $usage ) ) {
-					throw new \UnexpectedValueException( 'Invalid AI reconciliation context.' );
+				if ( null !== $this->received( $workspace, $id ) ) {
+					throw new \UnexpectedValueException( 'Receipt-backed requests require receipt-bound reconciliation.' );
 				}
-				$json = null === $usage ? null : wp_json_encode( $usage );
-				if ( in_array( $row['state'], array( 'settled', 'overrun', 'cancelled' ), true ) ) {
-					if ( $row['usage_json'] !== $json || ( 'cancelled' === $row['state'] ) !== $cancel ) {
-						throw new \UnexpectedValueException( 'AI reconciliation conflicts with its original result.' );
-					}
-					return $row;
-				}
-				if ( $cancel ) {
-					if ( 'reserved' !== $row['state'] ) {
-						throw new \UnexpectedValueException( 'Dispatched AI work cannot be cancelled or refunded without usage evidence.' );
-					}
-					$this->event( $workspace, $id, 'cancelled', '0' );
-				} else {
-					if ( ! in_array( $row['state'], array( 'dispatched', 'uncertain' ), true ) ) {
-						throw new \UnexpectedValueException( 'Only dispatched AI work can be reconciled.' );
-					}
-					$dispatch   = $this->db->row( 'SELECT created_at FROM ' . $this->db->table( 'ai_request_events' ) . ' WHERE workspace_id = %d AND request_id = %d AND state = %s ORDER BY id LIMIT 1', array( $workspace, $id, 'dispatched' ) );
-					$charge     = null === $usage ? null : AiBudget::charge( $this->pricing_evidence( $row ), $usage, new \DateTimeImmutable( $dispatch['created_at'], new \DateTimeZone( 'UTC' ) ) );
-					$settlement = AiBudget::settlement( $row['maximum_cost'], $charge );
-					if ( 'uncertain' !== $row['state'] || null !== $usage ) {
-						$this->event( $workspace, $id, $settlement['state'], $charge, $json );
-					}
-				}
-				return $this->request( $workspace, $id );
+				return $this->reconcile_locked( $workspace, $id, $usage, $cancel );
 			}
+		);
+	}
+
+
+	/**
+	 * Reconcile while the caller holds the shared spending lock and transaction.
+	 *
+	 * @param int        $workspace Workspace.
+	 * @param int        $id Request.
+	 * @param array|null $usage Verified usage.
+	 * @param bool       $cancel Unsent cancellation.
+	 * @return array
+	 * @throws \UnexpectedValueException On incompatible lifecycle.
+	 */
+	private function reconcile_locked( int $workspace, int $id, ?array $usage, bool $cancel ): array {
+		if ( null !== $usage ) {
+			ksort( $usage, SORT_STRING );
+		}
+		$row = $this->request( $workspace, $id );
+		if ( (int) $row['actor_id'] !== $this->actor || ( $cancel && null !== $usage ) ) {
+			throw new \UnexpectedValueException( 'Invalid AI reconciliation context.' );
+		}
+		$json = null === $usage ? null : wp_json_encode( $usage );
+		if ( in_array( $row['state'], array( 'settled', 'overrun', 'cancelled' ), true ) ) {
+			if ( $row['usage_json'] !== $json || ( 'cancelled' === $row['state'] ) !== $cancel ) {
+				throw new \UnexpectedValueException( 'AI reconciliation conflicts with its original result.' );
+			}
+			return $row;
+		}
+		if ( $cancel ) {
+			if ( 'reserved' !== $row['state'] ) {
+				throw new \UnexpectedValueException( 'Dispatched AI work cannot be cancelled or refunded without usage evidence.' );
+			}
+			$this->event( $workspace, $id, 'cancelled', '0' );
+		} else {
+			if ( ! in_array( $row['state'], array( 'dispatched', 'uncertain' ), true ) ) {
+				throw new \UnexpectedValueException( 'Only dispatched AI work can be reconciled.' );
+			}
+			$dispatch   = $this->db->row( 'SELECT created_at FROM ' . $this->db->table( 'ai_request_events' ) . ' WHERE workspace_id = %d AND request_id = %d AND state = %s ORDER BY id LIMIT 1', array( $workspace, $id, 'dispatched' ) );
+			$charge     = null === $usage ? null : AiBudget::charge( $this->pricing_evidence( $row ), $usage, new \DateTimeImmutable( $dispatch['created_at'], new \DateTimeZone( 'UTC' ) ) );
+			$settlement = AiBudget::settlement( $row['maximum_cost'], $charge );
+			if ( 'uncertain' !== $row['state'] || null !== $usage ) {
+				$this->event( $workspace, $id, $settlement['state'], $charge, $json );
+			}
+		}
+		return $this->request( $workspace, $id );
+	}
+
+
+	/**
+	 * Capture a server response and its budget result in one locked transaction.
+	 *
+	 * @param int    $workspace Workspace.
+	 * @param int    $id Exact dispatched approval-bound request.
+	 * @param string $body Bounded server transport body, never client input.
+	 * @param int    $http_status Actual server HTTP status.
+	 * @return array Safe status without provider text, usage or credential data.
+	 * @throws \UnexpectedValueException On changed receipts or invalid lifecycle.
+	 */
+	public function receive( int $workspace, int $id, string $body, int $http_status = 200 ): array {
+		try {
+			$response = AiJson::decode( $body );
+		} catch ( \InvalidArgumentException $error ) {
+			$response = array();
+		}
+		return $this->locked(
+			$workspace,
+			function () use ( $workspace, $id, $response, $http_status ): array {
+				$row = $this->request( $workspace, $id );
+				if ( (int) $row['actor_id'] !== $this->actor || ! (int) ( $row['approval_id'] ?? 0 ) || ! in_array( $row['state'], array( 'dispatched', 'uncertain', 'settled', 'overrun' ), true ) ) {
+					throw new \UnexpectedValueException( 'AI receipts require an originally authorized, dispatched and approval-bound request.' );
+				}
+				$approved = ( new AiEvidencePreview( $this->db, $this->actor, $this->correlation ) )->approved( $workspace, (int) $row['approval_id'] );
+				if ( ! hash_equals( $row['input_fingerprint'], $approved['fingerprint'] ) ) {
+					throw new \UnexpectedValueException( 'AI request approved evidence is damaged.' );
+				}
+				$result = AiResponse::inspect( $response, $row['model'], $approved['bundle'], $http_status );
+				if ( null !== $result['usage'] && ( $result['usage']['input_tokens'] > (int) $row['input_tokens'] || $result['usage']['output_tokens'] > (int) $row['output_tokens'] ) ) {
+					$result['reason'] = 'token_bound_exceeded';
+					$result['review'] = null;
+				}
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Stable result identity, with no raw provider payload.
+				$json        = json_encode( $result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR );
+				$fingerprint = hash( 'sha256', $json );
+				$prior       = $this->received( $workspace, $id );
+				if ( null !== $prior ) {
+					if ( hash_equals( $prior['fingerprint'], $fingerprint ) ) {
+						return $this->receipt_status( $row, $prior );
+					}
+					if ( in_array( $row['state'], array( 'settled', 'overrun' ), true ) || ( null !== $prior['result']['response_id'] && $prior['result']['response_id'] !== $result['response_id'] ) ) {
+						throw new \UnexpectedValueException( 'AI receipt conflicts with its immutable result or response identity.' );
+					}
+				} elseif ( in_array( $row['state'], array( 'settled', 'overrun' ), true ) ) {
+					throw new \UnexpectedValueException( 'A settled request cannot acquire fabricated response provenance.' );
+				}
+				$receipt = $this->db->insert(
+					'ai_response_receipts',
+					array(
+						'workspace_id'       => $workspace,
+						'request_id'         => $id,
+						'approval_id'        => $row['approval_id'],
+						'actor_id'           => $this->actor,
+						'version'            => $result['version'],
+						'result_fingerprint' => $fingerprint,
+						'result_json'        => $json,
+						'created_at'         => $this->stamp(),
+					)
+				);
+				$this->audit( $workspace, 'ai_response_received', 'ai_response_receipts', $receipt );
+				$settled = $this->reconcile_locked( $workspace, $id, $result['usage'], false );
+				return $this->receipt_status( $settled, $this->received( $workspace, $id ) );
+			}
+		);
+	}
+
+	/**
+	 * Read the latest immutable normalized receipt for server-side publication only.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $id Request.
+	 * @return array|null Internal evidence; never return directly to a browser.
+	 * @throws \UnexpectedValueException On damaged receipt history.
+	 */
+	public function received( int $workspace, int $id ): ?array {
+		$request = $this->request( $workspace, $id );
+		$row     = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'ai_response_receipts' ) . ' WHERE workspace_id = %d AND request_id = %d ORDER BY id DESC LIMIT 1', array( $workspace, $id ) );
+		if ( null === $row ) {
+			return null;
+		}
+		if ( 'ai-response-1' !== $row['version'] || (int) $row['actor_id'] !== (int) $request['actor_id'] || (int) $row['approval_id'] !== (int) $request['approval_id'] || ! hash_equals( $row['result_fingerprint'], hash( 'sha256', $row['result_json'] ) ) ) {
+			throw new \UnexpectedValueException( 'AI response receipt is damaged or incompatible.' );
+		}
+		$result = AiJson::decode( $row['result_json'], 65536 );
+		return array(
+			'id'          => (int) $row['id'],
+			'request_id'  => $id,
+			'approval_id' => (int) $row['approval_id'],
+			'fingerprint' => $row['result_fingerprint'],
+			'result'      => $result,
+		);
+	}
+
+	/**
+	 * Expose fixed receipt status separately from private response evidence.
+	 *
+	 * @param array $request Current spending state.
+	 * @param array $receipt Captured receipt.
+	 * @return array
+	 */
+	private function receipt_status( array $request, array $receipt ): array {
+		return array(
+			'request_id'       => (int) $request['id'],
+			'receipt_id'       => $receipt['id'],
+			'state'            => $request['state'],
+			'reason'           => $receipt['result']['reason'],
+			'review_available' => 'settled' === $request['state'] && 'completed' === $receipt['result']['reason'],
 		);
 	}
 

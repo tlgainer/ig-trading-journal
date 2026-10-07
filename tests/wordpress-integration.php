@@ -152,4 +152,6 @@ require __DIR__ . '/ai-spending-integration.php';
 require __DIR__ . '/ai-evidence-integration.php';
 require __DIR__ . '/ai-review-integration.php';
 
+require __DIR__ . '/ai-response-integration.php';
+
 echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

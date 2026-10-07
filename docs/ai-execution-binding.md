@@ -11,3 +11,6 @@ Legacy requests remain NULL and historical storage remains readable; the migrati
 ## Upgrade and forward repair
 
 Back up the database and private image bytes, keep processing disabled, package all sixteen SQL files and reactivate compatible development code. [016-ai-request-approvals.sql](016-ai-request-approvals.sql) is executable once manually after replacing `{{prefix}}`. Prefer the installer: repeated activation checks the existing column type/nullability/default and preserves requests/events. A partial upgrade is repaired by rerunning activation with matching code and all migrations, never deleting or backfilling request history. No released ZIP or production database changed.
+
+
+Development schema 17 now records immutable server Responses receipts and budget settlement atomically, with separate guarded publication. Exact model/usage validation, refusal/incomplete handling, unknown-cost holds, token-bound quarantine and immutable recovery are implemented internally. Sending/generation remains disabled and unimplemented pending the full prompt/token-bound contract. See [response receipt contract](ai-response-receipts.md) and [migration](017-ai-response-receipts.sql).

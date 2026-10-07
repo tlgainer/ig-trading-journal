@@ -94,6 +94,25 @@ final class AiReviews {
 		);
 	}
 
+
+	/**
+	 * Publish only the immutable completed receipt of a settled bound request.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $request Request.
+	 * @return array Immutable review metadata.
+	 * @throws \UnexpectedValueException On unavailable, quarantined or overrun output.
+	 */
+	public function publish_received( int $workspace, int $request ): array {
+		$spending = new AiSpending( $this->db, $this->actor, $this->correlation );
+		$row      = $spending->request( $workspace, $request );
+		$receipt  = $spending->received( $workspace, $request );
+		if ( 'settled' !== $row['state'] || null === $receipt || 'completed' !== $receipt['result']['reason'] || ! is_array( $receipt['result']['review'] ) ) {
+			throw new \UnexpectedValueException( 'AI response cannot be published before verified settlement and complete output.' );
+		}
+		return $this->save( $workspace, $receipt['approval_id'], $request, $receipt['result']['review'] );
+	}
+
 	/**
 	 * Read immutable history without exposing request credentials or pricing.
 	 *

@@ -1,0 +1,23 @@
+# Verified Responses receipts and separate publication
+
+Development schema 17 adds immutable server-side response receipts. This is an internal receive/publish foundation; there is no HTTP sender, generation endpoint, scheduler or paid processing yet. A future trusted transport must pass only the actual response to the claimed request, recheck dispatch gates, use a verified complete prompt/token bound and never resend uncertain deliveries. Browser clients cannot submit bodies, usage, model evidence or receipt writes.
+
+## Response contract
+
+The adapter follows the official [Responses API reference](https://developers.openai.com/api/reference/python/resources/responses/methods/create) and [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses), checked October 7, 2026. It requires HTTP 200, a response ID, the exact captured model, terminal status, explicit standard service tier, an empty tool list and only message/reasoning items. Missing model identity, unexpected aliases, tools, nonstandard tiers or ongoing work retain the entire cost hold rather than applying unsupported prices. Account access, aliases and prices are not inferred from this reference.
+
+Input/cached/output/reasoning/total counts must be bounded integers. Completed replies require positive input/output usage. Totals must agree, cached input cannot exceed input, and reasoning cannot exceed output. Reasoning is already part of total output and is not charged twice. Nonzero cache-write usage, missing detail fields or unknown usage categories remain unpriced. A strict bounded JSON decoder rejects duplicate keys at every level, including escaped equivalent keys. Transport-body parsing is limited to 512 KiB; structured text is limited to 32 KiB. No raw provider body or refusal text is stored.
+
+Usage and review validity are independent. Refused, incomplete, failed or invalid/citation-breaking content may settle valid reported usage but does not publish a review. Only a single completed assistant text item with no annotations and valid bounded summary/findings can proceed. Citations verify membership in the approved sources, not factual accuracy. Output above reserved token bounds is quarantined even if its reported cost fits the budget. A cost overrun blocks new admission under the existing shared spending rules; overrun output cannot publish.
+
+## Atomic persistence and recovery
+
+`AiSpending::receive` requires a dispatched, approval-bound original-owner request and unchanged approved bytes. The existing shared budget lock encloses receipt insertion, audit and usage settlement in one database transaction. An audit failure after a settlement event rolls back the receipt, charge and lifecycle together. Unknown charges append an immutable uncertain receipt and preserve the reservation. Later verified server evidence for the same response ID can append a new receipt and settle it without resending. Once settled or overrun, exact retries reuse the original receipt; changed identities/output/usage conflict. Existing generic reconciliation cannot bypass receipt-backed reconciliation.
+
+`AiReviews::publish_received` is a separate owner-authorized operation. It uses only the immutable completed receipt of a settled request, then applies existing output/source validation and immutable review retries. Publication failure does not refund known usage; a safe publication retry uses stored evidence and never calls a provider. Historical legacy requests stay readable but cannot acquire fabricated receipt provenance after settlement. Metadata status excludes private summary text, credentials and raw payloads. There are no new browser write routes.
+
+## Upgrade and remaining work
+
+Back up database/private image bytes, keep processing disabled, include all seventeen SQL files and reactivate compatible development code. [017-ai-response-receipts.sql](017-ai-response-receipts.sql) is separate and uses `{{prefix}}`; the additive installer supports previous development versions and repeat activation. Forward repair restores matching code/all migrations and reruns activation while preserving receipts, spending and review history. No release ZIP or production database was changed.
+
+Next: versioned prompt/schema and verified whole-request input bounds, guarded disabled-by-default HTTP transport, explicit generation controls, operational uncertain-delivery recovery and semantic claim checks. The adapter validates server-reported structure and usage; it does not independently authenticate or prove the truth of model assertions. Live account entitlement, hosting acceptance and complete production gates remain pending.

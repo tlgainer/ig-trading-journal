@@ -68,3 +68,6 @@ Owner REST/UI review-history browsing is now implemented in development Research
 
 
 Development schema 16 now binds AI reservations to an exact approval ID and enforces credential-bound catalog evidence at admission and dispatch. Bound review provenance rejects substituted approvals. No transport or paid processing is enabled; generation controls, prompt/token bounds and verified response/usage handling remain pending. See [execution binding](ai-execution-binding.md) and [migration](016-ai-request-approvals.sql).
+
+
+Development schema 17 now records immutable server Responses receipts and budget settlement atomically, with separate guarded publication. Exact model/usage validation, refusal/incomplete handling, unknown-cost holds, token-bound quarantine and immutable recovery are implemented internally. Sending/generation remains disabled and unimplemented pending the full prompt/token-bound contract. See [response receipt contract](ai-response-receipts.md) and [migration](017-ai-response-receipts.sql).
