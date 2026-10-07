@@ -27,4 +27,3 @@ test('Prompt rejects altered approval, duplicate JSON, invalid identity and outp
  foreach([0,1000001] as $bound) rejects(fn()=>prompt_fixture(null,$bound));
  foreach(['{"version":"ai-evidence-1","sources":[]}','{"version":"ai-evidence-1","sources":false}','{"version":"ai-evidence-1","sources":[{"snapshot_id":"1"}]}','{"version":"ai-evidence-1","sources":[{"snapshot_id":1},{"snapshot_id":1}]}','{"version":"a","version":"b"}'] as $bad) rejects(fn()=>prompt_fixture($bad));
 });
-
