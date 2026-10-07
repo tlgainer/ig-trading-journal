@@ -96,3 +96,5 @@ test('Mixed price sessions cannot present a complete combined stock total', func
  $row=['asset_class'=>'stock','quantity'=>'1','currency'=>'USD','price_status'=>'complete','market_value'=>'100','unrealized_gain'=>'20','price_observation'=>['effective_date'=>'2026-10-05']];
  $group=StockTotals::calculate([$row,array_replace($row,['price_observation'=>['effective_date'=>'2026-10-06']])])[0]; equal($group['market_value'],null); equal($group['status'],'partial'); decimal($group['covered_market_value'],'200'); equal($group['session_dates'],['2026-10-05','2026-10-06']);
 });
+
+require_once __DIR__.'/ai-model-catalog-unit.php';
