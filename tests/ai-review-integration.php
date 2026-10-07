@@ -22,7 +22,7 @@ function review_context(string $state='settled'): array {
  } finally { [$wpdb,$db,$tracker]=$original; }
 }
 test('Schema 15 upgrades from 14 and repeated activation preserves approved evidence',function() use($db) {
- $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('ai_evidence_bundles'))['total']; update_option('tgit_schema_version','14'); Installer::install(); equal(get_option('tgit_schema_version'),'15');
+ $before=$db->row('SELECT COUNT(*) AS total FROM '.$db->table('ai_evidence_bundles'))['total']; update_option('tgit_schema_version','14'); Installer::install(); equal(get_option('tgit_schema_version'),Installer::VERSION);
  equal($db->row('SHOW TABLE STATUS LIKE %s',[$db->table('ai_reviews')])['Engine'],'InnoDB'); Installer::install(); equal($db->row('SELECT COUNT(*) AS total FROM '.$db->table('ai_evidence_bundles'))['total'],$before);
 });
 test('AI review storage binds settled output to approved evidence without modifying spending or ledger',function() {
@@ -84,4 +84,44 @@ test('Saved AI review REST is owner-only, private, scoped and paginated without 
   wp_set_current_user($owner);
   file_put_contents(dirname(__DIR__).'/tmp/ai-review-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'other_workspace'=>$other,'other_asset'=>$otherAsset,'asset'=>$asset,'approval'=>$approval,'first'=>$first['id'],'second'=>$second['id'],'prefix'=>$connection->prefix]));
  } finally { $original->result=null; $wpdb=$original; wp_set_current_user($owner); }
+});
+
+
+test('Schema 16 preserves legacy request facts and repeatable nullable approval migration',function() {
+ [$db,$tracker,$w,$asset,$approval,$spending,$request]=review_context('reserved');
+ $before=$spending->request($w,$request); equal($before['approval_id'],null);
+ global $wpdb; $original=$wpdb; $connection=clone $wpdb; $connection->result=null; $connection->prefix=substr($db->table('ai_requests'),0,-strlen('tgit_ai_requests'));
+ try { $wpdb=$connection; update_option('tgit_schema_version','15'); Installer::install(); Installer::install(); equal(get_option('tgit_schema_version'),Installer::VERSION); equal($spending->request($w,$request),$before); } finally { $original->result=null; $wpdb=$original; }
+});
+
+test('AI bound admission and dispatch reject changed approvals, catalog failures and unsafe retries atomically',function() use($owner,$viewer) {
+ [$db,$tracker,$w,$asset,$approval,$spending,$legacy,$reviews,$response]=review_context('reserved');
+ $credential=ai_digest('review-fixture-key'); $catalog=ai_catalog_evidence(['credential_fingerprint'=>$credential]);
+ $evidence=new AiEvidencePreview($db,$owner,wp_generate_uuid4()); $approved=$evidence->approved($w,$approval); $fingerprint=$approved['fingerprint'];
+ $ids=array_map(fn($source)=>$source['snapshot_id'],$approved['bundle']['sources']); $second=$evidence->approve($w,$asset,$ids,$fingerprint,'second-identical-approval');
+ $reserve=fn($key,$id,$entries)=>$spending->reserve($w,$credential,$key,$fingerprint,10000,2000,$id,$entries);
+ $before=$spending->status($w)['reserved'];
+ provider_conflict(fn()=>$reserve('missing-catalog',$approval,[]));
+ rejects(fn()=>$reserve('wrong-credential',$approval,ai_catalog_evidence()));
+ rejects(fn()=>$reserve('expired-access',$approval,ai_catalog_evidence(['credential_fingerprint'=>$credential,'access_verified_at'=>'2026-09-01 00:00:00'])));
+ provider_conflict(fn()=>$reserve('changed-prices',$approval,ai_catalog_evidence(['credential_fingerprint'=>$credential,'pricing'=>ai_pricing(['input_per_million'=>'3'])])));
+ equal($spending->status($w)['reserved'],$before);
+ $bound=$reserve('bound-request',$approval,$catalog); equal((int)$bound['approval_id'],$approval); equal($reserve('bound-request',$approval,$catalog),$bound);
+ provider_conflict(fn()=>$reserve('bound-request',(int)$second['id'],$catalog));
+ provider_conflict(fn()=>$spending->reserve($w,$credential,'bound-request',$fingerprint,10000,2000));
+ provider_conflict(fn()=>$spending->dispatch($w,(int)$bound['id'],$credential));
+ rejects(fn()=>$spending->dispatch($w,(int)$bound['id'],$credential,ai_catalog_evidence()));
+ equal($spending->request($w,(int)$bound['id'])['state'],'reserved');
+ $foreign=(int)$tracker->create_workspace(['name'=>'Foreign execution scope'])['id'];
+ try { $spending->reserve($foreign,$credential,'foreign-approval',$fingerprint,10000,2000,$approval,$catalog); throw new LogicException('Foreign approval accepted'); } catch(UnexpectedValueException|OutOfBoundsException $error) {}
+ $dispatched=$spending->dispatch($w,(int)$bound['id'],$credential,$catalog); equal($dispatched['state'],'dispatched');
+ provider_conflict(fn()=>$spending->dispatch($w,(int)$bound['id'],$credential,$catalog));
+ $spending->reconcile($w,(int)$bound['id'],['input_tokens'=>100,'cached_input_tokens'=>0,'output_tokens'=>20]);
+ provider_conflict(fn()=>$reviews->save($w,(int)$second['id'],(int)$bound['id'],$response));
+ equal($reviews->save($w,$approval,(int)$bound['id'],$response)['approval_id'],$approval);
+ $pending=$reserve('revoke-bound',$approval,$catalog); $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'owner','state'=>'active']);
+ $other=new AiSpending($db,$viewer,wp_generate_uuid4(),ai_now()); provider_conflict(fn()=>$other->dispatch($w,(int)$pending['id'],$credential,$catalog));
+ $tracker->set_member($w,['wp_user_id'=>$owner,'role'=>'owner','state'=>'revoked']);
+ try { $spending->dispatch($w,(int)$pending['id'],$credential,$catalog); throw new LogicException('Revoked author dispatched'); } catch(DomainException $error) {}
+ equal($other->request($w,(int)$pending['id'])['state'],'reserved');
 });

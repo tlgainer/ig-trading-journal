@@ -10,6 +10,7 @@ namespace GainerInteractive\IGTradingJournal\Application;
 
 use GainerInteractive\IGTradingJournal\Infrastructure\Database;
 use GainerInteractive\IGTradingJournal\Domain\AiBudget;
+use GainerInteractive\IGTradingJournal\Domain\AiModelCatalog;
 use GainerInteractive\IGTradingJournal\Domain\Decimal;
 
 /** Explicit owner operations; request/configuration/event history is append-only. */
@@ -170,28 +171,33 @@ final class AiSpending {
 	 * @param string $fingerprint Approved input bundle digest.
 	 * @param int    $input_tokens Verified input upper bound.
 	 * @param int    $output_tokens Generated output bound.
+	 * @param int    $approval Exact approval, or zero for legacy internal reservations.
+	 * @param array  $catalog Trusted credential-bound model evidence.
 	 * @return array
 	 * @throws \InvalidArgumentException On invalid identity.
 	 */
-	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens ): array {
-		if ( ! preg_match( '/^[a-f0-9]{64}$/D', $credential ) || ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) || '' === trim( $key ) || strlen( $key ) > 80 ) {
+	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens, int $approval = 0, array $catalog = array() ): array {
+		if ( $approval < 0 || ! preg_match( '/^[a-f0-9]{64}$/D', $credential ) || ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) || '' === trim( $key ) || strlen( $key ) > 80 ) {
 			throw new \InvalidArgumentException( 'Invalid AI reservation identity.' );
 		}
 		$key = hash( 'sha256', $key );
 		return $this->locked(
 			$workspace,
-			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens ): array {
+			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens, $approval, $catalog ): array {
 				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'ai_requests' ) . ' WHERE workspace_id = %d AND request_key = %s FOR UPDATE', array( $workspace, $key ) );
 				if ( $prior ) {
-					if ( (int) $prior['actor_id'] !== $this->actor || $prior['credential_fingerprint'] !== $credential || $prior['input_fingerprint'] !== $fingerprint || (int) $prior['input_tokens'] !== $input_tokens || (int) $prior['output_tokens'] !== $output_tokens ) {
+					if ( (int) ( $prior['approval_id'] ?? 0 ) !== $approval || (int) $prior['actor_id'] !== $this->actor || $prior['credential_fingerprint'] !== $credential || $prior['input_fingerprint'] !== $fingerprint || (int) $prior['input_tokens'] !== $input_tokens || (int) $prior['output_tokens'] !== $output_tokens ) {
 						throw new \UnexpectedValueException( 'AI retry identity conflicts with its original context.' );
 					}
 					return $this->request( $workspace, (int) $prior['id'] );
 				}
 				list( $config, $enrollment, $pricing ) = $this->active( $workspace, $pool );
-				$cost                                  = AiBudget::estimate( $pricing, $input_tokens, $output_tokens, $this->now );
-				$totals                                = $this->totals();
-				$admission                             = AiBudget::admission( $config['monthly_cap'], $totals['spent'], $totals['reserved'], $cost );
+				if ( $approval ) {
+					$this->execution_evidence( $workspace, $approval, $fingerprint, $config, $credential, $catalog );
+				}
+				$cost      = AiBudget::estimate( $pricing, $input_tokens, $output_tokens, $this->now );
+				$totals    = $this->totals();
+				$admission = AiBudget::admission( $config['monthly_cap'], $totals['spent'], $totals['reserved'], $cost );
 				if ( ! $admission['allowed'] || $totals['overrun'] ) {
 					throw new \UnexpectedValueException( 'Shared AI spending allowance is paused, exhausted or requires overrun review.' );
 				}
@@ -205,6 +211,7 @@ final class AiSpending {
 						'credential_fingerprint' => $credential,
 						'request_key'            => $key,
 						'input_fingerprint'      => $fingerprint,
+						'approval_id'            => 0 === $approval ? null : $approval,
 						'model'                  => $pricing['model'],
 						'pricing_json'           => $config['pricing_json'],
 						'pricing_fingerprint'    => $config['pricing_fingerprint'],
@@ -228,13 +235,14 @@ final class AiSpending {
 	 * @param int    $workspace Workspace.
 	 * @param int    $id Request.
 	 * @param string $credential Current server credential digest.
+	 * @param array  $catalog Fresh trusted model evidence for bound requests.
 	 * @return array
 	 * @throws \UnexpectedValueException On stale or previously claimed reservations.
 	 */
-	public function dispatch( int $workspace, int $id, string $credential ): array {
+	public function dispatch( int $workspace, int $id, string $credential, array $catalog = array() ): array {
 		return $this->locked(
 			$workspace,
-			function ( ?array $pool ) use ( $workspace, $id, $credential ): array {
+			function ( ?array $pool ) use ( $workspace, $id, $credential, $catalog ): array {
 				$row = $this->request( $workspace, $id );
 				if ( 'reserved' !== $row['state'] || (int) $row['actor_id'] !== $this->actor ) {
 					throw new \UnexpectedValueException( 'AI request is already claimed or belongs to a different authorizer.' );
@@ -245,6 +253,9 @@ final class AiSpending {
 				$period = AiBudget::period( $this->now )['period'];
 				if ( $row['credential_fingerprint'] !== $credential || (int) $row['config_id'] !== (int) $config['id'] || (int) $row['enrollment_id'] !== (int) $enrollment['id'] || $row['expires_at'] <= $this->stamp() || $row['budget_period'] !== $period || 0 >= Decimal::compare( $config['monthly_cap'], '0' ) || 0 < Decimal::compare( Decimal::add( $totals['spent'], $totals['reserved'] ), $config['monthly_cap'] ) || $totals['overrun'] ) {
 					throw new \UnexpectedValueException( 'AI reservation cannot dispatch in its current context.' );
+				}
+				if ( (int) ( $row['approval_id'] ?? 0 ) ) {
+					$this->execution_evidence( $workspace, (int) $row['approval_id'], $row['input_fingerprint'], $row, $credential, $catalog );
 				}
 				$this->event( $workspace, $id, 'dispatched' );
 				return $this->request( $workspace, $id );
@@ -348,6 +359,31 @@ final class AiSpending {
 				);
 			}
 		);
+	}
+
+	/**
+	 * Recheck approval and model evidence inside the spending transaction.
+	 *
+	 * @param int    $workspace Workspace.
+	 * @param int    $approval Exact approval.
+	 * @param string $fingerprint Approved digest.
+	 * @param array  $row Captured configuration or request.
+	 * @param string $credential Current credential digest.
+	 * @param array  $catalog Trusted server catalog.
+	 * @return void
+	 * @throws \UnexpectedValueException On changed approval or model evidence.
+	 */
+	private function execution_evidence( int $workspace, int $approval, string $fingerprint, array $row, string $credential, array $catalog ): void {
+		$approved = ( new AiEvidencePreview( $this->db, $this->actor, $this->correlation ) )->approved( $workspace, $approval );
+		$source   = $this->db->object( 'ai_evidence_bundles', $workspace, $approval );
+		if ( (int) $source['actor_id'] !== $this->actor || ! hash_equals( $approved['fingerprint'], $fingerprint ) ) {
+			throw new \UnexpectedValueException( 'AI execution requires the original authorizer and exact approved evidence.' );
+		}
+		$verified = AiModelCatalog::verified( $catalog, $credential, $this->now );
+		$pricing  = $verified[ $row['model'] ] ?? null;
+		if ( null === $pricing || ! hash_equals( $row['pricing_fingerprint'], hash( 'sha256', wp_json_encode( $pricing ) ) ) ) {
+			throw new \UnexpectedValueException( 'AI execution requires current verified model access and unchanged pricing.' );
+		}
 	}
 
 	/**

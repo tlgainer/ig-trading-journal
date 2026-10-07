@@ -158,7 +158,7 @@ final class AiReviews {
 		$evidence = ( new AiEvidencePreview( $this->db, $this->actor, $this->correlation ) )->approved( $workspace, $approval );
 		$source   = $this->db->object( 'ai_evidence_bundles', $workspace, $approval );
 		$spending = ( new AiSpending( $this->db, $this->actor, $this->correlation ) )->request( $workspace, $request );
-		if ( 'settled' !== $spending['state'] || null === $spending['usage_json'] || ! hash_equals( $spending['input_fingerprint'], $evidence['fingerprint'] ) || (int) $source['actor_id'] !== (int) $spending['actor_id'] || ( $writing && (int) $spending['actor_id'] !== $this->actor ) ) {
+		if ( ( (int) ( $spending['approval_id'] ?? 0 ) && (int) $spending['approval_id'] !== $approval ) || 'settled' !== $spending['state'] || null === $spending['usage_json'] || ! hash_equals( $spending['input_fingerprint'], $evidence['fingerprint'] ) || (int) $source['actor_id'] !== (int) $spending['actor_id'] || ( $writing && (int) $spending['actor_id'] !== $this->actor ) ) {
 			throw new \UnexpectedValueException( 'AI review requires matching approved evidence and a settled original-owner request.' );
 		}
 		return array( $evidence, $spending );

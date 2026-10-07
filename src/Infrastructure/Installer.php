@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '15';
+	public const VERSION = '16';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -146,10 +146,31 @@ final class Installer {
 				throw new \RuntimeException( 'AI review migration is missing.' );
 			}
 			$sql .= $review_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads bundled additive approval migration.
+			$binding_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/016-ai-request-approvals.sql' );
+			if ( false === $binding_sql ) {
+				throw new \RuntimeException( 'AI request approval migration is missing.' );
+			}
+			$sql .= $binding_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {
 				if ( trim( $statement ) === '' ) {
+					continue;
+				}
+				$ai_table = $wpdb->prefix . 'tgit_ai_requests';
+				if ( trim( $statement ) === "ALTER TABLE $ai_table ADD COLUMN approval_id bigint unsigned NULL" ) {
+					$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $ai_table, 'approval_id' ), ARRAY_A );
+					if ( ! $column ) {
+						// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Exact trusted table and fixed additive DDL are checked above.
+						if ( false === $wpdb->query( trim( $statement ) ) ) {
+							throw new \RuntimeException( 'AI approval migration failed; forward repair is required.' );
+						}
+						$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $ai_table, 'approval_id' ), ARRAY_A );
+					}
+					if ( ! $column || ! in_array( $column['Type'], array( 'bigint unsigned', 'bigint(20) unsigned' ), true ) || 'YES' !== $column['Null'] || null !== $column['Default'] ) {
+						throw new \RuntimeException( 'AI approval column is incompatible; forward repair is required.' );
+					}
 					continue;
 				}
 				$request_table = $wpdb->prefix . 'tgit_provider_requests';

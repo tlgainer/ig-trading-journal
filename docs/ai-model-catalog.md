@@ -11,3 +11,6 @@ Official model documentation was inspected on October 6, 2026: [GPT-5.4 mini](ht
 Validation uses synthetic models, decimal prices and fingerprints only. No database migration, provider call, credential or production deployment is required.
 
 Owner model/budget preparation controls are now implemented separately; their model ID input does not create verification evidence. Catalog-to-dispatch binding remains pending. See [AI Settings](ai-settings.md).
+
+
+Development schema 16 now binds AI reservations to an exact approval ID and enforces credential-bound catalog evidence at admission and dispatch. Bound review provenance rejects substituted approvals. No transport or paid processing is enabled; generation controls, prompt/token bounds and verified response/usage handling remain pending. See [execution binding](ai-execution-binding.md) and [migration](016-ai-request-approvals.sql).
