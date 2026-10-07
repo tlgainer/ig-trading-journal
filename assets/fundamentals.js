@@ -74,6 +74,7 @@
   } catch (error) { if (expected === generation) status(error.message, true); }
  }
  async function load() {
+  window.dispatchEvent(new CustomEvent('tgit-evidence-reset'));
   const expected = ++generation; loading = true; controls(); tgitResetCollection($('history')); $('detail').replaceChildren(); status('Loading saved history…');
   try {
    if (!$('asset').value) { rows = []; status('Create a stock asset to view fundamentals.'); return; }
@@ -81,6 +82,7 @@
    tgitCollection($('history'), { actor: config.actorId, workspace, key: `fundamental-history-${$('asset').value}`, title: 'Saved fundamental snapshots', search: (row) => `${row.dataset} ${row.provider_symbol} ${row.retrieved_at}`, columns: [
     { key: 'id', label: 'Snapshot', identity: true, required: true, render: (row) => `#${row.id}` }, { key: 'dataset', label: 'Dataset', render: (row) => label(row.dataset) }, { key: 'retrieved', label: 'Retrieved (UTC)', render: (row) => row.retrieved_at }, { key: 'symbol', label: 'Provider symbol', render: (row) => row.provider_symbol }, { key: 'actions', label: 'Actions', required: true, render: (row) => { const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = 'View'; button.setAttribute('aria-label', `View snapshot ${row.id}`); button.addEventListener('click', () => { ++generation; detail(row); }); return button; } }
    ] }, rows); status(rows.length ? 'Saved history loaded. No provider request was sent.' : 'No saved fundamental snapshots yet.');
+   window.dispatchEvent(new CustomEvent('tgit-evidence-sources', { detail: { workspace, role, asset: $('asset').value, rows } }));
   } catch (error) { if (expected === generation) status(error.message, true); }
   finally { if (expected === generation) { loading = false; controls(); } }
  }

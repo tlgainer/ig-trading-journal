@@ -13,7 +13,7 @@ if (isset($_GET['tgit_ai_fixture']) && $_GET['tgit_ai_fixture'] === '1') {
  $ai_connection = clone $wpdb; $ai_connection->result = null; $ai_connection->prefix = $ai_fixture['prefix']; $wpdb = $ai_connection;
 }
 $route = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if (preg_match('#^/assets/(admin\.css|admin\.js|collection\.js|journal\.js|opening\.js|calculators\.js|research\.js|reports\.js|market-data\.js|fundamentals\.js|ai-settings\.js|tabs\.js|rest-url\.js)$#D', $route)) {
+if (preg_match('#^/assets/(admin\.css|admin\.js|collection\.js|journal\.js|opening\.js|calculators\.js|research\.js|reports\.js|market-data\.js|fundamentals\.js|ai-settings\.js|ai-evidence\.js|tabs\.js|rest-url\.js)$#D', $route)) {
  header('Content-Type: ' . (str_ends_with($route, '.css') ? 'text/css' : 'application/javascript'));
  readfile(dirname(__DIR__) . $route); exit;
 }
@@ -23,7 +23,7 @@ if ($route === '/preview') {
  echo '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Disposable journal preview</title><link rel="stylesheet" href="/assets/admin.css"></head><body>';
  \GainerInteractive\IGTradingJournal\Admin\Screen::render();
  echo '<script>window.tgitConfig=' . wp_json_encode(['root' => 'http://127.0.0.1:19308/?' . (isset($ai_fixture) ? 'tgit_ai_fixture=1&' : '') . 'rest_route=/tgit/v1/', 'nonce' => wp_create_nonce('wp_rest'), 'actorId' => get_current_user_id(), 'canCreate' => true, 'i18n' => ['loading' => 'Loading', 'empty' => 'No records yet', 'saved' => 'Saved', 'unknown' => 'Missing price', 'edit' => 'Edit draft', 'editResearch' => 'Edit', 'post' => 'Post draft', 'editing' => 'Editing draft', 'network' => 'Request failed']]) . ';</script>';
- echo '<script src="/assets/rest-url.js"></script><script src="/assets/tabs.js"></script><script src="/assets/collection.js"></script><script src="/assets/admin.js"></script><script src="/assets/opening.js"></script><script src="/assets/journal.js"></script><script src="/assets/calculators.js"></script><script src="/assets/research.js"></script><script src="/assets/reports.js"></script><script src="/assets/market-data.js"></script><script src="/assets/fundamentals.js"></script><script src="/assets/ai-settings.js"></script></body></html>'; exit;
+ echo '<script src="/assets/rest-url.js"></script><script src="/assets/tabs.js"></script><script src="/assets/collection.js"></script><script src="/assets/admin.js"></script><script src="/assets/opening.js"></script><script src="/assets/journal.js"></script><script src="/assets/calculators.js"></script><script src="/assets/research.js"></script><script src="/assets/reports.js"></script><script src="/assets/market-data.js"></script><script src="/assets/fundamentals.js"></script><script src="/assets/ai-settings.js"></script><script src="/assets/ai-evidence.js"></script></body></html>'; exit;
 }
 if (isset($_GET['rest_route'])) { rest_get_server()->serve_request(wp_unslash($_GET['rest_route'])); exit; }
 http_response_code(404);

@@ -11,6 +11,7 @@ namespace GainerInteractive\IGTradingJournal\Http;
 use GainerInteractive\IGTradingJournal\Application\Tracker;
 use GainerInteractive\IGTradingJournal\Application\AiSpending;
 use GainerInteractive\IGTradingJournal\Application\AiSettings;
+use GainerInteractive\IGTradingJournal\Application\AiEvidencePreview;
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh;
@@ -74,6 +75,9 @@ final class Controller {
 		self::route( $base . '/ai-settings', 'GET', 'ai_settings' );
 		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/approve', 'POST', 'ai_evidence_approve' );
+		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)', 'GET', 'ai_evidence_read' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
@@ -212,7 +216,29 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {
+			if ( in_array( $operation, array( 'ai_evidence_preview', 'ai_evidence_approve', 'ai_evidence_read' ), true ) ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				$evidence = new AiEvidencePreview( new Database( $wpdb ), get_current_user_id(), $correlation );
+				if ( 'ai_evidence_read' === $operation ) {
+					$result = $evidence->approved( $workspace, (int) $request->get_url_params()['approval'] );
+				} else {
+					$approval = 'ai_evidence_approve' === $operation;
+					$required = $approval ? array( 'snapshots', 'fingerprint' ) : array( 'snapshots' );
+					Tracker::fields( $data, array_merge( $required, array( 'trade_id', 'expected_revision' ) ), $required );
+					if ( ! is_array( $data['snapshots'] ) || array_is_list( $data['snapshots'] ) || ( $approval && ! is_string( $data['fingerprint'] ) ) ) {
+						throw new \InvalidArgumentException( 'Select saved dataset snapshots and a valid reviewed fingerprint.' );
+					}
+					foreach ( array( 'trade_id', 'expected_revision' ) as $field ) {
+						if ( array_key_exists( $field, $data ) && ( ! is_int( $data[ $field ] ) || $data[ $field ] <= 0 ) ) {
+							throw new \InvalidArgumentException( 'Select a positive trade ID and expected journal revision together.' );
+						}
+					}
+					$asset    = (int) $request->get_url_params()['asset_id'];
+					$trade    = $data['trade_id'] ?? null;
+					$revision = $data['expected_revision'] ?? null;
+					$result   = $approval ? $evidence->approve( $workspace, $asset, $data['snapshots'], $data['fingerprint'], (string) $request->get_header( 'idempotency-key' ), $trade, $revision ) : $evidence->preview( $workspace, $asset, $data['snapshots'], $trade, $revision );
+				}
+			} elseif ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );
 				if ( 'ai_enrollment' === $operation ) {

@@ -59,3 +59,5 @@ Development AI owner controls now prepare shared model/monthly budget and separa
 AI summary input foundation now projects immutable snapshot metrics and an explicitly selected current thesis revision into a bounded deterministic preview. No approval, paid processing or new UI is enabled. See [preview contract](ai-evidence-preview.md).
 
 Internal fingerprint-bound owner approval and immutable evidence storage are implemented in development schema 14, with actor-bound idempotent retries and transactional audit rollback. No approval UI or paid processing is enabled. See [approval contract](ai-evidence-approvals.md).
+
+Owner REST/UI evidence preview and approval controls are now implemented in development Research. Explicit snapshot/thesis selections, stale-selection invalidation, immutable approval reads and lost-response retries are covered. AI-generated reviews, complete review-history browsing, dispatch catalog enforcement and transport remain pending; processing is unavailable.

@@ -43,6 +43,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-ai-evidence', plugins_url( 'assets/ai-evidence.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -334,6 +335,19 @@ final class Screen {
 	<p id="tgit-fundamental-status" role="status" aria-live="polite"></p>
 	<div id="tgit-fundamental-history"></div>
 	<div id="tgit-fundamental-detail"></div>
+	<div id="tgit-ai-evidence" class="tgit-form" hidden>
+	<h3><?php esc_html_e( 'Prepare evidence for an AI summary', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Select saved statements and optionally a saved trade thesis, preview the exact evidence, then approve it. Approval saves a private record. It does not send data, spend money or generate a summary.', 'ig-trading-journal' ); ?></p>
+	<form id="tgit-ai-evidence-form" class="tgit-grid">
+	<div id="tgit-ai-evidence-snapshots"></div>
+	<label><?php esc_html_e( 'Saved trade thesis (optional)', 'ig-trading-journal' ); ?><select id="tgit-ai-evidence-trade"><option value="">No thesis</option></select></label>
+	<button type="submit" class="button" id="tgit-ai-evidence-preview"><?php esc_html_e( 'Preview selected evidence', 'ig-trading-journal' ); ?></button>
+	</form>
+	<div id="tgit-ai-evidence-detail"></div>
+	<button type="button" class="button button-primary" id="tgit-ai-evidence-approve" disabled><?php esc_html_e( 'Approve this evidence', 'ig-trading-journal' ); ?></button>
+	<button type="button" class="button" id="tgit-ai-evidence-retry" hidden><?php esc_html_e( 'Check approval outcome', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-ai-evidence-status" role="status" aria-live="polite"></p>
+	</div>
 	</div>
 	</section>
 		<?php JournalScreen::render(); ?>

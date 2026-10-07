@@ -300,3 +300,9 @@ Choose **View** on a saved statement snapshot to see metrics and **Changes from 
 ## Prepare AI summaries (development)
 
 As a workspace owner, open Settings → AI summary settings. Save a monthly USD budget and an exact model ID (optional until you choose one). The suggested starting budget is $15; $10 is supported, and $0 pauses processing. The workspace that first saves the policy controls the shared budget across workspaces. Save workspace consent separately; it defaults to No. Processing is not available yet and these saves send no data to OpenAI. See [AI Settings](ai-settings.md).
+
+### Development: approve evidence for an AI summary
+
+As an owner, open **Research → Stock fundamentals** and choose a stock. Under **Prepare evidence for an AI summary**, choose at least one saved statement snapshot and optionally a saved trade thesis. Click **Preview selected evidence**, then expand **Exact evidence and source fingerprints** to review the included metrics, coverage and thesis. Changing a selection requires another preview. Click **Approve this evidence** to save that exact evidence privately.
+
+Approval does not spend money, send data or generate an AI summary. A changed thesis or evidence requires reloading saved history and previewing again. If the result is uncertain, use **Check approval outcome**; it reuses the original request and cannot create a duplicate. The same browser session remembers the latest approval and uncertain request across reloads when session storage is available. The saved record remains unchanged as your journal evolves. Summary generation and complete review-history browsing are still pending.

@@ -13,6 +13,32 @@ test('AI evidence preview reads immutable scoped snapshots without changing ledg
  foreach($before as $table=>$rows) equal($db->rows('SELECT * FROM '.$db->table($table).' WHERE workspace_id = %d',[$w]),$rows);
 });
 
+test('AI evidence REST enforces exact owner selections, private responses and immutable retries',function() use($db,$owner,$viewer,$tracker) {
+ [$market,$w,$asset,$mapping,$ids]=saved_metric_context(); wp_set_current_user($owner); $base='workspaces/'.$w.'/assets/'.$asset.'/ai-evidence';
+ $journal=new Journal($db,$owner,wp_generate_uuid4()); $trade=$journal->save_trade($w,0,['asset_id'=>$asset,'title'=>'Evidence approval browser fixture','state'=>'planned','transaction_ids'=>[],'journal'=>['thesis'=>'Saved synthetic thesis','notes'=>'EXCLUDED-PRIVATE-NOTE']],'approval-browser-trade');
+ $input=['snapshots'=>$ids,'trade_id'=>(int)$trade['trade']['id'],'expected_revision'=>(int)$trade['trade']['revision']];
+ $response=provider_rest('POST',$base.'/preview',$input); equal($response->get_status(),200); $preview=$response->get_data()['data']; equal($preview['bundle']['thesis']['text'],'Saved synthetic thesis'); equal(str_contains(wp_json_encode($preview),'EXCLUDED-PRIVATE-NOTE'),false);
+ equal($response->get_headers()['Cache-Control'],'private, no-store, max-age=0');
+ foreach([[],['snapshots'=>[]],array_replace($input,['trade_id'=>'1']),array_replace($input,['expected_revision'=>null]),array_replace($input,['instructions'=>'Not allowed'])] as $invalid) equal(provider_rest('POST',$base.'/preview',$invalid)->get_status(),400);
+ equal(provider_rest('POST',$base.'/preview',['snapshots'=>$ids,'trade_id'=>$input['trade_id']])->get_status(),400);
+ $command=$input+['fingerprint'=>$preview['fingerprint']]; equal(provider_rest('POST',$base.'/approve',$command)->get_status(),400);
+ $approved=provider_rest('POST',$base.'/approve',$command,'rest-evidence-approval'); equal($approved->get_status(),200); $saved=$approved->get_data()['data'];
+ equal(provider_rest('POST',$base.'/approve',$command,'rest-evidence-approval')->get_data()['data'],$saved);
+ equal(provider_rest('GET','workspaces/'.$w.'/ai-evidence/'.$saved['id'])->get_data()['data']['bundle'],$preview['bundle']);
+ equal(provider_rest('POST',$base.'/approve',array_replace($command,['fingerprint'=>str_repeat('a',64)]),'rest-evidence-changed')->get_status(),409);
+ $journal->save_trade($w,$input['trade_id'],['asset_id'=>$asset,'title'=>'Evidence approval browser fixture','state'=>'planned','expected_revision'=>$input['expected_revision'],'transaction_ids'=>[],'journal'=>['thesis'=>'Saved synthetic thesis updated','notes'=>'EXCLUDED-PRIVATE-NOTE']],'approval-rest-revise');
+ equal(provider_rest('POST',$base.'/preview',$input)->get_status(),409);
+ equal(provider_rest('POST',$base.'/approve',$command,'rest-evidence-stale-thesis')->get_status(),409);
+ equal(provider_rest('POST',$base.'/approve',$command,'rest-evidence-approval')->get_data()['data'],$saved);
+ equal(provider_rest('GET','workspaces/'.$w.'/ai-evidence/'.$saved['id'])->get_data()['data']['bundle'],$preview['bundle']);
+ [$foreign,$other,$otherAsset,$otherMapping,$otherIds]=saved_metric_context(); equal(provider_rest('GET','workspaces/'.$other.'/ai-evidence/'.$saved['id'])->get_status(),404);
+ $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']); wp_set_current_user($viewer);
+ foreach(['preview','approve'] as $operation) equal(provider_rest('POST',$base.'/'.$operation,$command,'viewer-approval')->get_status(),403);
+ equal(provider_rest('GET','workspaces/'.$w.'/ai-evidence/'.$saved['id'])->get_status(),403); wp_set_current_user($owner);
+ equal($db->rows('SELECT * FROM '.$db->table('ai_requests').' WHERE workspace_id = %d',[$w]),[]);
+ file_put_contents(dirname(__DIR__).'/tmp/ai-evidence-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'asset'=>$asset,'snapshots'=>$ids,'trade'=>$input['trade_id']]));
+});
+
 test('AI evidence preview includes only the selected plain thesis at its expected current revision',function() use($db,$owner) {
  [$market,$w,$asset,$mapping,$ids]=saved_metric_context(); $preview=new AiEvidencePreview($db,$owner,wp_generate_uuid4()); $journal=new Journal($db,$owner,wp_generate_uuid4());
  $input=['asset_id'=>$asset,'title'=>'Synthetic review','state'=>'planned','transaction_ids'=>[],'journal'=>['thesis'=>'<p>Selected <strong>idea</strong> &amp; evidence</p>','notes'=>'PRIVATE-NOTES','emotions'=>'PRIVATE-EMOTIONS']];

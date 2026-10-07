@@ -55,3 +55,5 @@ Owner model/budget preparation controls and separate workspace consent are imple
 An internal owner-only bounded evidence/thesis preview is implemented; it does not record approval or generate summaries. Fingerprint-bound approval, evidence/review persistence, dispatch catalog enforcement and text transport remain pending. See [preview contract](ai-evidence-preview.md).
 
 Development schema 14 now persists owner approval of exact preview fingerprints through an internal immutable operation. Owner REST/UI approval controls, saved generated reviews and dispatch/transport remain pending. Keep all fourteen migrations for future packaging. See [approval contract](ai-evidence-approvals.md).
+
+Owner evidence preview/approval controls are now available in development Research, with exact evidence disclosure and safe uncertain retries. Next: immutable generated reviews and full history browsing, dispatch-time catalog/consent/budget checks and disabled-by-default text transport. Development remains schema 14; no new migration or release ZIP for these controls.
