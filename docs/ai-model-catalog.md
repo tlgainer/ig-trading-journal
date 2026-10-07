@@ -9,3 +9,5 @@ This milestone adds no configured defaults, API-key input, REST endpoint, Settin
 Official model documentation was inspected on October 6, 2026: [GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini) and [GPT-5.4 nano](https://developers.openai.com/api/docs/models/gpt-5.4-nano). No prices or account-access assumptions are bundled from those pages. Future catalog entries require a fresh documented review and account-specific access evidence.
 
 Validation uses synthetic models, decimal prices and fingerprints only. No database migration, provider call, credential or production deployment is required.
+
+Owner model/budget preparation controls are now implemented separately; their model ID input does not create verification evidence. Catalog-to-dispatch binding remains pending. See [AI Settings](ai-settings.md).

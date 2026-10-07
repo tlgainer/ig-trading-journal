@@ -296,3 +296,7 @@ In Research → Stock fundamentals, select a stock and dataset, then choose **We
 ### Development: reporting-period changes
 
 Choose **View** on a saved statement snapshot to see metrics and **Changes from previous available period**. The table shows prior/current values, fiscal dates, gaps and currencies. Margin changes are percentage points: −5% to 10% is +15 points. Missing prior periods, different currencies and unavailable facts show explicit reasons. These comparisons do not verify equal reporting durations or accounting policies and are not labeled annual/quarterly growth. Viewing comparisons uses stored evidence and does not consume provider requests or AI budget. See [comparison details](fundamental-period-comparisons.md).
+
+## Prepare AI summaries (development)
+
+As a workspace owner, open Settings → AI summary settings. Save a monthly USD budget and an exact model ID (optional until you choose one). The suggested starting budget is $15; $10 is supported, and $0 pauses processing. The workspace that first saves the policy controls the shared budget across workspaces. Save workspace consent separately; it defaults to No. Processing is not available yet and these saves send no data to OpenAI. See [AI Settings](ai-settings.md).

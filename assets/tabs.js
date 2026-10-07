@@ -16,7 +16,7 @@
   calculators: [document.getElementById('tgit-calculators-section')],
   research: [document.getElementById('tgit-research-section')],
   reports: [document.getElementById('tgit-reports-section')],
-  settings: ['management', 'opening-section', 'members-section', 'media-settings-section', 'market-data-section'].map((id) => document.getElementById(`tgit-${id}`))
+  settings: ['management', 'opening-section', 'members-section', 'media-settings-section', 'market-data-section', 'ai-section'].map((id) => document.getElementById(`tgit-${id}`))
  };
  for (const tab of tabs) {
   const panel = document.createElement('div');

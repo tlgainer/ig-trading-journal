@@ -25,3 +25,5 @@ Proposed owner default remains 15.00 USD, editable including zero. External proc
 The [token-counting guide](https://developers.openai.com/api/docs/guides/token-counting) documents input counting and total generated output, including non-visible tokens. The [Responses create reference](https://developers.openai.com/api/reference/python/resources/responses/methods/create) documents output limits and usage. A future adapter must account for its complete serialized prompt/schema and verified token-counting overhead; byte length or a characters-per-token guess does not establish the input bound.
 
 Tests use fictitious model identifiers and prices exclusively, not published pricing or assertions of account access.
+
+Owner model/budget preparation screens are now implemented; earlier pending-screen notes describe the original policy milestone. Public saves keep processing disabled. See [AI Settings](ai-settings.md).

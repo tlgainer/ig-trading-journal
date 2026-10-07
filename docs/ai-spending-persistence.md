@@ -33,3 +33,5 @@ The released ZIP remains 0.26.0/schema 8. Do not run development SQL on producti
 ## Validation
 
 Disposable fixtures isolate AI tables in a fresh synthetic prefix for every run, retaining prior fixtures without deleting history. Tests cover schema repair, owner isolation, explicit opt-in, immutable revisions, rotation-resistant shared admission, retry conflicts, single claims, expiry/month changes, pricing fingerprints, retained uncertainties, usage idempotency, revocation, audit rollback and ten two-workspace races for the final allowance. Prices/models are fictional; no requests leave the test host.
+
+Owner preparation routes and Settings controls are now available; the earlier no-REST/UI note describes the original persistence milestone. Public controls always save disabled policy and never dispatch. See [AI Settings](ai-settings.md).

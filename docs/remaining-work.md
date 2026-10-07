@@ -49,3 +49,5 @@ Development weekly fundamentals are now implemented: explicit owner enrollment, 
 AI cost policy and [schema-13 shared spending persistence](ai-spending-persistence.md) are implemented internally. Next: owner model/budget controls and verified catalog, approved evidence/thesis bundles, immutable review history and disabled-by-default text transport. No paid processing is enabled by the budget foundation.
 
 An internal credential-bound model evidence gate is now available; wiring it into owner Settings and dispatch remains pending. See [catalog contract](ai-model-catalog.md).
+
+Owner model/budget preparation controls and separate workspace consent are implemented in Settings. AI processing is still unavailable. Next: bind verified catalog evidence to dispatch, approved saved fundamentals/thesis bundles, immutable review history and disabled-by-default transport. See [AI Settings](ai-settings.md).

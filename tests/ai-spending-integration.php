@@ -194,3 +194,32 @@ test('AI verified overrun retains its full charge and pauses new spending withou
  ai_settings('100'); ai_conflict(fn()=>ai_reserve($w,'after-overrun')); equal($ai_db->object('ai_requests',$w,(int)$r['id']),$before);
  equal($ai_db->rows('SELECT * FROM '.$ai_db->table('transactions').' WHERE workspace_id = %d',[$w]),[]);
 });
+
+// Public controls use their own retained synthetic table prefix.
+test('AI Settings REST prepares disabled policy with private projection, revisions and explicit consent',function() use($owner,$viewer) {
+ global $wpdb;
+ $original=$wpdb; $connection=clone $wpdb; $connection->result=null; $connection->prefix='fixture_ais_'.substr(str_replace('-','',wp_generate_uuid4()),0,10).'_';
+ try {
+  $wpdb=$connection; Installer::install(); wp_set_current_user($owner);
+  $t=new Tracker(new Database($wpdb),$owner,wp_generate_uuid4()); $w=(int)$t->create_workspace(['name'=>'Synthetic settings'])['id'];
+  $other=(int)$t->create_workspace(['name'=>'Synthetic other settings'])['id']; $base='workspaces/'.$w;
+  $initial=provider_rest('GET',$base.'/ai-settings'); equal($initial->get_status(),200); equal($initial->get_data()['data']['processing_available'],false);
+  $input=['enabled'=>false,'monthly_cap'=>'10.50','model'=>'fixture-text-model','expected_config_id'=>0];
+  $saved=provider_rest('POST',$base.'/ai-settings',$input); equal($saved->get_status(),200); $data=$saved->get_data()['data']; decimal($data['monthly_cap'],'10.5'); equal($data['model'],'fixture-text-model');
+  foreach(['allowed','credential_fingerprint','pricing_json','controller_workspace_id','actor_id'] as $field) equal(array_key_exists($field,$data),false);
+  equal(provider_rest('POST',$base.'/ai-settings',$input)->get_status(),409);
+  equal(provider_rest('POST',$base.'/ai-settings',array_replace($input,['enabled'=>true,'expected_config_id'=>$data['config_id']]))->get_status(),400);
+  equal(provider_rest('POST',$base.'/ai-settings',array_replace($input,['monthly_cap'=>10.5]))->get_status(),400);
+  equal(provider_rest('POST',$base.'/ai-settings',['enabled'=>false])->get_status(),400);
+  equal(provider_rest('POST',$base.'/ai-settings',array_replace($input,['pricing'=>[]]))->get_status(),400);
+  equal(provider_rest('POST','workspaces/'.$other.'/ai-settings',$input)->get_status(),403);
+  $enroll=provider_rest('POST',$base.'/ai-enrollment',['enabled'=>true,'expected_enrollment_id'=>0]); equal($enroll->get_status(),200); equal($enroll->get_data()['data']['enrolled'],true);
+  equal(provider_rest('POST',$base.'/ai-enrollment',['enabled'=>'true','expected_enrollment_id'=>0])->get_status(),400);
+  equal(provider_rest('POST',$base.'/ai-enrollment',['enabled'=>false,'expected_enrollment_id'=>0])->get_status(),409);
+  $t->set_member($w,['wp_user_id'=>$viewer,'role'=>'manager','state'=>'active']); wp_set_current_user($viewer);
+  foreach(['ai-settings','ai-enrollment'] as $route) equal(provider_rest('POST',$base.'/'.$route,$input)->get_status(),403);
+  equal(provider_rest('GET',$base.'/ai-settings')->get_status(),403);
+  wp_set_current_user($owner); $t->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']);
+  file_put_contents(dirname(__DIR__).'/tmp/ai-settings-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'prefix'=>$connection->prefix]));
+ } finally { $original->result=null; $wpdb=$original; wp_set_current_user($owner); }
+});

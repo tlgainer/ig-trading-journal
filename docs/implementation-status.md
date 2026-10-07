@@ -231,3 +231,15 @@ Next: owner model/budget screens and verified catalog, approved evidence/thesis 
 Added an internal pure model-catalog validator that binds exact model/pricing evidence to the current credential fingerprint, rejects stale/future/malformed access checks and preserves existing strict pricing expiry/capability rules. Empty catalogs enable no models, credential rotation requires new access evidence and no model fallback is introduced. See [catalog contract](ai-model-catalog.md). This gate is not yet wired into Settings or paid dispatch; owner controls remain next. No schema change, bundled prices, credential, external request or release ZIP.
 
 90 unit checks pass, including credential rotation, exact model identity, missing/extra fields, invalid calendar dates and exact thirty-day expiration. Existing schema-13 integration/browser results remain prior evidence; this pure domain addition does not change those surfaces.
+
+## October 6, 2026: owner AI model and budget preparation controls
+
+Settings now provides owner-only model ID/monthly USD budget controls, a shared spending/reset summary and separate workspace consent. The first workspace to save controls the shared policy; other workspace owners read the policy and save their own consent. Private GET/POST routes return a safe projection, enforce typed/required fields and reject stale revisions. Public saves require disabled processing. Model selection creates no access/pricing proof; catalog-to-dispatch binding and actual summaries remain pending. See [AI Settings](ai-settings.md).
+
+The controls reuse the existing white Settings card, native grid forms, trimmed decimal display, owner visibility and navigation guards. Saving either form preserves unsaved fields in the other; reload and load-failure recovery are explicit. Disposable browser tests use a fresh retained synthetic prefix so repeated runs do not share an old controller policy.
+
+90 unit and 149 disposable WordPress/MySQL checks, coding standards, PHP/JavaScript syntax and six REST URL checks pass. Real Settings browser checks cover owner/viewer access, budget/model saves, separate consent, unsaved preservation, discard/reload, zero pause and 360/768/1440 layouts. Existing market-data/fundamental browser checks, desktop/mobile journals, all eleven real HTTP private-image checks and all eight responsive admin sections pass. No live provider/OpenAI requests, credentials, SQL migration, release ZIP or production change. Development remains 0.27.0-dev/schema 13; released ZIP remains 0.26.0/schema 8.
+
+Next: credential-bound catalog enforcement at dispatch, approved saved-fundamentals/thesis bundles, immutable AI reviews and disabled-by-default text transport.
+
+Extended Settings browser checks also pass shared read-only policy controls and failed-load recovery.

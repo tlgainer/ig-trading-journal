@@ -41,6 +41,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-research', plugins_url( 'assets/research.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
@@ -336,6 +337,24 @@ final class Screen {
 	</div>
 	</section>
 		<?php JournalScreen::render(); ?>
+		<section id="tgit-ai-section" hidden>
+	<h2><?php esc_html_e( 'AI summary settings', 'ig-trading-journal' ); ?></h2>
+	<p><?php esc_html_e( 'Prepare your model and shared monthly budget. AI summaries are not available yet; saving sends no financial data to an AI provider.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-ai-summary"></p>
+	<form id="tgit-ai-policy" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Monthly budget (USD)', 'ig-trading-journal' ); ?><input name="monthly_cap" inputmode="decimal" required pattern="[0-9]+(\.[0-9]{1,12})?"></label>
+	<label><?php esc_html_e( 'Model ID', 'ig-trading-journal' ); ?><input name="model" maxlength="128" pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]*" aria-describedby="tgit-ai-model-help"></label>
+	<p id="tgit-ai-model-help"><?php esc_html_e( 'Enter the exact OpenAI API model ID, or leave blank to choose later. Selection does not verify account access or current pricing. A zero budget pauses processing.', 'ig-trading-journal' ); ?></p>
+	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save model and budget', 'ig-trading-journal' ); ?></button>
+	</form>
+	<form id="tgit-ai-consent" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Allow future AI summaries in this workspace', 'ig-trading-journal' ); ?><select name="enabled"><option value="false"><?php esc_html_e( 'No', 'ig-trading-journal' ); ?></option><option value="true"><?php esc_html_e( 'Yes', 'ig-trading-journal' ); ?></option></select></label>
+	<p><?php esc_html_e( 'Save the model and budget before workspace consent. Consent is separate for each workspace. Future summaries will use approved saved fundamentals and your selected trade thesis; images and unrelated notes are excluded.', 'ig-trading-journal' ); ?></p>
+	<button type="submit" class="button"><?php esc_html_e( 'Save workspace consent', 'ig-trading-journal' ); ?></button>
+	</form>
+	<button type="button" id="tgit-ai-reload" class="button"><?php esc_html_e( 'Reload AI settings', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-ai-status" role="status" aria-live="polite"></p>
+	</section>
 	<section id="tgit-market-data-section" hidden>
 	<h2><?php esc_html_e( 'Stock market data', 'ig-trading-journal' ); ?></h2>
 	<p><?php esc_html_e( 'Confirm the provider symbol, exchange and currency before requesting a price. These are end-of-day observations. Choose the stock price source in Overview to use saved provider prices.', 'ig-trading-journal' ); ?></p>

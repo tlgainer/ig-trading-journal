@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace GainerInteractive\IGTradingJournal\Http;
 
 use GainerInteractive\IGTradingJournal\Application\Tracker;
+use GainerInteractive\IGTradingJournal\Application\AiSpending;
+use GainerInteractive\IGTradingJournal\Application\AiSettings;
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh;
@@ -69,6 +71,9 @@ final class Controller {
 		self::route( '/workspaces', 'GET', 'workspaces' );
 		self::route( '/workspaces', 'POST', 'create_workspace' );
 		$base = '/workspaces/(?P<workspace>[1-9][0-9]*)';
+		self::route( $base . '/ai-settings', 'GET', 'ai_settings' );
+		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
+		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
@@ -207,7 +212,18 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'fundamentals', 'fundamental_metrics' ), true ) ) {
+			if ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );
+				if ( 'ai_enrollment' === $operation ) {
+					Tracker::fields( $data, array( 'enabled', 'expected_enrollment_id' ), array( 'enabled', 'expected_enrollment_id' ) );
+					if ( ! is_bool( $data['enabled'] ) || ! is_int( $data['expected_enrollment_id'] ) || $data['expected_enrollment_id'] < 0 ) {
+						throw new \InvalidArgumentException( 'Invalid workspace AI consent.' );
+					}
+					$spending->enroll( $workspace, $data['enabled'], $data['expected_enrollment_id'] );
+				}
+				$result = AiSettings::policy( $spending, $workspace, 'save_ai_settings' === $operation ? $data : null );
+			} elseif ( in_array( $operation, array( 'fundamentals', 'fundamental_metrics' ), true ) ) {
 				$market = new MarketData( new Database( $wpdb ), get_current_user_id(), $correlation );
 				$asset  = (int) $request->get_url_params()['asset_id'];
 				if ( 'fundamental_metrics' === $operation ) {
