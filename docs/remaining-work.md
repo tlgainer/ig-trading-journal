@@ -67,3 +67,5 @@ Development schema 16 now binds AI reservations to an exact approval ID and enfo
 
 
 Development schema 17 now records immutable server Responses receipts and budget settlement atomically, with separate guarded publication. Exact model/usage validation, refusal/incomplete handling, unknown-cost holds, token-bound quarantine and immutable recovery are implemented internally. Sending/generation remains disabled and unimplemented pending the full prompt/token-bound contract. See [response receipt contract](ai-response-receipts.md) and [migration](017-ai-response-receipts.sql).
+
+The versioned complete prompt and input-count projection are now implemented internally, preserving exact approved evidence and including instructions, message framing and JSON schema. Schema remains 17. Trusted token-count receipts, persisted execution binding, HTTP transport and owner generation controls remain pending. See [prompt contract](ai-prompt-contract.md).
