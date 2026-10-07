@@ -243,3 +243,11 @@ The controls reuse the existing white Settings card, native grid forms, trimmed 
 Next: credential-bound catalog enforcement at dispatch, approved saved-fundamentals/thesis bundles, immutable AI reviews and disabled-by-default text transport.
 
 Extended Settings browser checks also pass shared read-only policy controls and failed-load recovery.
+
+## October 6, 2026: bounded AI evidence/thesis preview foundation
+
+Added a pure deterministic `ai-evidence-1` projection and internal owner-only preview service. Explicit workspace/stock snapshot selections reuse the saved-evidence integrity and exact metric contracts. A workspace lock and repeated authorization bind the optional plain-text thesis to its expected current journal revision. Selected source hashes, fiscal/currency context, exact values and unavailable coverage remain explicit; unrelated notes/images/accounts/credentials are excluded. Latest two annual/four quarterly dates, currency ambiguity, omission counts and hard text/JSON limits bound the review. See [preview contract](ai-evidence-preview.md).
+
+93 unit and 152 disposable WordPress/MySQL checks pass, including canonical ordering/fingerprints, exclusions, unknown capex coverage, bounded history, changed/stale/damaged theses, workspace and owner restrictions, and unchanged ledger/spending/audit/snapshot history after reads. Coding standards, PHP/JavaScript syntax and six REST URL checks pass. The disposable database was restarted after its stopped connection refused the initial integration run. No live provider/OpenAI calls, SQL migration, release ZIP or production changes. Development remains 0.27.0-dev/schema 13.
+
+This is internal preview only: no approval is recorded and no bundle/review is persisted, exposed through REST/UI or dispatched. Existing browser/HTTP results from the Settings milestone remain prior evidence; those unchanged surfaces were not rerun for this slice. Next: fingerprint-bound owner approval and immutable evidence/review storage, then catalog enforcement and disabled-by-default text transport. Comparisons/raw statement facts remain explicit follow-up extensions.

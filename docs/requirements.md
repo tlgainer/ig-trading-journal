@@ -55,3 +55,5 @@ Development schema 12 adds explicit per-dataset weekly fundamental enrollment, o
 The internal [AI spending policy](ai-budget-policy.md) supplies exact token costs, dated model/pricing validation, 80%/90% warnings, zero-budget pause, month boundaries and uncertain settlement arithmetic. [Schema-13 persistence](ai-spending-persistence.md) now coordinates shared atomic reservations and saves policy/enrollment/request revisions. Configurable owner screens and generated summaries remain pending.
 
 Development AI owner controls now prepare shared model/monthly budget and separate workspace consent through private revisioned routes. Processing remains unavailable; catalog-to-dispatch verification, approved evidence bundles and saved reviews remain pending. See [AI Settings](ai-settings.md).
+
+AI summary input foundation now projects immutable snapshot metrics and an explicitly selected current thesis revision into a bounded deterministic preview. No approval, paid processing or new UI is enabled. See [preview contract](ai-evidence-preview.md).

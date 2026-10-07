@@ -51,3 +51,5 @@ AI cost policy and [schema-13 shared spending persistence](ai-spending-persisten
 An internal credential-bound model evidence gate is now available; wiring it into owner Settings and dispatch remains pending. See [catalog contract](ai-model-catalog.md).
 
 Owner model/budget preparation controls and separate workspace consent are implemented in Settings. AI processing is still unavailable. Next: bind verified catalog evidence to dispatch, approved saved fundamentals/thesis bundles, immutable review history and disabled-by-default transport. See [AI Settings](ai-settings.md).
+
+An internal owner-only bounded evidence/thesis preview is implemented; it does not record approval or generate summaries. Fingerprint-bound approval, evidence/review persistence, dispatch catalog enforcement and text transport remain pending. See [preview contract](ai-evidence-preview.md).
