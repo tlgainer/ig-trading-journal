@@ -44,6 +44,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-evidence', plugins_url( 'assets/ai-evidence.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-ai-reviews', plugins_url( 'assets/ai-reviews.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
 			'tgitConfig',
@@ -347,6 +348,14 @@ final class Screen {
 	<button type="button" class="button button-primary" id="tgit-ai-evidence-approve" disabled><?php esc_html_e( 'Approve this evidence', 'ig-trading-journal' ); ?></button>
 	<button type="button" class="button" id="tgit-ai-evidence-retry" hidden><?php esc_html_e( 'Check approval outcome', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-ai-evidence-status" role="status" aria-live="polite"></p>
+	</div>
+	<div id="tgit-ai-reviews" class="tgit-form" hidden>
+	<h3><?php esc_html_e( 'Saved AI reviews', 'ig-trading-journal' ); ?></h3>
+	<p><?php esc_html_e( 'Read saved interpretation alongside its approved evidence. AI claims are not verified facts; citations identify included sources, not claim accuracy. Summary generation is not available yet.', 'ig-trading-journal' ); ?></p>
+	<button type="button" class="button" id="tgit-ai-reviews-reload"><?php esc_html_e( 'Reload saved reviews', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-ai-reviews-status" role="status" aria-live="polite"></p>
+	<div id="tgit-ai-reviews-history"></div>
+	<div id="tgit-ai-reviews-detail"></div>
 	</div>
 	</div>
 	</section>

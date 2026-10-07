@@ -63,3 +63,25 @@ test('AI review audit rollback leaves no partial output and corrupted history fa
  try { $db->update_object('ai_reviews',$w,$saved['id'],['output_json'=>'{}']); provider_conflict(fn()=>$reviews->read($w,$saved['id'])); } finally { $db->update_object('ai_reviews',$w,$saved['id'],['output_json'=>$original['output_json']]); }
  equal($reviews->read($w,$saved['id'])['output']['summary'],$response['summary']);
 });
+
+test('Saved AI review REST is owner-only, private, scoped and paginated without write endpoints',function() use($owner,$viewer) {
+ global $wpdb;
+ [$db,$tracker,$w,$asset,$approval,$spending,$request,$reviews,$response]=review_context();
+ $response['summary']='Synthetic summary <img src=x onerror="window.reviewInjected=true">'; $first=$reviews->save($w,$approval,$request,$response);
+ $next=$spending->reserve($w,ai_digest('review-fixture-key'),'second-history-request',$first['evidence_fingerprint'],10000,2000); $spending->dispatch($w,(int)$next['id'],ai_digest('review-fixture-key')); $spending->reconcile($w,(int)$next['id'],['input_tokens'=>100,'cached_input_tokens'=>0,'output_tokens'=>20]);
+ $response['response_id']='fixture_response_2'; $response['summary']='Second synthetic interpretation'; $second=$reviews->save($w,$approval,(int)$next['id'],$response);
+ $original=$wpdb; $connection=clone $wpdb; $connection->result=null; $connection->prefix=substr($db->table('ai_reviews'),0,-strlen('tgit_ai_reviews'));
+ try {
+  $wpdb=$connection; wp_set_current_user($owner); $base='workspaces/'.$w; $path=$base.'/assets/'.$asset.'/ai-reviews';
+  $page=provider_rest('GET',$path.'?limit=1'); equal($page->get_status(),200); equal($page->get_data()['data']['items'],[$first]); equal($page->get_data()['data']['next_cursor'],(string)$first['id']); equal($page->get_headers()['Cache-Control'],'private, no-store, max-age=0');
+  equal(provider_rest('GET',$path.'?limit=1&after='.$first['id'])->get_data()['data']['items'],[$second]); equal(provider_rest('GET',$path.'?limit=1&after='.$second['id'])->get_data()['data']['items'],[]);
+  equal(provider_rest('GET',$path.'?limit=101')->get_status(),400); equal(provider_rest('GET',$path.'?after=-1')->get_status(),400);
+  $read=provider_rest('GET',$base.'/ai-reviews/'.$first['id']); equal($read->get_status(),200); equal($read->get_data()['data']['output']['summary'],'Synthetic summary <img src=x onerror="window.reviewInjected=true">');
+  foreach(['credential_fingerprint','pricing_json','actor_id'] as $field) equal(array_key_exists($field,$read->get_data()['data']),false);
+  equal(provider_rest('POST',$path,review_response())->get_status(),404); equal(provider_rest('POST',$base.'/ai-reviews/'.$first['id'],review_response())->get_status(),404);
+  $other=(int)$tracker->create_workspace(['name'=>'Foreign review history'])['id']; $otherAsset=(int)$tracker->create_object($other,'assets',['symbol'=>'OTHER','exchange'=>'TESTEX','asset_class'=>'stock','quote_currency'=>'USD'])['id']; equal(provider_rest('GET','workspaces/'.$other.'/ai-reviews/'.$first['id'])->get_status(),404); equal(provider_rest('GET','workspaces/'.$other.'/assets/'.$asset.'/ai-reviews')->get_status(),404);
+  $tracker->set_member($w,['wp_user_id'=>$viewer,'role'=>'viewer','state'=>'active']); wp_set_current_user($viewer); equal(provider_rest('GET',$path)->get_status(),403); equal(provider_rest('GET',$base.'/ai-reviews/'.$first['id'])->get_status(),403);
+  wp_set_current_user($owner);
+  file_put_contents(dirname(__DIR__).'/tmp/ai-review-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'other_workspace'=>$other,'other_asset'=>$otherAsset,'asset'=>$asset,'approval'=>$approval,'first'=>$first['id'],'second'=>$second['id'],'prefix'=>$connection->prefix]));
+ } finally { $original->result=null; $wpdb=$original; wp_set_current_user($owner); }
+});

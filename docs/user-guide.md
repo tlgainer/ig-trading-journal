@@ -309,4 +309,10 @@ Approval does not spend money, send data or generate an AI summary. A changed th
 
 ### Development: saved AI review foundation
 
-The development source now has schema-15 storage for immutable, validated review output tied to approved evidence and a matching settled request. It is an internal foundation; there is no Generate summary action or review-history screen yet. External AI processing remains unavailable. Future review screens will label summaries as AI-generated interpretation and show approved-source citations; a citation confirms the source belongs to the reviewed evidence, not that the model's claim is correct. See [review storage details](ai-review-storage.md).
+The development source now has schema-15 storage for immutable, validated review output tied to approved evidence and a matching settled request. Owner read-only history screens are now available; there is no Generate summary action yet. External AI processing remains unavailable. Review screens label summaries as AI-generated interpretation and show approved-source citations; a citation confirms the source belongs to the reviewed evidence, not that the model's claim is correct. See [review storage details](ai-review-storage.md).
+
+### Development: read saved AI reviews
+
+As an owner, open **Research → Stock fundamentals**, select a stock and find **Saved AI reviews**. The table loads all saved review pages for that stock. Search covers review IDs, evidence approval IDs and saved dates. Choose **View** to read the summary, findings, cited snapshots and source provenance. Expand **Exact approved metrics and optional thesis** to inspect the evidence as it was approved; later journal changes do not replace it.
+
+**Reload saved reviews** refreshes stored history without contacting an AI or market-data provider. Empty history means no saved reviews exist; generation is still unavailable. These are AI-generated interpretations, not verified facts. Citations identify included snapshots and do not establish that a claim is accurate. Viewer roles cannot access this owner-only history. This update requires no new SQL migration.

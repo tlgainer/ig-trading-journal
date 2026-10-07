@@ -12,6 +12,7 @@ use GainerInteractive\IGTradingJournal\Application\Tracker;
 use GainerInteractive\IGTradingJournal\Application\AiSpending;
 use GainerInteractive\IGTradingJournal\Application\AiSettings;
 use GainerInteractive\IGTradingJournal\Application\AiEvidencePreview;
+use GainerInteractive\IGTradingJournal\Application\AiReviews;
 use GainerInteractive\IGTradingJournal\Application\MarketData;
 use GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh;
 use GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh;
@@ -78,6 +79,8 @@ final class Controller {
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/approve', 'POST', 'ai_evidence_approve' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)', 'GET', 'ai_evidence_read' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-reviews', 'GET', 'ai_review_history' );
+		self::route( $base . '/ai-reviews/(?P<review>[1-9][0-9]*)', 'GET', 'ai_review_read' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
@@ -165,7 +168,7 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'ai_review_history', 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'price_source' => array(
 						'type'    => 'string',
 						'enum'    => array( 'manual', 'fmp', 'alpha_vantage' ),
@@ -216,7 +219,10 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'ai_evidence_preview', 'ai_evidence_approve', 'ai_evidence_read' ), true ) ) {
+			if ( in_array( $operation, array( 'ai_review_history', 'ai_review_read' ), true ) ) {
+				$reviews = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
+				$result  = 'ai_review_read' === $operation ? $reviews->read( $workspace, (int) $request->get_url_params()['review'] ) : $reviews->history( $workspace, (int) $request->get_url_params()['asset_id'], (int) $request['after'], (int) $request['limit'] );
+			} elseif ( in_array( $operation, array( 'ai_evidence_preview', 'ai_evidence_approve', 'ai_evidence_read' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$evidence = new AiEvidencePreview( new Database( $wpdb ), get_current_user_id(), $correlation );
 				if ( 'ai_evidence_read' === $operation ) {
