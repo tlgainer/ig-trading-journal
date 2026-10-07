@@ -1,6 +1,6 @@
 # Financial data integration and AI fundamental reviews
 
-Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 11; provider integration is unfinished and no new installable release is claimed.
+Owner-confirmed scope, October 5, 2026. This extends the original PRD. Latest released package remains 0.26.0/schema 8. Development source is now 0.27.0-dev/schema 13; integration is unfinished and no new installable release is claimed.
 
 ## Scope and priority
 
@@ -169,3 +169,5 @@ Configuration additionally requires TGIT_FUNDAMENTALS_ENABLED strictly true. Pri
 
 73 unit and 126 disposable WordPress/MySQL integration checks, coding standards, PHP/JavaScript syntax and six REST URL checks passed. UI/HTTP and schema are unchanged; their latest full regression remains the schema-11 storage milestone. Source stays 0.27.0-dev/schema 11; no SQL or release ZIP is added. Next: review screens/on-demand actions, recurring enrollment, comparable-period changes and configurable AI summaries.
 Development schema 12 now adds explicit per-dataset weekly fundamentals with owner Research controls and recoverable cron. See [schedule contract](fundamental-schedules.md). Comparable-period changes and configurable AI summaries/model/monthly budget remain pending. No live entitlement verification, production migration or new ZIP has occurred.
+
+Subsequent development adds saved reporting-period metric differences and schema-13 [persistent AI spending](ai-spending-persistence.md). Shared configuration, explicit workspace opt-in, immutable pricing/requests/events, atomic cross-workspace admission and usage reconciliation are implemented internally. Owner AI controls/catalog, approved evidence/thesis bundles, saved summaries and external transport remain pending. Earlier progress entries record historical milestone scope. No paid processing, production migration or new ZIP has occurred.

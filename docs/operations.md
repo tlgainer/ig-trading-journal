@@ -6,17 +6,17 @@ Confirmed host: WordPress 7.1.2, PHP 8.1.2-1ubuntu2.26 on Apache 2.4.52/apache2h
 
 The site currently reports production HTTP URLs. Configure HTTPS and update both WordPress URLs before real use; do not switch production to development to bypass transport checks. Plain permalinks work without a permalink change. Workspaces default to USD/America/New_York (EST/EDT); WordPress's site timezone does not override the workspace.
 
-## Activation and development schema 12 upgrade
+## Activation and development schema 13 upgrade
 
-Development source is 0.27.0-dev/schema 12. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply this development migration to production merely to enable prices. FMP transport, owner mapping controls and explicit weekday enrollment are implemented in development. Stock valuations/totals and internal fundamental parsing/storage are implemented. Daily-change compatibility, exchange calendars and fundamental/AI review workflows remain pending.
+Development source is 0.27.0-dev/schema 13. The last released 0.26.0 ZIP still uses schema 8 and its eight migrations. There is no new provider-enabled package yet; do not apply development migrations to production merely to enable prices or AI. Quote/fundamental storage, scheduling, valuations and reporting-period differences are implemented in development. Schema 13 adds persistent AI policy, workspace opt-in and shared spending reservations; it sends no requests. Owner AI controls, model catalog, reviews/transport, daily-change compatibility and exchange calendars remain pending.
 
-Back up the database and private image bytes before replacing code/reactivating. Keep **all twelve** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `012-fundamental-schedules.sql`, in the production package. Exclude tmp, tests, vendor, node_modules and development tools.
+Back up the database and private image bytes before replacing code/reactivating. Keep **all thirteen** separate SQL files in `docs`, from `001-ledger-foundation.sql` through `013-ai-spending.sql`, in a future development package. Exclude tmp, tests, vendor, node_modules and development tools.
 
-Activation/reactivation reads all twelve bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` and the checked dataset-column ALTER under a named database lock, verifies InnoDB and records `tgit_schema_version=12` after success. This upgrades schema 1 through 11, or installs a fresh schema. Existing ledger rows are retained. No workspace is created implicitly.
+Activation/reactivation reads all thirteen bundled SQL files, replaces `{{prefix}}` with `$wpdb->prefix`, applies additive `dbDelta` and the checked dataset-column ALTER under a named database lock, verifies InnoDB and records `tgit_schema_version=13` after success. This upgrades schema 1 through 12, or installs a fresh schema. Existing ledger rows are retained. No workspace or AI enrollment is created implicitly. Preserve the singleton spending pool, all policy/enrollment revisions, requests and events during forward repair; credential rotation cannot reset accounting.
 
 There is no request-time migration. Until reactivation succeeds, the API readiness gate and admin notice explain the mismatch. MySQL DDL is not transactional: after a partial failure, fix permissions/prerequisites and reactivate to repeat the additive repair. Unknown future schema versions are refused. No table is dropped and no financial replay occurs in this migration.
 
-Install the latest ZIP directly; earlier packages do not need sequential installation. After the backup, replace the plugin, deactivate/reactivate explicitly, and verify schema 11 before entering new records.
+Install a released ZIP directly; earlier packages do not need sequential installation. After backup and explicit reactivation, verify its matching schema (currently 8 for 0.26.0; 13 only for this development source). There is no new schema-13 ZIP yet.
 
 ## Separate manual SQL
 

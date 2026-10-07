@@ -9,7 +9,7 @@ if (!defined('TGIT_DISPOSABLE_TEST_SITE') || TGIT_DISPOSABLE_TEST_SITE !== true)
 
 test('Schema 12 repairs weekly enrollment from 11 and preserves saved evidence', function () use ($db) {
  [$s,$w,$asset,$mapping,$ids]=saved_metric_context(); $before=$s->fundamentals($w,$asset);
- $db->query('DROP TABLE '.$db->table('fundamental_schedules')); update_option('tgit_schema_version','11'); Installer::install(); equal(get_option('tgit_schema_version'),'12'); Installer::install(); equal($s->fundamentals($w,$asset),$before);
+ $db->query('DROP TABLE '.$db->table('fundamental_schedules')); update_option('tgit_schema_version','11'); Installer::install(); equal(get_option('tgit_schema_version'),Installer::VERSION); Installer::install(); equal($s->fundamentals($w,$asset),$before);
  equal($db->row('SHOW TABLE STATUS LIKE %s',[$db->table('fundamental_schedules')])['Engine'],'InnoDB');
 });
 

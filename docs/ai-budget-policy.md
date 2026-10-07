@@ -1,6 +1,6 @@
 # AI summary spending policy foundation
 
-This is an internal, pure decimal policy milestone. It does not yet expose owner settings, save budget configuration, reserve spending atomically or generate summaries. No default model, live price catalog, credentials, network calls or paid processing are introduced. Development remains schema 12; no new SQL or ZIP is required.
+This document describes the initial pure decimal policy milestone (schema 12). The later [schema-13 persistence milestone](ai-spending-persistence.md) now saves configuration and atomically coordinates reservations. Owner settings screens and generated summaries remain pending. No default model, live price catalog, network calls or paid processing are introduced.
 
 `src/Domain/AiBudget.php` provides:
 
@@ -14,11 +14,11 @@ This is an internal, pure decimal policy milestone. It does not yet expose owner
 
 Amounts are estimated plugin spending, not guaranteed invoices or account-wide billing caps. Text-only summaries exclude tools, images, audio, web research, conversation continuation and alternate service tiers. Any later transport must enforce this scope; separately priced capabilities require their own verified cost bounds.
 
-## Next integration contracts
+## Integration contracts
 
-Persist append-only configuration and request/pricing evidence in separate migrations. Serialize admission through a credential-wide lock and transaction across workspaces; this pure policy alone provides **no concurrency enforcement**. Keep uncertain requests reserved across monthly boundaries and do not resend uncertain delivery. Capture original model/prices/input fingerprint and authorizing membership on every request. Recheck authorization/configuration before dispatch; changing model affects future requests only. Credential changes must not silently create a fresh allowance or discard unresolved spending.
+The [persistent layer](ai-spending-persistence.md) now implements append-only configuration/request/pricing evidence and a site-wide lock and transaction across workspaces; the pure policy alone provides **no concurrency enforcement**. It retains uncertain requests across monthly boundaries, captures model/prices/input fingerprint/authorizing membership and rechecks consent before dispatch. Credential changes cannot create a fresh allowance or discard unresolved spending.
 
-Proposed owner default remains 15.00 USD, editable including zero. External processing starts disabled; an explicit owner save and server enablement/key are required. Owner screens, model catalog verification, atomic reservations, evidence/thesis bundles, review persistence, response/citation validation and transport remain pending. No real keys are required for mocked development.
+Proposed owner default remains 15.00 USD, editable including zero. External processing starts disabled; an explicit owner save and server enablement/key are required. Owner screens, model catalog verification, evidence/thesis bundles, review persistence, response/citation validation and transport remain pending. No real keys are required for mocked development.
 
 ## Official API references checked October 6, 2026
 
