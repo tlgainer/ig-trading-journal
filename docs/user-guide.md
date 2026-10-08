@@ -360,3 +360,7 @@ As an owner, open **Research → Stock fundamentals**, select a stock and find *
 ### Development sender status
 
 An internal OpenAI sender is now implemented and disabled by default. The user-facing count/generation workflow is still unavailable, so there is no new Generate summary button yet. Preparing your server key or approving evidence does not run this sender. The existing test ZIP is unchanged; no SQL migration is needed for this sender slice.
+
+### Development count status
+
+Internal token counting is now implemented, with consent, budget and verified counting-cost/access checks. It remains unavailable through the admin screens. You do not need to change your setup or run SQL for this slice. The next work is trusted model/pricing setup and the explicit Generate summary workflow; adding a key still does not trigger AI requests.

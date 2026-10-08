@@ -1,6 +1,6 @@
 # Disabled OpenAI Responses sender
 
-The owner approved implementation/testing of the [sender proposal](openai-sender-proposal.md). This internal sender is implemented, with no generation route, cron enrollment or live model call. Count transport and the owner generation workflow remain pending. Schema stays 18; no new SQL or installation ZIP.
+The owner approved implementation/testing of the [sender proposal](openai-sender-proposal.md). This internal sender is implemented, with no generation route, cron enrollment or live model call. The internal count transport is implemented separately; trusted cost/access evidence and the owner generation workflow remain pending. Schema stays 18; no new SQL or installation ZIP.
 
 `AiTransport::run` accepts an authorized actor's spending service, a workspace-scoped reserved request ID and fresh trusted model-catalog evidence. It sends only the immutable manifest; it accepts no arbitrary prompt, model override, destination or browser token count. The existing dispatch operation requires the full execution manifest and rechecks original owner, membership, saved approval, consent, captured configuration/prices, credential, monthly allowance and fresh token-count bounds before claiming once.
 
@@ -14,4 +14,4 @@ Successful HTTP delivery passes through the existing strict response/model/usage
 
 The [OpenAI authentication reference](https://developers.openai.com/api/reference/overview) documents Bearer credentials and client request IDs; the [text generation guide](https://developers.openai.com/api/docs/guides/text) describes Responses usage. Model access, current prices, actual hosting and provider acceptance are not established by synthetic tests. This implementation adds no SDK dependency and makes no assumption that counting is free.
 
-Next: separately consent/budget-gated complete-input counting, trusted catalog/pricing acquisition, explicit owner generation controls, publication and operational recovery. The authorization permits implementation and synthetic intercepted tests; it does not permit the assistant to send real portfolio data or use production credentials.
+Next: trusted catalog/pricing/count-cost acquisition, explicit owner generation controls, publication and operational recovery. See [count transport](ai-count-transport.md). The authorization permits implementation and synthetic intercepted tests; it does not permit the assistant to send real portfolio data or use production credentials.

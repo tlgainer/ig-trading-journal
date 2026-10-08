@@ -1,0 +1,13 @@
+# Complete-input count transport
+
+The internal count operation is implemented and disabled by default. It has no REST route, schedule or Generate summary control. Schema remains 18; no new SQL or ZIP is required for this slice.
+
+`AiSpending::prepare_count` checks workspace ownership, original approval author, exact approved evidence, consent, enrollment, credential-bound model access, dated pricing and shared monthly budget under the existing lock. It constructs the complete approved prompt projection. The one-input-token/full-output cost check only rejects budgets that cannot support even the minimum possible summary; it does not estimate actual input tokens or reserve spending.
+
+`AiCounts::run` additionally requires trusted server evidence of verified counting access and a zero maximum counting charge for the exact credential/model. Evidence expires within 30 days. The official [counting guide](https://developers.openai.com/api/docs/guides/token-counting) documents complete-input counting but does not establish that it is free. No production cost/access evidence is supplied by this implementation. Unknown or paid counting is rejected; paid counting requires a separate reservation and settlement lifecycle. Browser assertions cannot establish this evidence.
+
+The fixed destination is `https://api.openai.com/v1/responses/input_tokens`. WordPress safe HTTP sends only the complete approved count projection, with server-only Bearer authentication, verified certificates, zero redirects, no cookies, a 30-second timeout, a 512 KiB request ceiling and a 4 KiB response ceiling. Consent, configuration, enrollment, model/pricing and budget are checked again after delivery. Changes during delivery invalidate the result.
+
+Strict response validation binds the count to the full execution request and conservative input/full-output cost. Freshness begins before HTTP delivery. The private result is consumed by the existing reservation/manifest operation; counting alone creates neither a reservation nor a summary. It must never be returned through a generic browser status response. Network failures, malformed counts and changed context return a fixed unavailable state without provider error text or automatic retries.
+
+Remaining work: trusted model/pricing/count-cost acquisition, owner generation/publication controls and operational recovery. This stateless count helper provides no persistent count-attempt history or retry deduplication. Future orchestration must reuse a valid count receipt and reservation rather than automatically recounting. Production account entitlement, actual endpoint costs and hosting acceptance remain unverified. All tests intercept HTTP with synthetic data; no real portfolio data or credentials were used.

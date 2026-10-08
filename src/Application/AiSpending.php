@@ -167,6 +167,41 @@ final class AiSpending {
 	}
 
 	/**
+	 * Resolve an authorized complete count request without making a reservation.
+	 *
+	 * @param int    $workspace Workspace.
+	 * @param int    $approval Exact saved approval.
+	 * @param string $credential Current credential digest.
+	 * @param int    $output_tokens Full output ceiling.
+	 * @param array  $catalog Trusted credential-bound model evidence.
+	 * @return array Private server plan; never expose to a browser.
+	 * @throws \UnexpectedValueException On missing consent, evidence or budget room.
+	 */
+	public function prepare_count( int $workspace, int $approval, string $credential, int $output_tokens, array $catalog ): array {
+		return $this->locked(
+			$workspace,
+			function ( ?array $pool ) use ( $workspace, $approval, $credential, $output_tokens, $catalog ): array {
+				list( $config, $enrollment, $pricing ) = $this->active( $workspace, $pool );
+				$source                                = $this->db->object( 'ai_evidence_bundles', $workspace, $approval );
+				$this->execution_evidence( $workspace, $approval, $source['fingerprint'], $config, $credential, $catalog );
+				$plan    = AiPrompt::build( $source['bundle_json'], $source['fingerprint'], $config['model'], $output_tokens );
+				$totals  = $this->totals();
+				$minimum = AiBudget::estimate( $pricing, 1, $output_tokens, $this->now );
+				if ( $totals['overrun'] || ! AiBudget::admission( $config['monthly_cap'], $totals['spent'], $totals['reserved'], $minimum )['allowed'] ) {
+					throw new \UnexpectedValueException( 'AI counting requires room for the minimum summary reservation.' );
+				}
+				return array(
+					'plan'          => $plan,
+					'pricing'       => $pricing,
+					'config_id'     => (int) $config['id'],
+					'enrollment_id' => (int) $enrollment['id'],
+					'prepared_at'   => $this->stamp(),
+				);
+			}
+		);
+	}
+
+	/**
 	 * Reserve exactly once across all credentials/workspaces on this site.
 	 *
 	 * @param int    $workspace Workspace.
