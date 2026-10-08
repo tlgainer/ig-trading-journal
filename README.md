@@ -69,3 +69,5 @@ Development 0.27.0-dev.3 adds Save as review for eligible stored AI responses, u
 
 
 Owner AI summary controls are implemented in development source 0.27.0-dev.6. Processing defaults off and requires verified server evidence, shared policy and separate workspace consent. See docs/ai-owner-generation.md. No real API requests were used in implementation.
+
+October 8, 2026: latest installation test artifact is 0.27.0-dev.6/schema 18, including explicit owner summary controls and all eighteen migrations. See docs/test-build-0.27.0-dev.6.md for backup, reactivation and setup instructions. This is a development test ZIP; production acceptance remains outstanding.

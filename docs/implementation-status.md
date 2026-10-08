@@ -422,3 +422,5 @@ October 8, 2026 read-only operation recovery verification: 116 unit and 205 disp
 
 
 October 8, 2026: Owner explicitly approved enable/generation controls. Added guarded Shared AI processing and Generate summary for exact approved evidence, with a 2,000-output-token ceiling, reviewed-policy binding under the reservation lock, retained browser UUID and read-only result recovery. No automatic generation/publication/resend. See [owner workflow](ai-owner-generation.md). Source 0.27.0-dev.6/schema18; no new SQL or ZIP. Genuine account/model/pricing/count-cost verification remains necessary before actual use.
+
+October 8, 2026: packaged 0.27.0-dev.6/schema 18 as a verified development test ZIP. Fresh/repeat activation and direct schema-8/schema-17 upgrades passed against extracted code. Next is owner staging installation and genuine server evidence/setup verification, followed by one explicitly requested live summary after separate authorization. Production acceptance remains open.
