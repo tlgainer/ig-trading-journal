@@ -81,3 +81,7 @@ Development source now recognizes the server-only TGIT_OPENAI_API_KEY and shows 
 ## Trusted AI setup source
 
 The internal server evidence loader is implemented: exact selected model, dated decimal prices, current credential binding and verified zero-charge counting policy. Automatic acquisition/verification of account access and costs, owner generation/publication controls and operational recovery remain pending. No processing is enabled. See [server evidence](ai-server-evidence.md).
+
+## Internal AI generation coordination
+
+Approved counting, reservation and one-time delivery are now connected internally. Stable operation retries return saved state without recounting/sending, and overlapping calls are rejected. Separate stored-receipt publication remains available internally. Remaining: genuine model/pricing/count-cost verification, owner enable/generation/status/publication controls and operational recovery. No admin generation action is enabled. See [coordinator](ai-generation-coordinator.md).

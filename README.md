@@ -60,3 +60,5 @@ Run `php tests/run.php` (BCMath required), PHP syntax checks, and JavaScript syn
 Internal complete-input AI counting is implemented with consent/budget checks and trusted zero-charge access evidence; it remains disabled without that evidence. Summary generation controls remain unavailable. See [count transport](docs/ai-count-transport.md).
 
 A trusted server model/pricing/count-evidence loader is now available internally. It rejects missing or expired records and key rotations; adding records does not enable requests. See [server evidence](docs/ai-server-evidence.md).
+
+An internal AI generation coordinator now connects approved counting, reservation and one-time delivery with safe saved-state retries. It remains disabled and has no admin generation control. See [coordination contract](docs/ai-generation-coordinator.md).

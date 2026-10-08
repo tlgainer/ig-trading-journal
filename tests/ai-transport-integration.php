@@ -13,6 +13,12 @@ test('Disabled AI transport makes no attempt and retains the reserved budget',fu
  transport_mock(function() { throw new LogicException('Disabled sender attempted HTTP'); },function() use($spending,$w,$request,$catalog) { equal(AiTransport::run($spending,$w,(int)$request['id'],$catalog)['state'],'disabled'); });
  equal($spending->request($w,(int)$request['id'])['state'],'reserved'); equal($spending->status($w)['reserved'],'0.022500000000');
 });
+test('Internal generation remains disabled before server enablement without a request',function() {
+ $fixture=execution_context(); [$context]=$fixture; [$db,$tracker,$w,$asset,$approval,$spending]=$context;
+ transport_mock(function() { throw new LogicException('Disabled generation attempted HTTP'); },function() use($spending,$w,$approval) { equal(GainerInteractive\IGTradingJournal\Infrastructure\AiGeneration::run($spending,$w,$approval,'disabled-generation',2000),['state'=>'disabled']); });
+ equal($spending->status($w)['reserved'],'0.000000000000');
+});
+
 define('TGIT_OPENAI_API_KEY','review-fixture-key'); define('TGIT_OPENAI_ENABLED',true);
 test('AI transport sends exact approved envelope once and settles only verified receipts',function() {
  $fixture=execution_context(); [$context,$credential,$plan,$catalog]=$fixture; [$db,$tracker,$w,$asset,$approval,$spending]=$context; $request=execution_reserve($fixture); $calls=0;

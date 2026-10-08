@@ -202,6 +202,46 @@ final class AiSpending {
 	}
 
 	/**
+	 * Coordinate an explicit generation attempt without holding a transaction over HTTP.
+	 *
+	 * @param int      $workspace Authorized workspace.
+	 * @param int      $approval Exact saved approval.
+	 * @param string   $key Stable operation identity.
+	 * @param int      $output_tokens Full output ceiling.
+	 * @param callable $callback Internal operation accepting an existing request or null.
+	 * @return array Safe operation result.
+	 * @throws \InvalidArgumentException On invalid operation identity.
+	 * @throws \UnexpectedValueException On conflicting retry identity.
+	 * @throws \RuntimeException On overlapping attempts.
+	 */
+	public function generation_operation( int $workspace, int $approval, string $key, int $output_tokens, callable $callback ): array {
+		$this->owner( $workspace );
+		if ( $approval < 1 || '' === trim( $key ) || strlen( $key ) > 80 || $output_tokens < 1 || $output_tokens > 1000000 ) {
+			throw new \InvalidArgumentException( 'Invalid AI generation identity.' );
+		}
+		$digest = hash( 'sha256', $key );
+		$lock   = 'tgit_gen_' . substr( hash( 'sha256', $this->db->table( 'ai_requests' ) . ':' . $workspace . ':' . $digest ), 0, 40 );
+		$held   = $this->db->row( 'SELECT IS_USED_LOCK(%s) AS holder', array( $lock ) );
+		if ( null !== $held['holder'] ) {
+			throw new \RuntimeException( 'AI generation is already in progress.' );
+		}
+		$acquired = $this->db->row( 'SELECT GET_LOCK(%s, 0) AS acquired', array( $lock ) );
+		if ( '1' !== (string) $acquired['acquired'] ) {
+			throw new \RuntimeException( 'AI generation is already in progress.' );
+		}
+		try {
+			$this->owner( $workspace );
+			$prior = $this->db->row( 'SELECT id, actor_id, approval_id, output_tokens FROM ' . $this->db->table( 'ai_requests' ) . ' WHERE workspace_id = %d AND request_key = %s', array( $workspace, $digest ) );
+			if ( $prior && ( (int) $prior['actor_id'] !== $this->actor || (int) $prior['approval_id'] !== $approval || (int) $prior['output_tokens'] !== $output_tokens ) ) {
+				throw new \UnexpectedValueException( 'AI generation retry conflicts with its original context.' );
+			}
+			return $callback( $prior ? $this->request( $workspace, (int) $prior['id'] ) : null );
+		} finally {
+			$this->db->row( 'SELECT RELEASE_LOCK(%s) AS released', array( $lock ) );
+		}
+	}
+
+	/**
 	 * Reserve exactly once across all credentials/workspaces on this site.
 	 *
 	 * @param int    $workspace Workspace.

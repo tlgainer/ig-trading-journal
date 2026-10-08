@@ -16,3 +16,5 @@ Changing the key invalidates records bound to the previous fingerprint. Selectin
 The official counting documentation does not establish a zero charge. Until genuine current cost/access evidence is available, counting remains blocked. Supporting a charged count operation requires its own reservation and settlement lifecycle. The current loader provides a trusted configuration source; automatic acquisition and verification of those facts remains unfinished.
 
 Keep `TGIT_OPENAI_ENABLED` off. Adding evidence creates no summary, schedule or request. Owner generation/publication controls, operational recovery and real account/hosting acceptance remain pending. Existing API setup status continues to describe credential preparation only; it does not report this internal metadata as authenticated access. Unit fixtures use synthetic keys/models/prices and isolated processes only.
+
+The disabled internal [generation coordinator](ai-generation-coordinator.md) now loads this evidence at count, admission and dispatch boundaries. There is still no public generation or enable control.

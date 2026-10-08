@@ -368,3 +368,7 @@ Internal token counting is now implemented, with consent, budget and verified co
 ### Development model setup status
 
 The source now supports reviewed model/pricing and counting-access records stored by your server administrator. These are separate from the model ID and budget fields in Settings. There is no new admin action yet; do not enable the OpenAI processing switch. Adding a key, model ID or evidence record does not generate a summary. Automatic verification and Generate summary controls are still being completed.
+
+### Development generation workflow status
+
+The internal count-and-send steps are now connected, including safe retries. The admin Generate summary action is still being completed and is unavailable in this build. No setup changes or SQL are needed for this slice. Keep OpenAI processing disabled; approving evidence still does not generate a summary.
