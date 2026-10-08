@@ -58,3 +58,5 @@ The admin screen groups forms into Overview, Transactions, Trade Journal, Strate
 Run `php tests/run.php` (BCMath required), PHP syntax checks, and JavaScript syntax checks. Use `composer install` and `composer check-cs` for the locked WordPress coding-standard tools. [Validation instructions](docs/testing.md) include the disposable WordPress integration suite. Keep all real portfolio records out of fixtures.
 
 Internal complete-input AI counting is implemented with consent/budget checks and trusted zero-charge access evidence; it remains disabled without that evidence. Summary generation controls remain unavailable. See [count transport](docs/ai-count-transport.md).
+
+A trusted server model/pricing/count-evidence loader is now available internally. It rejects missing or expired records and key rotations; adding records does not enable requests. See [server evidence](docs/ai-server-evidence.md).

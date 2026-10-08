@@ -77,3 +77,7 @@ Verified complete input counts and immutable execution manifests now bind approv
 ## OpenAI connection preparation
 
 Development source now recognizes the server-only TGIT_OPENAI_API_KEY and shows a redacted configuration status under Settings > API setup. It verifies neither account access nor pricing and enables no requests. The owner subsequently approved the [sender proposal](openai-sender-proposal.md); the disabled internal [Responses sender](ai-http-transport.md) is implemented. Internal count transport is implemented; trusted count-cost evidence and generation controls remain pending. No schema change or new ZIP for this slice.
+
+## Trusted AI setup source
+
+The internal server evidence loader is implemented: exact selected model, dated decimal prices, current credential binding and verified zero-charge counting policy. Automatic acquisition/verification of account access and costs, owner generation/publication controls and operational recovery remain pending. No processing is enabled. See [server evidence](ai-server-evidence.md).

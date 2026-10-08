@@ -14,3 +14,5 @@ Owner model/budget preparation controls are now implemented separately; their mo
 
 
 Development schema 16 now binds AI reservations to an exact approval ID and enforces credential-bound catalog evidence at admission and dispatch. Bound review provenance rejects substituted approvals. No transport or paid processing is enabled; generation controls, prompt/token bounds and verified response/usage handling remain pending. See [execution binding](ai-execution-binding.md) and [migration](016-ai-request-approvals.sql).
+
+AiConfiguration now supplies selected-model evidence from server-only constants and revalidates credential, access/pricing dates and count-cost policy on each load. It makes no discovery request and does not itself establish the truth of reviewed metadata. Automatic acquisition and generation controls remain pending. See [server evidence](ai-server-evidence.md).

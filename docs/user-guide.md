@@ -364,3 +364,7 @@ An internal OpenAI sender is now implemented and disabled by default. The user-f
 ### Development count status
 
 Internal token counting is now implemented, with consent, budget and verified counting-cost/access checks. It remains unavailable through the admin screens. You do not need to change your setup or run SQL for this slice. The next work is trusted model/pricing setup and the explicit Generate summary workflow; adding a key still does not trigger AI requests.
+
+### Development model setup status
+
+The source now supports reviewed model/pricing and counting-access records stored by your server administrator. These are separate from the model ID and budget fields in Settings. There is no new admin action yet; do not enable the OpenAI processing switch. Adding a key, model ID or evidence record does not generate a summary. Automatic verification and Generate summary controls are still being completed.
