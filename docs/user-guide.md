@@ -372,3 +372,11 @@ The source now supports reviewed model/pricing and counting-access records store
 ### Development generation workflow status
 
 The internal count-and-send steps are now connected, including safe retries. The admin Generate summary action is still being completed and is unavailable in this build. No setup changes or SQL are needed for this slice. Keep OpenAI processing disabled; approving evidence still does not generate a summary.
+
+### Check AI readiness and saved request activity
+
+As an owner, open **Settings > AI summary settings**. **Saved AI setup readiness** explains whether your server key is configured, your saved model has current reviewed access/pricing records, counting has reviewed access/cost records, and consent/budget are prepared. These checks do not call OpenAI or independently authenticate access. They describe saved settings, so save a changed model before checking its readiness. Summary generation remains unavailable.
+
+Expand **Saved AI request activity** to see saved requests in a table. **Reload saved AI requests** reads stored history only and preserves unsaved settings. Search covers all loaded request metadata for this workspace. Reserved means not sent; delivery uncertain retains its budget hold; usage settled does not mean a review was published. Cancelled requests show no charge. Legacy entries are labelled unbound. No saved requests is normal before you have generated anything. There is no retry, send, cancel or publish button here. If loading fails, reload the table; no API charge is created by these reads.
+
+This source update is version 0.27.0-dev.2, schema 18, and introduces no additional SQL migration. A new install ZIP has not been produced for this slice.

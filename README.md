@@ -62,3 +62,5 @@ Internal complete-input AI counting is implemented with consent/budget checks an
 A trusted server model/pricing/count-evidence loader is now available internally. It rejects missing or expired records and key rotations; adding records does not enable requests. See [server evidence](docs/ai-server-evidence.md).
 
 An internal AI generation coordinator now connects approved counting, reservation and one-time delivery with safe saved-state retries. It remains disabled and has no admin generation control. See [coordination contract](docs/ai-generation-coordinator.md).
+
+Development 0.27.0-dev.2 adds owner-only saved AI setup readiness and read-only request activity under Settings. Reads never count, send or retry delivery; generation remains unavailable. Schema stays 18. See [readiness and activity](docs/ai-readiness-activity.md).

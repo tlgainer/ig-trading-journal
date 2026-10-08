@@ -29,6 +29,7 @@ final class AiSettings {
 		$result = $spending->status( $workspace );
 		unset( $result['allowed'] );
 		$result['processing_available'] = false;
+		$result['readiness']            = \GainerInteractive\IGTradingJournal\Infrastructure\AiConfiguration::readiness( $result['model'] );
 		return $result;
 	}
 }

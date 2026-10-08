@@ -85,3 +85,7 @@ The internal server evidence loader is implemented: exact selected model, dated 
 ## Internal AI generation coordination
 
 Approved counting, reservation and one-time delivery are now connected internally. Stable operation retries return saved state without recounting/sending, and overlapping calls are rejected. Separate stored-receipt publication remains available internally. Remaining: genuine model/pricing/count-cost verification, owner enable/generation/status/publication controls and operational recovery. No admin generation action is enabled. See [coordinator](ai-generation-coordinator.md).
+
+## Owner AI readiness and activity
+
+Settings now explains saved setup readiness and offers an owner-only read-only request history accordion. All request pages are loaded before local search. Generation/enable/publication and recovery actions remain pending alongside genuine evidence acquisition/verification. Source version 0.27.0-dev.2, schema 18; no new ZIP or SQL. See [controls](ai-readiness-activity.md).

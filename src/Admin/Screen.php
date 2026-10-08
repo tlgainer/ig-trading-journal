@@ -379,6 +379,9 @@ final class Screen {
 	<h2><?php esc_html_e( 'AI summary settings', 'ig-trading-journal' ); ?></h2>
 	<p><?php esc_html_e( 'Prepare your model and shared monthly budget. AI summaries are not available yet; saving sends no financial data to an AI provider.', 'ig-trading-journal' ); ?></p>
 	<p id="tgit-ai-summary"></p>
+	<h3><?php esc_html_e( 'Saved AI setup readiness', 'ig-trading-journal' ); ?></h3>
+	<ul id="tgit-ai-readiness"></ul>
+	<p><?php esc_html_e( 'These checks describe saved settings and reviewed server evidence. They do not contact OpenAI or independently verify account access. Generation controls remain unavailable.', 'ig-trading-journal' ); ?></p>
 	<form id="tgit-ai-policy" class="tgit-form tgit-grid">
 	<label><?php esc_html_e( 'Monthly budget (USD)', 'ig-trading-journal' ); ?><input name="monthly_cap" inputmode="decimal" required pattern="[0-9]+(\.[0-9]{1,12})?"></label>
 	<label><?php esc_html_e( 'Model ID', 'ig-trading-journal' ); ?><input name="model" maxlength="128" pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]*" aria-describedby="tgit-ai-model-help"></label>
@@ -392,6 +395,12 @@ final class Screen {
 	</form>
 	<button type="button" id="tgit-ai-reload" class="button"><?php esc_html_e( 'Reload AI settings', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-ai-status" role="status" aria-live="polite"></p>
+	<details id="tgit-ai-activity"><summary><?php esc_html_e( 'Saved AI request activity', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Read saved request states without counting tokens, sending or retrying delivery. Usage settled does not mean a review was published. Uncertain delivery retains its budget reservation.', 'ig-trading-journal' ); ?></p>
+	<button type="button" id="tgit-ai-activity-reload" class="button"><?php esc_html_e( 'Reload saved AI requests', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-ai-activity-status" role="status" aria-live="polite"></p>
+	<div id="tgit-ai-activity-history"></div>
+	</details>
 	</section>
 	<section id="tgit-market-data-section" hidden>
 	<h2><?php esc_html_e( 'Stock market data', 'ig-trading-journal' ); ?></h2>

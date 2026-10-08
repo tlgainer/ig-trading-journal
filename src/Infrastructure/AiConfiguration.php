@@ -13,6 +13,46 @@ use GainerInteractive\IGTradingJournal\Domain\AiModelCatalog;
 
 /** No browser assertions, defaults, model discovery or network requests. */
 final class AiConfiguration {
+	/**
+	 * Project reviewed evidence readiness without keys, digests or network access.
+	 *
+	 * @param string $model Exact selected model.
+	 * @return array Safe owner-facing preparation flags, never authenticated access.
+	 */
+	public static function readiness( string $model ): array {
+		$result = array(
+			'credential_configured'  => AiConnection::status()['credential_configured'],
+			'model_evidence_current' => false,
+			'count_evidence_current' => false,
+			'server_enabled'         => defined( 'TGIT_OPENAI_ENABLED' ) && true === TGIT_OPENAI_ENABLED,
+			'workflow_available'     => false,
+		);
+		if ( ! $result['credential_configured'] || '' === $model ) {
+			return $result;
+		}
+		$credential = hash( 'sha256', TGIT_OPENAI_API_KEY );
+		$now        = new \DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) );
+		$catalog    = defined( 'TGIT_OPENAI_MODEL_EVIDENCE' ) ? TGIT_OPENAI_MODEL_EVIDENCE : null;
+		$policies   = defined( 'TGIT_OPENAI_COUNT_EVIDENCE' ) ? TGIT_OPENAI_COUNT_EVIDENCE : null;
+		try {
+			if ( is_array( $catalog ) && isset( $catalog[ $model ] ) ) {
+				AiModelCatalog::verified( array( $model => $catalog[ $model ] ), $credential, $now );
+				$result['model_evidence_current'] = true;
+			}
+		} catch ( \Throwable $error ) {
+			// Invalid reviewed records are unavailable; never expose server metadata.
+			$result['model_evidence_current'] = false;
+		}
+		try {
+			if ( is_array( $policies ) && isset( $policies[ $model ] ) && is_array( $policies[ $model ] ) ) {
+				AiCountPolicy::verify( $policies[ $model ], $credential, $model, $now );
+				$result['count_evidence_current'] = true;
+			}
+		} catch ( \Throwable $error ) {
+			$result['count_evidence_current'] = false;
+		}
+		return $result;
+	}
 
 	/**
 	 * Resolve current server evidence for an exact selected model.

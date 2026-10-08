@@ -15,6 +15,15 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    if(actor==='viewer') { assert.equal(await page.getByRole('tab',{name:'Settings',exact:true}).isVisible(),false); assert.equal(await page.locator('#tgit-ai-section').isVisible(),false); await context.close(); continue; }
    await page.getByRole('tab',{name:'Settings',exact:true}).click(); await page.waitForFunction(()=>!document.getElementById('tgit-ai-policy').inert);
    const policy=page.locator('#tgit-ai-policy'), consent=page.locator('#tgit-ai-consent');
+   assert((await page.locator('#tgit-ai-readiness').textContent()).includes('Server key: missing or invalid'));
+   assert((await page.locator('#tgit-ai-readiness').textContent()).includes('Summary generation controls: unavailable'));
+   await policy.locator('[name=monthly_cap]').fill('15');
+   await page.locator('#tgit-ai-activity summary').click(); await page.locator('#tgit-ai-activity-status').getByText(/All saved request pages loaded/).waitFor();
+   assert((await page.locator('#tgit-ai-activity-history').textContent()).includes('Cancelled')); assert((await page.locator('#tgit-ai-activity-history').textContent()).includes('Legacy — unbound'));
+   await page.getByRole('button',{name:'Reload saved AI requests',exact:true}).click(); await page.locator('#tgit-ai-activity-status').getByText(/All saved request pages loaded/).waitFor(); assert.equal(await policy.locator('[name=monthly_cap]').inputValue(),'15');
+   const historyFailure=async(route)=>{ const target=new URL(route.request().url()).searchParams.get('rest_route')||''; if(target.endsWith('/ai-requests')) return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Saved request fixture unavailable'})}); return route.continue(); };
+   await page.route('**/*',historyFailure); await page.getByRole('button',{name:'Reload saved AI requests',exact:true}).click(); await page.locator('#tgit-ai-activity-status').getByText('Saved request fixture unavailable',{exact:true}).waitFor(); assert.equal(await page.locator('#tgit-ai-activity-history table').count(),0); assert.equal(await policy.locator('[name=monthly_cap]').inputValue(),'15');
+   await page.unroute('**/*',historyFailure); await page.getByRole('button',{name:'Reload saved AI requests',exact:true}).click(); await page.locator('#tgit-ai-activity-status').getByText(/All saved request pages loaded/).waitFor();
    await page.locator('#tgit-api-setup summary').filter({hasText:'OpenAI credential preparation'}).click();
    assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('missing or invalid server configuration'));
    assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('generation remains unavailable'));
@@ -38,6 +47,6 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    await page.unroute('**/*',failure); await page.getByRole('button',{name:'Reload AI settings',exact:true}).click(); await page.locator('#tgit-ai-status').getByText('AI settings reloaded.',{exact:true}).waitFor(); assert.equal(await policy.locator('[name=monthly_cap]').inputValue(),'0.00');
    assert.deepEqual(errors,[]); await context.close();
   }
-  console.log('PASS AI Settings owner/viewer access, real saves, separate consent, unsaved preservation, discard/reload, zero pause, shared read-only controls, failed-load recovery and responsive cards.');
+  console.log('PASS AI Settings readiness, saved request activity and recovery, owner/viewer access, real saves, separate consent, unsaved preservation, discard/reload, zero pause, shared read-only controls and responsive cards.');
  } finally { await browser.close(); }
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});

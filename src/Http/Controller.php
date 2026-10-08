@@ -76,6 +76,7 @@ final class Controller {
 		self::route( $base . '/ai-settings', 'GET', 'ai_settings' );
 		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
+		self::route( $base . '/ai-requests', 'GET', 'ai_request_history' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/approve', 'POST', 'ai_evidence_approve' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)', 'GET', 'ai_evidence_read' );
@@ -168,7 +169,7 @@ final class Controller {
 				'callback'            => static function ( $request ) use ( $operation ) {
 					return self::dispatch( $request, $operation );
 				},
-				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'ai_review_history', 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
+				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'ai_request_history', 'ai_review_history', 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'price_source' => array(
 						'type'    => 'string',
 						'enum'    => array( 'manual', 'fmp', 'alpha_vantage' ),
@@ -244,6 +245,10 @@ final class Controller {
 					$revision = $data['expected_revision'] ?? null;
 					$result   = $approval ? $evidence->approve( $workspace, $asset, $data['snapshots'], $data['fingerprint'], (string) $request->get_header( 'idempotency-key' ), $trade, $revision ) : $evidence->preview( $workspace, $asset, $data['snapshots'], $trade, $revision );
 				}
+			} elseif ( 'ai_request_history' === $operation ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );
+				$result   = $spending->request_history( $workspace, (int) $request['after'], (int) $request['limit'] );
 			} elseif ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );

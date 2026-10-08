@@ -637,6 +637,38 @@ final class AiSpending {
 	}
 
 	/**
+	 * Page owner-only saved request metadata without prompts or credentials.
+	 *
+	 * @param int $workspace Authorized workspace.
+	 * @param int $after Exclusive request ID cursor.
+	 * @param int $limit Page size.
+	 * @return array Items and next cursor.
+	 * @throws \InvalidArgumentException On invalid pagination.
+	 */
+	public function request_history( int $workspace, int $after = 0, int $limit = 100 ): array {
+		$this->owner( $workspace );
+		if ( $after < 0 || $limit < 1 || $limit > 100 ) {
+			throw new \InvalidArgumentException( 'Invalid AI request pagination.' );
+		}
+		$rows = $this->db->rows(
+			'SELECT r.id, r.approval_id, r.model, r.created_at, r.maximum_cost, e.state, e.charge FROM ' . $this->db->table( 'ai_requests' ) . ' r LEFT JOIN ' . $this->db->table( 'ai_request_events' ) . ' e ON e.workspace_id = r.workspace_id AND e.request_id = r.id AND e.id = (SELECT MAX(h.id) FROM ' . $this->db->table( 'ai_request_events' ) . ' h WHERE h.workspace_id = r.workspace_id AND h.request_id = r.id) WHERE r.workspace_id = %d AND r.id > %d ORDER BY r.id ASC LIMIT %d',
+			array( $workspace, $after, $limit + 1 )
+		);
+		$more = count( $rows ) > $limit;
+		$rows = array_slice( $rows, 0, $limit );
+		foreach ( $rows as &$row ) {
+			$row['id']          = (int) $row['id'];
+			$row['approval_id'] = null === $row['approval_id'] ? null : (int) $row['approval_id'];
+			$row['state']       = $row['state'] ?? 'unknown';
+		}
+		unset( $row );
+		return array(
+			'items'       => $rows,
+			'next_cursor' => $more ? end( $rows )['id'] : null,
+		);
+	}
+
+	/**
 	 * Owner-only shared budget summary, never foreign request or credential data.
 	 *
 	 * @param int $workspace Authorized workspace.

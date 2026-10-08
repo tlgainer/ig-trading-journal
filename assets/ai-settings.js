@@ -3,7 +3,7 @@
  'use strict';
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-ai-${id}`);
  const policy = $('policy'), consent = $('consent'), section = $('section');
- let workspace = '', role = '', generation = 0, saved = null, baseline = '';
+ let workspace = '', role = '', generation = 0, saved = null, baseline = '', historyGeneration = 0, historyLoading = false, historyLoaded = false;
  const values = (form) => Object.fromEntries([...form.elements].filter((element) => element.name).map((element) => [element.name, element.value]));
  const snapshot = () => JSON.stringify([values(policy), values(consent)]);
  const lock = (form, blocked) => { form.inert = blocked; for (const element of form.querySelectorAll('input, select, textarea, button')) element.disabled = blocked; };
@@ -17,7 +17,41 @@
  }
  function summarize() {
   $('summary').textContent = `${saved.can_configure ? 'This workspace controls the shared budget.' : 'The shared budget is controlled in its original workspace.'} Processing is disabled. Spent: ${tgitDisplayDecimal(saved.spent)} USD. Reserved: ${tgitDisplayDecimal(saved.reserved)} USD. Remaining: ${tgitDisplayDecimal(saved.remaining)} USD. Budget period: ${saved.period}. Resets: ${saved.resets_at} UTC (${saved.timezone}).${saved.warning !== 'none' ? ` Budget warning: ${saved.warning.replaceAll('_', ' ')}.` : ''}`;
+  const readiness = saved.readiness || {};
+  $('readiness').replaceChildren();
+  for (const text of [
+   `Server key: ${readiness.credential_configured ? 'configured' : 'missing or invalid'}.`,
+   `Saved model: ${saved.model || 'not selected'}. Model and pricing evidence: ${readiness.model_evidence_current ? 'current reviewed records' : 'missing, invalid or expired'}.`,
+   `Counting access and cost evidence: ${readiness.count_evidence_current ? 'current reviewed records' : 'missing, invalid or expired'}.`,
+   `Server processing switch: ${readiness.server_enabled ? 'on; keep off until generation controls are ready' : 'off'}.`,
+   `Workspace consent: ${saved.enrolled ? 'saved as Yes' : 'saved as No'}. Budget: ${saved.warning === 'paused' ? 'paused at zero' : 'configured; allowance is checked for each request'}.`,
+   'Summary generation controls: unavailable.'
+  ]) { const item = document.createElement('li'); item.textContent = text; $('readiness').append(item); }
  }
+ const activityStatus = (message, error = false) => { $('activity-status').textContent = message; $('activity-status').setAttribute('role', error ? 'alert' : 'status'); };
+ async function loadHistory() {
+  if (role !== 'owner' || historyLoading || window.tgitWriteBusy) return;
+  const expected = generation, version = ++historyGeneration;
+  historyLoading = true; historyLoaded = false; $('activity-reload').disabled = true; tgitResetCollection($('activity-history')); activityStatus('Loading all saved request pages for this workspace…');
+  try {
+   const rows = []; let after = 0;
+   do { const page = await request(`ai-requests?after=${after}&limit=100`); if (expected !== generation || version !== historyGeneration) return; rows.push(...page.items); after = page.next_cursor; } while (after !== null);
+   const labels = { reserved: 'Reserved — not sent', dispatched: 'Delivery claimed', uncertain: 'Delivery uncertain', settled: 'Usage settled', overrun: 'Cost overrun', cancelled: 'Cancelled' };
+   tgitCollection($('activity-history'), { actor: config.actorId, workspace, key: 'ai-request-history', title: 'Saved AI requests', search: (row) => `Request ${row.id} Evidence ${row.approval_id || ''} ${row.model} ${row.state} ${row.created_at}`, columns: [
+    { key: 'id', label: 'Request', identity: true, required: true, render: (row) => `#${row.id}` },
+    { key: 'created_at', label: 'Created (UTC)', render: (row) => row.created_at },
+    { key: 'model', label: 'Captured model', render: (row) => row.model },
+    { key: 'approval_id', label: 'Evidence approval', render: (row) => row.approval_id === null ? 'Legacy — unbound' : `#${row.approval_id}` },
+    { key: 'state', label: 'State', render: (row) => labels[row.state] || row.state.replaceAll('_', ' ') },
+    { key: 'maximum_cost', label: 'Original cost bound', render: (row) => `${tgitDisplayDecimal(row.maximum_cost)} USD` },
+    { key: 'charge', label: 'Settled usage estimate', render: (row) => row.state === 'cancelled' ? 'Not charged — cancelled' : (row.charge === null ? 'Not settled' : `${tgitDisplayDecimal(row.charge)} USD`) }
+   ] }, rows);
+   historyLoaded = true; activityStatus(rows.length ? 'All saved request pages loaded. Search covers this workspace’s request metadata only. No AI request was sent.' : 'No saved AI requests yet. No AI request was sent.');
+  } catch (error) { if (expected === generation && version === historyGeneration) { tgitResetCollection($('activity-history')); activityStatus(error.message, true); } }
+  finally { if (expected === generation && version === historyGeneration) { historyLoading = false; $('activity-reload').disabled = false; } }
+ }
+ $('activity').addEventListener('toggle', () => { if ($('activity').open && !historyLoaded) loadHistory(); });
+ $('activity-reload').addEventListener('click', loadHistory);
  function fill() {
   if (!saved) return;
   policy.elements.monthly_cap.value = tgitDisplayDecimal(saved.monthly_cap);
@@ -32,6 +66,7 @@
  }
  async function load() {
   const expected = generation;
+  $('readiness').replaceChildren();
   const data = await request('ai-settings');
   if (expected !== generation) return;
   saved = data; fill();
@@ -72,7 +107,7 @@
  window.addEventListener('popstate', () => { if (!dirty()) return; if (leave()) fill(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'settings'); history.pushState(null, '', url); window.tgitSelectSection('settings'); } });
  window.addEventListener('beforeunload', (event) => { if (dirty() || window.tgitWriteBusy) { event.preventDefault(); event.returnValue = ''; } });
  window.addEventListener('tgit-workspace', (event) => {
-  ++generation; ({ workspace, role } = event.detail); saved = null; baseline = ''; policy.reset(); consent.reset(); section.hidden = role !== 'owner'; lock(policy, true); lock(consent, true); $('summary').textContent = ''; status('');
+  ++generation; ++historyGeneration; ({ workspace, role } = event.detail); saved = null; baseline = ''; historyLoading = false; historyLoaded = false; $('activity').open = false; $('activity-reload').disabled = false; tgitResetCollection($('activity-history')); activityStatus(''); $('readiness').replaceChildren(); policy.reset(); consent.reset(); section.hidden = role !== 'owner'; lock(policy, true); lock(consent, true); $('summary').textContent = ''; status('');
   if (role === 'owner') { const expected = generation; load().catch((error) => { if (expected === generation) status(error.message, true); }); }
  });
 })();
