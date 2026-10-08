@@ -15,6 +15,10 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    if(actor==='viewer') { assert.equal(await page.getByRole('tab',{name:'Settings',exact:true}).isVisible(),false); assert.equal(await page.locator('#tgit-ai-section').isVisible(),false); await context.close(); continue; }
    await page.getByRole('tab',{name:'Settings',exact:true}).click(); await page.waitForFunction(()=>!document.getElementById('tgit-ai-policy').inert);
    const policy=page.locator('#tgit-ai-policy'), consent=page.locator('#tgit-ai-consent');
+   await page.locator('#tgit-api-setup summary').filter({hasText:'OpenAI credential preparation'}).click();
+   assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('missing or invalid server configuration'));
+   assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('generation remains unavailable'));
+   assert.equal(await page.locator('#tgit-api-setup input').count(),0);
    await policy.locator('[name=monthly_cap]').fill('10.50'); await policy.locator('[name=model]').fill('fixture-text-model');
    await policy.getByRole('button',{name:'Save model and budget',exact:true}).click(); await page.locator('#tgit-ai-status').getByText('Settings saved. No AI request was sent.',{exact:true}).waitFor(); await page.waitForFunction(()=>!window.tgitWriteBusy);
    assert((await page.locator('#tgit-ai-summary').textContent()).includes('10.50 USD'));

@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace GainerInteractive\IGTradingJournal\Admin;
 
 use GainerInteractive\IGTradingJournal\Application\Tracker;
+use GainerInteractive\IGTradingJournal\Infrastructure\AiConnection;
 
 /** Screen service for the current implementation slice. */
 final class Screen {
@@ -368,7 +369,11 @@ final class Screen {
 	<pre><?php echo esc_html( "define('TGIT_FMP_API_KEY', 'YOUR_FMP_KEY');\ndefine('TGIT_ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_KEY');\ndefine('TGIT_MARKET_DATA_ENABLED', false);\ndefine('TGIT_FUNDAMENTALS_ENABLED', false);" ); ?></pre>
 	<p><?php esc_html_e( 'Replace only the placeholder for each provider you use. Do not duplicate an existing definition. Keep both switches false while preparing mappings. When ready to allow real requests, set TGIT_MARKET_DATA_ENABLED to true for prices; also set TGIT_FUNDAMENTALS_ENABLED to true for Alpha Vantage fundamentals. Then reload the page. Server enablement does not create a mapping or schedule.', 'ig-trading-journal' ); ?></p>
 	</details>
-	<p><?php esc_html_e( 'OpenAI: API key entry and summary generation are not available in this build. Model, budget, consent and evidence approval are preparation only. There is no supported OpenAI key setting to configure yet.', 'ig-trading-journal' ); ?></p>
+	<details><summary><?php esc_html_e( 'OpenAI credential preparation', 'ig-trading-journal' ); ?></summary>
+	<pre><?php echo esc_html( "define('TGIT_OPENAI_API_KEY', 'YOUR_OPENAI_KEY');" ); ?></pre>
+	<p><?php esc_html_e( 'Keep your key on the server. Replace the placeholder without duplicating an existing definition. This prepares the credential only; it does not send data, verify account access or enable summary generation.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-openai-connection-status"><?php echo esc_html( AiConnection::status()['credential_configured'] ? __( 'OpenAI key: configured on server. Account access has not been verified. Summary generation remains unavailable.', 'ig-trading-journal' ) : __( 'OpenAI key: missing or invalid server configuration. Summary generation remains unavailable.', 'ig-trading-journal' ) ); ?></p>
+	</details>
 	</section>
 		<section id="tgit-ai-section" hidden>
 	<h2><?php esc_html_e( 'AI summary settings', 'ig-trading-journal' ); ?></h2>

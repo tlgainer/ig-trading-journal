@@ -53,7 +53,9 @@ define('TGIT_FUNDAMENTALS_ENABLED', false);
 
 Replace the relevant placeholders with your keys. Add only the provider you intend to use and do not duplicate existing definitions. Keep the switches `false` while preparing mappings. When you are ready to permit real requests, set `TGIT_MARKET_DATA_ENABLED` to `true` for quotes. For Alpha Vantage fundamentals, also set `TGIT_FUNDAMENTALS_ENABLED` to `true`. Reload the plugin page afterward. Adding keys does not enroll schedules or fetch a stock automatically. Scheduled jobs need reliable WordPress cron; ask your host to configure server-driven cron if needed.
 
-**OpenAI:** no supported key setting or sender exists yet. Do not add a guessed constant or key to the model field. Key handling will be documented when summary generation is implemented. You can prepare the model, budget, consent and approved evidence now.
+**OpenAI in the latest installed test ZIP:** summary generation and OpenAI key handling are not available in 0.27.0-dev.1/schema 17. You can prepare model, budget, consent and approved evidence.
+
+**Newer development source:** Settings → API setup → OpenAI credential preparation now recognizes `TGIT_OPENAI_API_KEY` in server `wp-config.php`. The card shows only whether the key is configured; it never displays the value or verifies account access. Add `define('TGIT_OPENAI_API_KEY', 'YOUR_OPENAI_KEY');` before WordPress loads, replacing the placeholder and avoiding duplicate definitions. Do not put the key in model fields or journal notes. Preparing it sends no request and does not enable generation. This change is not in the existing test ZIP.
 
 **Why a control is disabled:** no stock means no history to select; no enabled Alpha Vantage mapping means no fundamental schedule to edit; failed schedule loading requires Reload saved history; disabled server refresh prevents fetching while preserving saved-history reads. AI consent requires a saved model/budget policy, and the shared policy can be edited only from its controlling workspace. Disabled controls now show their inactive state and accompanying explanation. Choose Weekly before choosing a fundamental weekday.
 
