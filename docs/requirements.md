@@ -99,3 +99,6 @@ October 8, 2026: Owner recovery now includes cancelling original-owner unsent AI
 
 
 October 8, 2026: Approved AI evidence now offers Check summary setup in Research. The local preflight explains saved model, consent, budget and server evidence blockers without counting, reserving or sending. Generation remains unavailable pending genuine evidence verification and guarded enable/delivery controls. See [preflight guide](ai-generation-preflight.md). Source 0.27.0-dev.5/schema18; no SQL or ZIP.
+
+
+October 8, 2026: Added read-only saved AI operation lookup by original-owner approval and retained UUID. No counting, sending or budget/history mutation. Owner enable/generation implementation was rejected by automatic approval review because explicit authorization for live-capable controls is required; see ai-owner-generation-proposal.md. Those controls remain disabled. See ai-operation-status.md. Schema18/source0.27.0-dev.5 unchanged; no SQL/ZIP.
