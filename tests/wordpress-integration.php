@@ -161,5 +161,6 @@ require __DIR__ . '/ai-publication-integration.php';
 require __DIR__ . '/ai-cancellation-integration.php';
 require __DIR__ . '/ai-preflight-integration.php';
 require __DIR__ . '/ai-request-status-integration.php';
+require __DIR__ . '/ai-owner-generation-integration.php';
 
 echo sprintf("%d unit and %d integration checks passed.\n", $domain_passed, $passed - $domain_passed);

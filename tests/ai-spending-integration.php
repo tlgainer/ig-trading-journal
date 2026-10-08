@@ -203,7 +203,7 @@ test('AI Settings REST prepares disabled policy with private projection, revisio
   $wpdb=$connection; Installer::install(); wp_set_current_user($owner);
   $t=new Tracker(new Database($wpdb),$owner,wp_generate_uuid4()); $w=(int)$t->create_workspace(['name'=>'Synthetic settings'])['id'];
   $other=(int)$t->create_workspace(['name'=>'Synthetic other settings'])['id']; $base='workspaces/'.$w;
-  $initial=provider_rest('GET',$base.'/ai-settings'); equal($initial->get_status(),200); equal($initial->get_data()['data']['processing_available'],false);
+  $initial=provider_rest('GET',$base.'/ai-settings'); equal($initial->get_status(),200); equal($initial->get_data()['data']['processing_available'],true);
   $input=['enabled'=>false,'monthly_cap'=>'10.50','model'=>'fixture-text-model','expected_config_id'=>0];
   $saved=provider_rest('POST',$base.'/ai-settings',$input); equal($saved->get_status(),200); $data=$saved->get_data()['data']; decimal($data['monthly_cap'],'10.5'); equal($data['model'],'fixture-text-model');
   foreach(['allowed','credential_fingerprint','pricing_json','controller_workspace_id','actor_id'] as $field) equal(array_key_exists($field,$data),false);
@@ -229,7 +229,7 @@ test('AI Settings REST prepares disabled policy with private projection, revisio
   $next=provider_rest('GET',$base.'/ai-requests?limit=1&after='.$page['next_cursor']); equal(count($next->get_data()['data']['items']),1); equal($next->get_data()['data']['next_cursor'],null);
   equal(provider_rest('GET',$base.'/ai-requests?limit=101')->get_status(),400); equal(provider_rest('GET',$base.'/ai-requests?after=-1')->get_status(),400); equal(provider_rest('GET',$base.'/ai-requests?after=abc')->get_status(),400);
   equal(provider_rest('GET','workspaces/'.$other.'/ai-requests')->get_data()['data']['items'],[]);
-  $ready=provider_rest('GET',$base.'/ai-settings')->get_data()['data']['readiness']; equal($ready['credential_configured'],false); equal($ready['workflow_available'],false);
+  $ready=provider_rest('GET',$base.'/ai-settings')->get_data()['data']['readiness']; equal($ready['credential_configured'],false); equal($ready['workflow_available'],true);
   wp_set_current_user($viewer); equal(provider_rest('GET',$base.'/ai-requests')->get_status(),403); wp_set_current_user($owner);
   file_put_contents(dirname(__DIR__).'/tmp/ai-settings-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'prefix'=>$connection->prefix]));
  } finally { $original->result=null; $wpdb=$original; wp_set_current_user($owner); }

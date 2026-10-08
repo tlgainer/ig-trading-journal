@@ -243,3 +243,9 @@ October 8, 2026 generation preflight verification: 116 unit and 202 disposable W
 
 
 October 8, 2026 read-only operation recovery verification: 116 unit and 205 disposable WordPress/database checks passed. New original-owner UUID lookup checks cover reserved/dispatched/uncertain/settled/cancelled states, immutable retries, no reservation for missing operations, invalid UUIDs, foreign scope, viewer/other-owner denial and in_progress coordination. External HTTP was denied and request/event/receipt/manifest/config rows remained unchanged by lookup. PHP and JavaScript syntax, composer check-cs and 6 REST URL checks passed. UI/private-media surfaces unchanged; preceding browser regression evidence retained. No live calls, production keys/data, SQL or ZIP. Live-capable enable/generation edits were rejected before execution by automatic approval review and were not applied; explicit proposal awaits owner approval.
+
+### October 8, 2026 - approved owner summary generation (0.27.0-dev.6)
+
+Passed 116 unit checks and 211 disposable WordPress/MySQL integration checks, including guarded owner generation, admission-time policy binding, failed-count recovery and uncertain-send protection. PHP syntax, JavaScript syntax, Composer coding standards and the six REST URL checks passed. Browser fixtures passed for the new generation workflow, AI Settings, evidence approval/preflight, publication, cancellation and all eight admin layouts at 360, 768 and 1440 pixels. Two obsolete Settings text assertions were updated to reflect the implemented controls and passed on rerun.
+
+All generation/count requests were intercepted using synthetic server evidence and responses; no real credentials, paid API requests or portfolio transmission were used. Production server evidence and hosting verification remain required. No SQL change or new installation ZIP was produced.

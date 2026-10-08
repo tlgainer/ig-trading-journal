@@ -16,7 +16,7 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    await page.getByRole('tab',{name:'Settings',exact:true}).click(); await page.waitForFunction(()=>!document.getElementById('tgit-ai-policy').inert);
    const policy=page.locator('#tgit-ai-policy'), consent=page.locator('#tgit-ai-consent');
    assert((await page.locator('#tgit-ai-readiness').textContent()).includes('Server key: missing or invalid'));
-   assert((await page.locator('#tgit-ai-readiness').textContent()).includes('Summary generation controls: unavailable'));
+   assert((await page.locator('#tgit-ai-readiness').textContent()).includes('Summary generation controls: available in Research'));
    await policy.locator('[name=monthly_cap]').fill('15');
    await page.locator('#tgit-ai-activity summary').click(); await page.locator('#tgit-ai-activity-status').getByText(/All saved request pages loaded/).waitFor();
    assert((await page.locator('#tgit-ai-activity-history').textContent()).includes('Cancelled')); assert((await page.locator('#tgit-ai-activity-history').textContent()).includes('Legacy — unbound'));
@@ -26,7 +26,7 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    await page.unroute('**/*',historyFailure); await page.getByRole('button',{name:'Reload saved AI requests',exact:true}).click(); await page.locator('#tgit-ai-activity-status').getByText(/All saved request pages loaded/).waitFor();
    await page.locator('#tgit-api-setup summary').filter({hasText:'OpenAI credential preparation'}).click();
    assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('missing or invalid server configuration'));
-   assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('generation remains unavailable'));
+   assert((await page.locator('#tgit-openai-connection-status').textContent()).includes('generation requires verified server evidence'));
    assert.equal(await page.locator('#tgit-api-setup input').count(),0);
    await policy.locator('[name=monthly_cap]').fill('10.50'); await policy.locator('[name=model]').fill('fixture-text-model');
    await policy.getByRole('button',{name:'Save model and budget',exact:true}).click(); await page.locator('#tgit-ai-status').getByText('Settings saved. No AI request was sent.',{exact:true}).waitFor(); await page.waitForFunction(()=>!window.tgitWriteBusy);

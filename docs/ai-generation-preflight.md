@@ -11,3 +11,6 @@ The panel clears when evidence selection or workspace changes. Responses arrivin
 Official reference: [OpenAI complete-input token counting](https://developers.openai.com/api/docs/guides/token-counting). The current implementation retains its separate verified counting-access/cost requirement; no free-counting assumption is added.
 
 Source 0.27.0-dev.5, schema 18. No new SQL or release ZIP. Next: genuine model/pricing/count-cost verification and the explicit guarded generation/enable controls.
+
+
+October 8, 2026: Preflight now reports workflow availability and the reviewed config_id; can_generate is true only when every check passes. The explicit default-off controls are implemented in [owner generation](ai-owner-generation.md). Preflight itself remains local and read-only.

@@ -1,8 +1,8 @@
-/* Owner review of immutable saved evidence; no external AI transport. */
+/* Owner review of immutable saved evidence and explicit summary controls. */
 (() => {
  'use strict';
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-ai-evidence${id ? `-${id}` : ''}`);
- let workspace = '', asset = '', generation = 0, busy = false, ready = false, preview = null, selection = null, pending = null, trades = [];
+ let workspace = '', asset = '', generation = 0, busy = false, ready = false, preview = null, selection = null, pending = null, trades = [], summaryControls = null;
  const form = $('form');
  const storage = () => `tgit-ai-evidence:${config.actorId}:${workspace}:${asset}`;
  const status = (text, error = false) => { $('status').textContent = text; $('status').setAttribute('role', error ? 'alert' : 'status'); };
@@ -13,6 +13,7 @@
   $('preview').disabled = !ready || busy || !!window.tgitWriteBusy || !!pending || !$('snapshots').querySelector('select');
   $('approve').disabled = !ready || busy || !!window.tgitWriteBusy || !!pending || !preview;
   $('retry').hidden = !pending; $('retry').disabled = !ready || busy || !!window.tgitWriteBusy;
+  if (summaryControls) summaryControls();
  };
  async function request(path, body, key) {
   const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/${path}`), { method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce, ...(body ? { 'Content-Type': 'application/json' } : {}), ...(key ? { 'Idempotency-Key': key } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -21,33 +22,20 @@
   return envelope.data;
  }
  function show(result, approved = false) {
-  $('detail').replaceChildren();
+  summaryControls = null; $('detail').replaceChildren();
   const heading = document.createElement('h4'); heading.textContent = approved ? `Approved evidence #${result.id}` : 'Evidence preview'; $('detail').append(heading);
   const summary = document.createElement('p'); summary.textContent = `${result.bundle.asset.symbol} · ${result.bundle.reports.length} fiscal reports · ${result.bundle.omitted_reports} older reports omitted${approved ? ` · Approved ${result.approved_at} UTC` : ` · ${result.bytes} bytes`}`; $('detail').append(summary);
   const note = document.createElement('p'); note.textContent = 'Only the selected saved metrics and optional thesis are included. Prices, news, comparisons, images and other journal fields are excluded. Reporting duration and accounting-policy compatibility are unverified.'; $('detail').append(note);
   const details = document.createElement('details'), title = document.createElement('summary'), pre = document.createElement('pre');
   title.textContent = 'Exact evidence and source fingerprints'; pre.textContent = JSON.stringify(result.bundle, null, 2); pre.style.whiteSpace = 'pre-wrap'; pre.style.overflowWrap = 'anywhere'; details.append(title, pre); $('detail').append(details);
   if (approved) {
-   const panel = document.createElement('section'), title = document.createElement('h4'), button = document.createElement('button'), message = document.createElement('p');
-   title.textContent = 'AI summary preparation'; button.type = 'button'; button.className = 'button'; button.textContent = 'Check summary setup'; message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite'); message.textContent = 'Check saved model, consent and budget without sending an AI request.';
    const expected = generation;
-   button.addEventListener('click', async () => {
-    if (busy || window.tgitWriteBusy || expected !== generation) return;
-    button.disabled = true; message.textContent = 'Checking saved summary setup…';
-    try {
-     const result = await request(`ai-evidence/${resultId}/preflight`);
-     if (expected !== generation || !panel.isConnected) return;
-     const labels = { original_owner: 'Use evidence approved by your own owner account.', credential_configured: 'Configure the OpenAI server key in API setup.', model_evidence_current: 'Have the server administrator verify access and pricing for the saved model.', count_evidence_current: 'Have the server administrator verify counting access and cost.', server_enabled: 'Server processing is off.', policy_enabled: 'Shared AI processing is off.', workspace_consent: 'Save workspace consent in Settings.', budget_available: 'Restore an available monthly allowance in Settings.', workflow_available: 'Summary generation controls are not yet available.' };
-     message.textContent = `Saved model: ${result.model || 'not selected'}. Remaining allowance: ${tgitDisplayDecimal(result.remaining)} USD. ${result.blockers.map(key => labels[key] || key).join(' ')} This check does not estimate the request cost, reserve allowance or send an AI request.`;
-    } catch (error) { if (expected === generation && panel.isConnected) message.textContent = `Setup check failed: ${error.message} Try Check summary setup again.`; }
-    finally { if (expected === generation && panel.isConnected) button.disabled = false; }
-   });
-   const resultId = result.id; panel.append(title, button, message); $('detail').append(panel);
+   summaryControls = window.tgitAiGenerationPanel($('detail'), result.id, workspace, request, () => expected === generation, (value) => { if (!value || expected === generation) { busy = value; controls(); } });
   }
   const fingerprint = document.createElement('p'); fingerprint.textContent = `Evidence fingerprint: ${result.fingerprint}`; fingerprint.style.overflowWrap = 'anywhere'; $('detail').append(fingerprint);
  }
  function reset() {
-  ++generation; ready = false; preview = null; selection = null; pending = null; trades = []; $('').hidden = true; $('detail').replaceChildren(); $('snapshots').replaceChildren(); status(''); controls();
+  ++generation; summaryControls = null; busy = false; ready = false; preview = null; selection = null; pending = null; trades = []; $('').hidden = true; $('detail').replaceChildren(); $('snapshots').replaceChildren(); status(''); controls();
  }
  window.addEventListener('tgit-evidence-reset', reset);
  window.addEventListener('tgit-workspace', reset);

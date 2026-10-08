@@ -39,7 +39,7 @@ final class AiPreflight {
 			'policy_enabled'         => $status['enabled'],
 			'workspace_consent'      => $status['enrolled'],
 			'budget_available'       => ! $status['overrun'] && Decimal::compare( $status['remaining'], '0' ) > 0,
-			'workflow_available'     => false,
+			'workflow_available'     => $readiness['workflow_available'],
 		);
 		foreach ( $checks as $check => $passed ) {
 			if ( ! $passed ) {
@@ -53,7 +53,8 @@ final class AiPreflight {
 			'remaining'    => $status['remaining'],
 			'checks'       => $checks,
 			'blockers'     => $blockers,
-			'can_generate' => false,
+			'config_id'    => $status['config_id'],
+			'can_generate' => empty( $blockers ),
 		);
 	}
 }

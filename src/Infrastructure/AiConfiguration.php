@@ -25,7 +25,7 @@ final class AiConfiguration {
 			'model_evidence_current' => false,
 			'count_evidence_current' => false,
 			'server_enabled'         => defined( 'TGIT_OPENAI_ENABLED' ) && true === TGIT_OPENAI_ENABLED,
-			'workflow_available'     => false,
+			'workflow_available'     => true,
 		);
 		if ( ! $result['credential_configured'] || '' === $model ) {
 			return $result;

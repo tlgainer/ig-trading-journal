@@ -16,16 +16,16 @@
   return result.data;
  }
  function summarize() {
-  $('summary').textContent = `${saved.can_configure ? 'This workspace controls the shared budget.' : 'The shared budget is controlled in its original workspace.'} Processing is disabled. Spent: ${tgitDisplayDecimal(saved.spent)} USD. Reserved: ${tgitDisplayDecimal(saved.reserved)} USD. Remaining: ${tgitDisplayDecimal(saved.remaining)} USD. Budget period: ${saved.period}. Resets: ${saved.resets_at} UTC (${saved.timezone}).${saved.warning !== 'none' ? ` Budget warning: ${saved.warning.replaceAll('_', ' ')}.` : ''}`;
+  $('summary').textContent = `${saved.can_configure ? 'This workspace controls the shared budget.' : 'The shared budget is controlled in its original workspace.'} Processing is ${saved.enabled ? 'enabled for explicit owner requests' : 'disabled'}. Spent: ${tgitDisplayDecimal(saved.spent)} USD. Reserved: ${tgitDisplayDecimal(saved.reserved)} USD. Remaining: ${tgitDisplayDecimal(saved.remaining)} USD. Budget period: ${saved.period}. Resets: ${saved.resets_at} UTC (${saved.timezone}).${saved.warning !== 'none' ? ` Budget warning: ${saved.warning.replaceAll('_', ' ')}.` : ''}`;
   const readiness = saved.readiness || {};
   $('readiness').replaceChildren();
   for (const text of [
    `Server key: ${readiness.credential_configured ? 'configured' : 'missing or invalid'}.`,
    `Saved model: ${saved.model || 'not selected'}. Model and pricing evidence: ${readiness.model_evidence_current ? 'current reviewed records' : 'missing, invalid or expired'}.`,
    `Counting access and cost evidence: ${readiness.count_evidence_current ? 'current reviewed records' : 'missing, invalid or expired'}.`,
-   `Server processing switch: ${readiness.server_enabled ? 'on; keep off until generation controls are ready' : 'off'}.`,
+   `Server processing switch: ${readiness.server_enabled ? 'on; generation still requires all remaining checks' : 'off'}.`,
    `Workspace consent: ${saved.enrolled ? 'saved as Yes' : 'saved as No'}. Budget: ${saved.warning === 'paused' ? 'paused at zero' : 'configured; allowance is checked for each request'}.`,
-   'Summary generation controls: unavailable.'
+   'Summary generation controls: available in Research after approved evidence passes setup checks.'
   ]) { const item = document.createElement('li'); item.textContent = text; $('readiness').append(item); }
  }
  const activityStatus = (message, error = false) => { $('activity-status').textContent = message; $('activity-status').setAttribute('role', error ? 'alert' : 'status'); };
@@ -90,6 +90,7 @@
  $('activity-reload').addEventListener('click', loadHistory);
  function fill() {
   if (!saved) return;
+  policy.elements.enabled.value = String(saved.enabled);
   policy.elements.monthly_cap.value = tgitDisplayDecimal(saved.monthly_cap);
   policy.elements.model.value = saved.model;
   consent.elements.enabled.value = String(saved.enrolled);
@@ -117,6 +118,7 @@
    saved = result;
    // Preserve unsaved changes in the other form.
    if (form === policy) {
+    policy.elements.enabled.value = String(saved.enabled);
     policy.elements.monthly_cap.value = tgitDisplayDecimal(saved.monthly_cap);
     policy.elements.model.value = saved.model;
    }
@@ -129,7 +131,7 @@
  }
  policy.addEventListener('submit', (event) => {
   event.preventDefault();
-  save(policy, 'ai-settings', { enabled: false, monthly_cap: policy.elements.monthly_cap.value, model: policy.elements.model.value, expected_config_id: saved?.config_id || 0 });
+  save(policy, 'ai-settings', { enabled: policy.elements.enabled.value === 'true', monthly_cap: policy.elements.monthly_cap.value, model: policy.elements.model.value, expected_config_id: saved?.config_id || 0 });
  });
  consent.addEventListener('submit', (event) => {
   event.preventDefault();

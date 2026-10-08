@@ -78,6 +78,7 @@ final class Controller {
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
 		self::route( $base . '/ai-requests', 'GET', 'ai_request_history' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)/preflight', 'GET', 'ai_generation_preflight' );
+		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)/generate', 'POST', 'ai_generate' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)/generation', 'GET', 'ai_generation_status' );
 		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/publish', 'POST', 'publish_ai_review' );
 		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/cancel', 'POST', 'cancel_ai_request' );
@@ -224,7 +225,15 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'ai_generation_status' === $operation ) {
+			if ( 'ai_generate' === $operation ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				Tracker::fields( $data, array( 'expected_config_id' ), array( 'expected_config_id' ) );
+				$key = $request->get_header( 'idempotency-key' );
+				if ( ! is_int( $data['expected_config_id'] ) || $data['expected_config_id'] < 1 || ! is_string( $key ) || ! preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $key ) ) {
+					throw new \InvalidArgumentException( 'A stable operation UUID and reviewed saved policy are required.' );
+				}
+				$result = \GainerInteractive\IGTradingJournal\Infrastructure\AiGeneration::run( new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation ), $workspace, (int) $request->get_url_params()['approval'], $key, 2000, $data['expected_config_id'] );
+			} elseif ( 'ai_generation_status' === $operation ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$key = $request->get_param( 'operation_key' );
 				if ( ! is_string( $key ) || ! preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $key ) ) {

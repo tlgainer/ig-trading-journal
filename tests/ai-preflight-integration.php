@@ -5,7 +5,7 @@ test('AI preflight explains saved setup without returning evidence or changing s
  foreach(['ai_requests','ai_request_events','ai_evidence_bundles','ai_response_receipts'] as $table) $before[$table]=$db->rows('SELECT * FROM '.$db->table($table).' WHERE workspace_id=%d',[$w]);
  publication_rest_context($context,function() use($w,$asset,$approval) {
   $response=provider_rest('GET','workspaces/'.$w.'/ai-evidence/'.$approval.'/preflight'); equal($response->get_status(),200); $data=$response->get_data()['data'];
-  equal(array_keys($data),['approval_id','asset_id','model','remaining','checks','blockers','can_generate']); equal($data['approval_id'],$approval); equal($data['asset_id'],$asset); equal($data['can_generate'],false); equal($data['checks']['original_owner'],true); equal(in_array('workflow_available',$data['blockers'],true),true);
+  equal(array_keys($data),['approval_id','asset_id','model','remaining','checks','blockers','config_id','can_generate']); equal($data['approval_id'],$approval); equal($data['asset_id'],$asset); equal($data['can_generate'],true); equal($data['checks']['original_owner'],true); equal(in_array('workflow_available',$data['blockers'],true),false);
  }); foreach($before as $table=>$rows) equal($db->rows('SELECT * FROM '.$db->table($table).' WHERE workspace_id=%d',[$w]),$rows);
 });
 test('AI preflight denies foreign approvals and viewers and flags a different original owner',function() {

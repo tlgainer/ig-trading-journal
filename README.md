@@ -66,3 +66,6 @@ An internal AI generation coordinator now connects approved counting, reservatio
 Development 0.27.0-dev.2 adds owner-only saved AI setup readiness and read-only request activity under Settings. Reads never count, send or retry delivery; generation remains unavailable. Schema stays 18. See [readiness and activity](docs/ai-readiness-activity.md).
 
 Development 0.27.0-dev.3 adds Save as review for eligible stored AI responses, using the original owner and immutable receipt with no API call. Generation remains unavailable. See [stored publication](docs/ai-stored-publication.md).
+
+
+Owner AI summary controls are implemented in development source 0.27.0-dev.6. Processing defaults off and requires verified server evidence, shared policy and separate workspace consent. See docs/ai-owner-generation.md. No real API requests were used in implementation.

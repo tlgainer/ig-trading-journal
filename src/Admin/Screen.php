@@ -44,7 +44,8 @@ final class Screen {
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
-		wp_enqueue_script( 'tgit-ai-evidence', plugins_url( 'assets/ai-evidence.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-ai-generation', plugins_url( 'assets/ai-generation.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-ai-evidence', plugins_url( 'assets/ai-evidence.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals', 'tgit-ai-generation' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-reviews', plugins_url( 'assets/ai-reviews.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-fundamentals' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_localize_script(
 			'tgit-admin',
@@ -370,27 +371,28 @@ final class Screen {
 	<p><?php esc_html_e( 'Replace only the placeholder for each provider you use. Do not duplicate an existing definition. Keep both switches false while preparing mappings. When ready to allow real requests, set TGIT_MARKET_DATA_ENABLED to true for prices; also set TGIT_FUNDAMENTALS_ENABLED to true for Alpha Vantage fundamentals. Then reload the page. Server enablement does not create a mapping or schedule.', 'ig-trading-journal' ); ?></p>
 	</details>
 	<details><summary><?php esc_html_e( 'OpenAI credential preparation', 'ig-trading-journal' ); ?></summary>
-	<pre><?php echo esc_html( "define('TGIT_OPENAI_API_KEY', 'YOUR_OPENAI_KEY');" ); ?></pre>
-	<p><?php esc_html_e( 'Keep your key on the server. Replace the placeholder without duplicating an existing definition. This prepares the credential only; it does not send data, verify account access or enable summary generation.', 'ig-trading-journal' ); ?></p>
-	<p id="tgit-openai-connection-status"><?php echo esc_html( AiConnection::status()['credential_configured'] ? __( 'OpenAI key: configured on server. Account access has not been verified. Summary generation remains unavailable.', 'ig-trading-journal' ) : __( 'OpenAI key: missing or invalid server configuration. Summary generation remains unavailable.', 'ig-trading-journal' ) ); ?></p>
+	<pre><?php echo esc_html( "define('TGIT_OPENAI_API_KEY', 'YOUR_OPENAI_KEY');\ndefine('TGIT_OPENAI_ENABLED', false);" ); ?></pre>
+	<p><?php esc_html_e( 'Keep your key on the server. Replace the placeholder without duplicating an existing definition. This prepares the credential only; it does not send data or verify account access. Keep the processing switch false until the server administrator has genuinely verified model access, pricing and counting cost. Server evidence is stored outside public roots. Then explicitly enable the server switch, shared processing and separate workspace consent; summaries still require Generate summary in Research.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-openai-connection-status"><?php echo esc_html( AiConnection::status()['credential_configured'] ? __( 'OpenAI key: configured on server. Account access has not been verified. Summary generation requires verified server evidence, processing enablement and workspace consent.', 'ig-trading-journal' ) : __( 'OpenAI key: missing or invalid server configuration. Summary generation requires verified server evidence, processing enablement and workspace consent.', 'ig-trading-journal' ) ); ?></p>
 	</details>
 	</section>
 		<section id="tgit-ai-section" hidden>
 	<h2><?php esc_html_e( 'AI summary settings', 'ig-trading-journal' ); ?></h2>
-	<p><?php esc_html_e( 'Prepare your model and shared monthly budget. AI summaries are not available yet; saving sends no financial data to an AI provider.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Choose your model and shared monthly budget. Processing defaults off. Saving settings sends no financial data to an AI provider; summaries require an explicit action on approved evidence in Research.', 'ig-trading-journal' ); ?></p>
 	<p id="tgit-ai-summary"></p>
 	<h3><?php esc_html_e( 'Saved AI setup readiness', 'ig-trading-journal' ); ?></h3>
 	<ul id="tgit-ai-readiness"></ul>
-	<p><?php esc_html_e( 'These checks describe saved settings and reviewed server evidence. They do not contact OpenAI or independently verify account access. Generation controls remain unavailable.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'These checks describe saved settings and reviewed server evidence. They do not contact OpenAI or independently verify account access. Generate summary in Research remains blocked until all setup checks pass.', 'ig-trading-journal' ); ?></p>
 	<form id="tgit-ai-policy" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Shared AI processing', 'ig-trading-journal' ); ?><select name="enabled"><option value="false"><?php esc_html_e( 'Off', 'ig-trading-journal' ); ?></option><option value="true"><?php esc_html_e( 'On for explicit summaries', 'ig-trading-journal' ); ?></option></select></label>
 	<label><?php esc_html_e( 'Monthly budget (USD)', 'ig-trading-journal' ); ?><input name="monthly_cap" inputmode="decimal" required pattern="[0-9]+(\.[0-9]{1,12})?"></label>
 	<label><?php esc_html_e( 'Model ID', 'ig-trading-journal' ); ?><input name="model" maxlength="128" pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]*" aria-describedby="tgit-ai-model-help"></label>
 	<p id="tgit-ai-model-help"><?php esc_html_e( 'Enter the exact OpenAI API model ID, or leave blank to choose later. Selection does not verify account access or current pricing. A zero budget pauses processing.', 'ig-trading-journal' ); ?></p>
 	<button type="submit" class="button button-primary"><?php esc_html_e( 'Save model and budget', 'ig-trading-journal' ); ?></button>
 	</form>
 	<form id="tgit-ai-consent" class="tgit-form tgit-grid">
-	<label><?php esc_html_e( 'Allow future AI summaries in this workspace', 'ig-trading-journal' ); ?><select name="enabled"><option value="false"><?php esc_html_e( 'No', 'ig-trading-journal' ); ?></option><option value="true"><?php esc_html_e( 'Yes', 'ig-trading-journal' ); ?></option></select></label>
-	<p><?php esc_html_e( 'Save the model and budget before workspace consent. Consent is separate for each workspace. Future summaries will use approved saved fundamentals and your selected trade thesis; images and unrelated notes are excluded.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Allow AI summaries in this workspace', 'ig-trading-journal' ); ?><select name="enabled"><option value="false"><?php esc_html_e( 'No', 'ig-trading-journal' ); ?></option><option value="true"><?php esc_html_e( 'Yes', 'ig-trading-journal' ); ?></option></select></label>
+	<p><?php esc_html_e( 'Save the model and budget before workspace consent. Consent is separate for each workspace. Summaries use approved saved fundamentals and your selected trade thesis; images and unrelated notes are excluded.', 'ig-trading-journal' ); ?></p>
 	<button type="submit" class="button"><?php esc_html_e( 'Save workspace consent', 'ig-trading-journal' ); ?></button>
 	</form>
 	<button type="button" id="tgit-ai-reload" class="button"><?php esc_html_e( 'Reload AI settings', 'ig-trading-journal' ); ?></button>

@@ -1,5 +1,7 @@
 # IG Trading Journal user guide
 
+Current development source: **0.27.0-dev.6/schema 18** includes default-off owner AI generation controls. Start with [the current AI workflow](ai-owner-generation.md). Versioned rollout notes below describe earlier builds; the existing 0.27.0-dev.1 test ZIP has not been rebuilt.
+
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
 For an **on-demand price check**, open **Settings → Stock market data** and click **Refresh price** beside the stock's enabled provider mapping. Provider keys and refresh must be enabled first. Each check shares the provider allowance with scheduled work. It retrieves the latest available end-of-day session, so repeated checks can return the same price; it is not a live quote. Reloading saved data uses no provider request. If a request is uncertain, use its existing retry action rather than creating another request.
@@ -339,27 +341,27 @@ Choose **View** on a saved statement snapshot to see metrics and **Changes from 
 
 ## Prepare AI summaries (development)
 
-As a workspace owner, open Settings → AI summary settings. Save a monthly USD budget and an exact model ID (optional until you choose one). The suggested starting budget is $15; $10 is supported, and $0 pauses processing. The workspace that first saves the policy controls the shared budget across workspaces. Save workspace consent separately; it defaults to No. Processing is not available yet and these saves send no data to OpenAI. See [AI Settings](ai-settings.md).
+As a workspace owner, open Settings → AI summary settings. Save a monthly USD budget and an exact model ID (optional until you choose one). The suggested starting budget is $15; $10 is supported, and $0 pauses processing. The workspace that first saves the policy controls the shared budget across workspaces. Save workspace consent separately; it defaults to No. Processing defaults off and requires verified server evidence before explicit enablement. Saving policy and consent sends no data to OpenAI. See [owner summary workflow](ai-owner-generation.md).
 
 ### Development: approve evidence for an AI summary
 
 As an owner, open **Research → Stock fundamentals** and choose a stock. Under **Prepare evidence for an AI summary**, choose at least one saved statement snapshot and optionally a saved trade thesis. Click **Preview selected evidence**, then expand **Exact evidence and source fingerprints** to review the included metrics, coverage and thesis. Changing a selection requires another preview. Click **Approve this evidence** to save that exact evidence privately.
 
-Approval does not spend money, send data or generate an AI summary. A changed thesis or evidence requires reloading saved history and previewing again. If the result is uncertain, use **Check approval outcome**; it reuses the original request and cannot create a duplicate. The same browser session remembers the latest approval and uncertain request across reloads when session storage is available. The saved record remains unchanged as your journal evolves. Summary generation and complete review-history browsing are still pending.
+Approval does not spend money, send data or generate an AI summary. A changed thesis or evidence requires reloading saved history and previewing again. If the result is uncertain, use **Check approval outcome**; it reuses the original request and cannot create a duplicate. The same browser session remembers the latest approval and uncertain request across reloads when session storage is available. The saved record remains unchanged as your journal evolves. After approval, Check summary setup can enable the explicit Generate summary action when every gate passes. Read saved reviews through the owner history controls.
 
 ### Development: saved AI review foundation
 
-The development source now has schema-15 storage for immutable, validated review output tied to approved evidence and a matching settled request. Owner read-only history screens are now available; there is no Generate summary action yet. External AI processing remains unavailable. Review screens label summaries as AI-generated interpretation and show approved-source citations; a citation confirms the source belongs to the reviewed evidence, not that the model's claim is correct. See [review storage details](ai-review-storage.md).
+The development source now has schema-15 storage for immutable, validated review output tied to approved evidence and a matching settled request. Owner history screens and explicit generation controls are available in current source; processing requires verified setup, shared enablement and separate workspace consent. Review screens label summaries as AI-generated interpretation and show approved-source citations; a citation confirms the source belongs to the reviewed evidence, not that the model's claim is correct. See [review storage details](ai-review-storage.md).
 
 ### Development: read saved AI reviews
 
 As an owner, open **Research → Stock fundamentals**, select a stock and find **Saved AI reviews**. The table loads all saved review pages for that stock. Search covers review IDs, evidence approval IDs and saved dates. Choose **View** to read the summary, findings, cited snapshots and source provenance. Expand **Exact approved metrics and optional thesis** to inspect the evidence as it was approved; later journal changes do not replace it.
 
-**Reload saved reviews** refreshes stored history without contacting an AI or market-data provider. Empty history means no saved reviews exist; generation is still unavailable. These are AI-generated interpretations, not verified facts. Citations identify included snapshots and do not establish that a claim is accurate. Viewer roles cannot access this owner-only history. This update requires no new SQL migration.
+**Reload saved reviews** refreshes stored history without contacting an AI or market-data provider. Empty history means no reviews have been saved. Generation and saving the completed review are separate explicit actions. These are AI-generated interpretations, not verified facts. Citations identify included snapshots and do not establish that a claim is accurate. Viewer roles cannot access this owner-only history. This update requires no new SQL migration.
 
 ### Development sender status
 
-An internal OpenAI sender is now implemented and disabled by default. The user-facing count/generation workflow is still unavailable, so there is no new Generate summary button yet. Preparing your server key or approving evidence does not run this sender. The existing test ZIP is unchanged; no SQL migration is needed for this sender slice.
+An internal OpenAI sender is now implemented and disabled by default. The current owner workflow connects complete-input counting and one-time generation only after approved evidence and all setup gates pass. Preparing your server key or approving evidence does not run this sender. The existing test ZIP is unchanged; no SQL migration is needed for this sender slice.
 
 ### Development count status
 
@@ -367,23 +369,23 @@ Internal token counting is now implemented, with consent, budget and verified co
 
 ### Development model setup status
 
-The source now supports reviewed model/pricing and counting-access records stored by your server administrator. These are separate from the model ID and budget fields in Settings. There is no new admin action yet; do not enable the OpenAI processing switch. Adding a key, model ID or evidence record does not generate a summary. Automatic verification and Generate summary controls are still being completed.
+The source now supports reviewed model/pricing and counting-access records stored by your server administrator. These are separate from the model ID and budget fields in Settings. Keep the OpenAI processing switch off until genuine account/model/pricing/count-cost verification is complete. The owner can then explicitly enable shared processing and save separate workspace consent. Adding a key, model ID or evidence record does not generate a summary. Generate summary controls are implemented; automatic account-specific verification remains unfinished.
 
 ### Development generation workflow status
 
-The internal count-and-send steps are now connected, including safe retries. The admin Generate summary action is still being completed and is unavailable in this build. No setup changes or SQL are needed for this slice. Keep OpenAI processing disabled; approving evidence still does not generate a summary.
+The internal count-and-send steps are now connected, including safe retries. The current admin Generate summary action uses the exact approved evidence after Check summary setup passes. Keep processing off until genuine server setup verification is complete. Approval alone still does not generate a summary; see ai-owner-generation.md.
 
 ### Check AI readiness and saved request activity
 
-As an owner, open **Settings > AI summary settings**. **Saved AI setup readiness** explains whether your server key is configured, your saved model has current reviewed access/pricing records, counting has reviewed access/cost records, and consent/budget are prepared. These checks do not call OpenAI or independently authenticate access. They describe saved settings, so save a changed model before checking its readiness. Summary generation remains unavailable.
+As an owner, open **Settings > AI summary settings**. **Saved AI setup readiness** explains whether your server key is configured, your saved model has current reviewed access/pricing records, counting has reviewed access/cost records, and consent/budget are prepared. These checks do not call OpenAI or independently authenticate access. They describe saved settings, so save a changed model before checking its readiness. Generation requires an explicit Research action after every setup check passes.
 
-Expand **Saved AI request activity** to see saved requests in a table. **Reload saved AI requests** reads stored history only and preserves unsaved settings. Search covers all loaded request metadata for this workspace. Reserved means not sent; delivery uncertain retains its budget hold; usage settled does not mean a review was published. Cancelled requests show no charge. Legacy entries are labelled unbound. No saved requests is normal before you have generated anything. There is no retry, send, cancel or publish button here. If loading fails, reload the table; no API charge is created by these reads.
+Expand **Saved AI request activity** to see saved requests in a table. **Reload saved AI requests** reads stored history only and preserves unsaved settings. Search covers all loaded request metadata for this workspace. Reserved means not sent; delivery uncertain retains its budget hold; usage settled does not mean a review was published. Cancelled requests show no charge. Legacy entries are labelled unbound. No saved requests is normal before you have generated anything. Eligible original-owner rows offer Cancel unsent request or Save as review. Neither action sends an AI request; uncertain delivery holds cannot be cancelled. If loading fails, reload the table; no API charge is created by these reads.
 
 This source update is version 0.27.0-dev.2, schema 18, and introduces no additional SQL migration. A new install ZIP has not been produced for this slice.
 
 ### Save a completed AI response as a review
 
-As the original authorizing owner, open **Settings > AI summary settings > Saved AI request activity**. An eligible completed response has **Save as review** in the Review column. Choose it to save the already stored output as a private review. It makes no AI call, adds no API charge and preserves unsaved settings. A saved row shows its review number.
+As the original authorizing owner, open **Settings > AI summary settings > Saved AI request activity**. An eligible completed response has **Save as review** in the Actions column. Choose it to save the already stored output as a private review. It makes no AI call, adds no API charge and preserves unsaved settings. A saved row shows its review number.
 
 Open **Research > Stock fundamentals**, select the stock and reload **Saved AI reviews** to read it with its approved evidence. Saving does not validate the truth of AI claims or share anything publicly.
 
@@ -399,3 +401,6 @@ October 8, 2026: Approved AI evidence now offers Check summary setup in Research
 
 
 October 8, 2026: Added read-only saved AI operation lookup by original-owner approval and retained UUID. No counting, sending or budget/history mutation. Owner enable/generation implementation was rejected by automatic approval review because explicit authorization for live-capable controls is required; see ai-owner-generation-proposal.md. Those controls remain disabled. See ai-operation-status.md. Schema18/source0.27.0-dev.5 unchanged; no SQL/ZIP.
+
+
+October 8, 2026: Owner explicitly approved enable/generation controls. Added guarded Shared AI processing and Generate summary for exact approved evidence, with a 2,000-output-token ceiling, reviewed-policy binding under the reservation lock, retained browser UUID and read-only result recovery. No automatic generation/publication/resend. See [owner workflow](ai-owner-generation.md). Source 0.27.0-dev.6/schema18; no new SQL or ZIP. Genuine account/model/pricing/count-cost verification remains necessary before actual use.

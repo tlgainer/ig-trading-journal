@@ -244,29 +244,30 @@ final class AiSpending {
 	/**
 	 * Reserve exactly once across all credentials/workspaces on this site.
 	 *
-	 * @param int    $workspace Workspace.
-	 * @param string $credential Server-derived credential digest, never the key.
-	 * @param string $key Exact retry identity.
-	 * @param string $fingerprint Approved input bundle digest.
-	 * @param int    $input_tokens Verified input upper bound.
-	 * @param int    $output_tokens Generated output bound.
-	 * @param int    $approval Exact approval, or zero for legacy internal reservations.
-	 * @param array  $catalog Trusted credential-bound model evidence.
-	 * @param array  $execution Trusted count context, response body and actual HTTP status.
+	 * @param int      $workspace Workspace.
+	 * @param string   $credential Server-derived credential digest, never the key.
+	 * @param string   $key Exact retry identity.
+	 * @param string   $fingerprint Approved input bundle digest.
+	 * @param int      $input_tokens Verified input upper bound.
+	 * @param int      $output_tokens Generated output bound.
+	 * @param int      $approval Exact approval, or zero for legacy internal reservations.
+	 * @param array    $catalog Trusted credential-bound model evidence.
+	 * @param array    $execution Trusted count context, response body and actual HTTP status.
+	 * @param int|null $expected_config Owner-reviewed policy revision, when supplied.
 	 * @return array
 	 * @throws \InvalidArgumentException On invalid identity.
 	 */
-	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens, int $approval = 0, array $catalog = array(), array $execution = array() ): array {
+	public function reserve( int $workspace, string $credential, string $key, string $fingerprint, int $input_tokens, int $output_tokens, int $approval = 0, array $catalog = array(), array $execution = array(), ?int $expected_config = null ): array {
 		if ( $approval < 0 || ! preg_match( '/^[a-f0-9]{64}$/D', $credential ) || ! preg_match( '/^[a-f0-9]{64}$/D', $fingerprint ) || '' === trim( $key ) || strlen( $key ) > 80 ) {
 			throw new \InvalidArgumentException( 'Invalid AI reservation identity.' );
 		}
 		$key = hash( 'sha256', $key );
 		return $this->locked(
 			$workspace,
-			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens, $approval, $catalog, $execution ): array {
+			function ( ?array $pool ) use ( $workspace, $credential, $key, $fingerprint, $input_tokens, $output_tokens, $approval, $catalog, $execution, $expected_config ): array {
 				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'ai_requests' ) . ' WHERE workspace_id = %d AND request_key = %s FOR UPDATE', array( $workspace, $key ) );
 				if ( $prior ) {
-					if ( (int) ( $prior['approval_id'] ?? 0 ) !== $approval || (int) $prior['actor_id'] !== $this->actor || $prior['credential_fingerprint'] !== $credential || $prior['input_fingerprint'] !== $fingerprint || (int) $prior['input_tokens'] !== $input_tokens || (int) $prior['output_tokens'] !== $output_tokens ) {
+					if ( ( null !== $expected_config && (int) $prior['config_id'] !== $expected_config ) || (int) ( $prior['approval_id'] ?? 0 ) !== $approval || (int) $prior['actor_id'] !== $this->actor || $prior['credential_fingerprint'] !== $credential || $prior['input_fingerprint'] !== $fingerprint || (int) $prior['input_tokens'] !== $input_tokens || (int) $prior['output_tokens'] !== $output_tokens ) {
 						throw new \UnexpectedValueException( 'AI retry identity conflicts with its original context.' );
 					}
 					$manifest = $this->manifest( $workspace, (int) $prior['id'] );
@@ -276,6 +277,9 @@ final class AiSpending {
 					return $this->request( $workspace, (int) $prior['id'] );
 				}
 				list( $config, $enrollment, $pricing ) = $this->active( $workspace, $pool );
+				if ( null !== $expected_config && (int) $config['id'] !== $expected_config ) {
+					throw new \UnexpectedValueException( 'AI policy changed before reservation; check summary setup again.' );
+				}
 				if ( $approval ) {
 					$this->execution_evidence( $workspace, $approval, $fingerprint, $config, $credential, $catalog );
 				}

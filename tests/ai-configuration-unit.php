@@ -34,7 +34,7 @@ test('Trusted setup rejects rotated credentials, expired prices and counting evi
 test('Missing server configuration enables no AI model or network operation',function() {
  provider_setup_rejects(fn()=>AiConfiguration::current('fixture-text-model'));
  equal(AiConnection::status()['processing_available'],false);
- equal(AiConfiguration::readiness('fixture-text-model'),['credential_configured'=>false,'model_evidence_current'=>false,'count_evidence_current'=>false,'server_enabled'=>false,'workflow_available'=>false]);
+ equal(AiConfiguration::readiness('fixture-text-model'),['credential_configured'=>false,'model_evidence_current'=>false,'count_evidence_current'=>false,'server_enabled'=>false,'workflow_available'=>true]);
 });
 
 test('Server constants require dated evidence for the actual current synthetic key',function() {
@@ -47,6 +47,6 @@ test('Server constants require dated evidence for the actual current synthetic k
   $code.='define("TGIT_OPENAI_API_KEY",'.var_export($key,true).');define("TGIT_OPENAI_MODEL_EVIDENCE",'.var_export($models,true).');define("TGIT_OPENAI_COUNT_EVIDENCE",'.var_export($counts,true).');try { $result='.AiConfiguration::class.'::current("fixture-text-model");$state=$result["pricing"]["model"]; } catch(Throwable $error) { $state="unavailable"; } echo json_encode(["state"=>$state,"readiness"=>'.AiConfiguration::class.'::readiness("fixture-text-model")]);';
   $process=proc_open([PHP_BINARY,'-r',$code],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes); if(!is_resource($process)) throw new RuntimeException('Setup fixture failed');
   fclose($pipes[0]); $output=stream_get_contents($pipes[1]); fclose($pipes[1]); $errors=stream_get_contents($pipes[2]); fclose($pipes[2]); equal(proc_close($process),0); equal($errors,''); $decoded=json_decode($output,true); equal($decoded['state'],$expected);
-  equal($decoded['readiness'],['credential_configured'=>true,'model_evidence_current'=>$key==='sk-fixture-only-key' && is_array($models),'count_evidence_current'=>$key==='sk-fixture-only-key' && count($counts)>0,'server_enabled'=>false,'workflow_available'=>false]); equal(str_contains($output,$credential),false); equal(str_contains($output,$key),false);
+  equal($decoded['readiness'],['credential_configured'=>true,'model_evidence_current'=>$key==='sk-fixture-only-key' && is_array($models),'count_evidence_current'=>$key==='sk-fixture-only-key' && count($counts)>0,'server_enabled'=>false,'workflow_available'=>true]); equal(str_contains($output,$credential),false); equal(str_contains($output,$key),false);
  }
 });

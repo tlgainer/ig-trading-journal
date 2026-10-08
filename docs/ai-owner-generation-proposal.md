@@ -1,6 +1,6 @@
 # Proposed owner AI enablement and generation controls
 
-Status: awaiting explicit owner approval. Generation and enable controls remain disabled. Automatic approval review rejected implementing live-capable owner enable/generation endpoints without explicit authorization for those controls. The read-only saved-operation lookup is separate and makes no external call.
+Status: explicitly approved by the owner on October 8, 2026 ("you can implement"). The guarded owner controls are now implemented with default-off processing and synthetic tests only. The earlier automatic approval rejection was resolved by this authorization. No real API call or production deployment is performed.
 
 ## Concrete implementation scope
 
@@ -24,4 +24,4 @@ Actual owner use can incur configured-model API charges. The conservative genera
 
 Implementation uses synthetic keys/models/prices and intercepted HTTP only. Regression coverage includes permissions, stale policy, overridden browser prompts/prices, default-off configuration, budget/consent denial, one-time delivery, unclear results, retained operation identities, immutable publication and desktop/mobile layouts. No production deployment, actual API key use or real portfolio transmission is requested.
 
-Approval requested: implement the described guarded owner enable/generation controls and test them synthetically. This approves adding the live-capable workflow; it does not authorize the assistant to make a real API call. The owner would later choose to use the explicit controls after genuine setup verification.
+Approved scope: implement the described guarded owner enable/generation controls and test them synthetically. The owner explicitly approved adding the live-capable workflow; this does not authorize the assistant to make a real API call. The owner would later choose to use the explicit controls after genuine setup verification.
