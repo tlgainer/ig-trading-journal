@@ -29,8 +29,21 @@
   ]) { const item = document.createElement('li'); item.textContent = text; $('readiness').append(item); }
  }
  const activityStatus = (message, error = false) => { $('activity-status').textContent = message; $('activity-status').setAttribute('role', error ? 'alert' : 'status'); };
- async function loadHistory() {
-  if (role !== 'owner' || historyLoading || window.tgitWriteBusy) return;
+ async function publishReview(row, button) {
+  if (role !== 'owner' || !row.can_publish || historyLoading || window.tgitWriteBusy) return;
+  const expected = generation;
+  window.tgitWriteBusy = true; button.disabled = true;
+  activityStatus(`Saving the completed response for request #${row.id} as a review…`);
+  try {
+   const review = await request(`ai-requests/${row.id}/publish`, {});
+   if (expected !== generation) return;
+   await loadHistory(true);
+   if (expected === generation) activityStatus(`AI review #${review.id} saved. Read it in Research > Stock fundamentals > Saved AI reviews. No AI request was sent.`);
+  } catch (error) { if (expected === generation) { row.can_publish = false; activityStatus(`${error.message} Reload saved requests before retrying; the review may already have been saved. No delivery will be retried.`, true); } }
+  finally { window.tgitWriteBusy = false; }
+ }
+ async function loadHistory(force = false) {
+  if (role !== 'owner' || historyLoading || (window.tgitWriteBusy && force !== true)) return;
   const expected = generation, version = ++historyGeneration;
   historyLoading = true; historyLoaded = false; $('activity-reload').disabled = true; tgitResetCollection($('activity-history')); activityStatus('Loading all saved request pages for this workspace…');
   try {
@@ -44,7 +57,12 @@
     { key: 'approval_id', label: 'Evidence approval', render: (row) => row.approval_id === null ? 'Legacy — unbound' : `#${row.approval_id}` },
     { key: 'state', label: 'State', render: (row) => labels[row.state] || row.state.replaceAll('_', ' ') },
     { key: 'maximum_cost', label: 'Original cost bound', render: (row) => `${tgitDisplayDecimal(row.maximum_cost)} USD` },
-    { key: 'charge', label: 'Settled usage estimate', render: (row) => row.state === 'cancelled' ? 'Not charged — cancelled' : (row.charge === null ? 'Not settled' : `${tgitDisplayDecimal(row.charge)} USD`) }
+    { key: 'charge', label: 'Settled usage estimate', render: (row) => row.state === 'cancelled' ? 'Not charged — cancelled' : (row.charge === null ? 'Not settled' : `${tgitDisplayDecimal(row.charge)} USD`) },
+    { key: 'actions', label: 'Review', required: true, render: (row) => {
+     if (row.review_id !== null) return `Saved review #${row.review_id}`;
+     if (!row.can_publish) return 'Not available';
+     const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = 'Save as review'; button.setAttribute('aria-label', `Save response for request ${row.id} as a review`); button.addEventListener('click', () => publishReview(row, button)); return button;
+    } }
    ] }, rows);
    historyLoaded = true; activityStatus(rows.length ? 'All saved request pages loaded. Search covers this workspace’s request metadata only. No AI request was sent.' : 'No saved AI requests yet. No AI request was sent.');
   } catch (error) { if (expected === generation && version === historyGeneration) { tgitResetCollection($('activity-history')); activityStatus(error.message, true); } }

@@ -91,3 +91,5 @@ Trusted server configuration now resolves selected-model catalog/pricing and cou
 The disabled internal AiGeneration coordinator now connects server evidence, complete-input counting, verified reservation and one-time delivery. Workspace/key coordination rejects overlap and conflicting retries; existing requests return state without recount/resend. Publication remains separate. No owner generation route/control is added. See [coordination contract](ai-generation-coordinator.md).
 
 Owner Settings now projects reviewed AI readiness flags and all cursor pages of scoped saved request metadata, with shared collection/search/density patterns. No secrets, prompt/usage bodies or processing routes are exposed. Source 0.27.0-dev.2 refreshes assets; schema stays 18. See [readiness/activity](ai-readiness-activity.md).
+
+Owner activity now exposes guarded Save as review for completed settled receipts. The empty-body publication route rejects client output, uses original-owner source checks and immutable audited retries, and changes no charges or posted history. Source 0.27.0-dev.3/schema18; no SQL or ZIP. See [publication](ai-stored-publication.md).

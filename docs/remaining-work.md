@@ -89,3 +89,7 @@ Approved counting, reservation and one-time delivery are now connected internall
 ## Owner AI readiness and activity
 
 Settings now explains saved setup readiness and offers an owner-only read-only request history accordion. All request pages are loaded before local search. Generation/enable/publication and recovery actions remain pending alongside genuine evidence acquisition/verification. Source version 0.27.0-dev.2, schema 18; no new ZIP or SQL. See [controls](ai-readiness-activity.md).
+
+## Stored-response review publication
+
+The owner Save as review action is implemented for eligible stored completed output, with original-authorizer checks, safe retries and no new API request. Remaining: genuine setup evidence verification, owner enable/generation controls and guarded delivery recovery. Source 0.27.0-dev.3/schema18; no new ZIP or SQL. See ai-stored-publication.md.

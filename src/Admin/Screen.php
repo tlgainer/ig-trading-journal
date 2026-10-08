@@ -396,7 +396,7 @@ final class Screen {
 	<button type="button" id="tgit-ai-reload" class="button"><?php esc_html_e( 'Reload AI settings', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-ai-status" role="status" aria-live="polite"></p>
 	<details id="tgit-ai-activity"><summary><?php esc_html_e( 'Saved AI request activity', 'ig-trading-journal' ); ?></summary>
-	<p><?php esc_html_e( 'Read saved request states without counting tokens, sending or retrying delivery. Usage settled does not mean a review was published. Uncertain delivery retains its budget reservation.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Read saved request states without counting tokens, sending or retrying delivery. For an eligible completed response, Save as review stores it in saved review history without an AI call. Usage settled does not mean a review was published. Uncertain delivery retains its budget reservation.', 'ig-trading-journal' ); ?></p>
 	<button type="button" id="tgit-ai-activity-reload" class="button"><?php esc_html_e( 'Reload saved AI requests', 'ig-trading-journal' ); ?></button>
 	<p id="tgit-ai-activity-status" role="status" aria-live="polite"></p>
 	<div id="tgit-ai-activity-history"></div>

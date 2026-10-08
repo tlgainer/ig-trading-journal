@@ -64,3 +64,5 @@ A trusted server model/pricing/count-evidence loader is now available internally
 An internal AI generation coordinator now connects approved counting, reservation and one-time delivery with safe saved-state retries. It remains disabled and has no admin generation control. See [coordination contract](docs/ai-generation-coordinator.md).
 
 Development 0.27.0-dev.2 adds owner-only saved AI setup readiness and read-only request activity under Settings. Reads never count, send or retry delivery; generation remains unavailable. Schema stays 18. See [readiness and activity](docs/ai-readiness-activity.md).
+
+Development 0.27.0-dev.3 adds Save as review for eligible stored AI responses, using the original owner and immutable receipt with no API call. Generation remains unavailable. See [stored publication](docs/ai-stored-publication.md).

@@ -77,6 +77,7 @@ final class Controller {
 		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
 		self::route( $base . '/ai-requests', 'GET', 'ai_request_history' );
+		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/publish', 'POST', 'publish_ai_review' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/approve', 'POST', 'ai_evidence_approve' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)', 'GET', 'ai_evidence_read' );
@@ -220,7 +221,12 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'ai_review_history', 'ai_review_read' ), true ) ) {
+			if ( 'publish_ai_review' === $operation ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				Tracker::fields( $data, array(), array() );
+				$reviews = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
+				$result  = $reviews->publish_received( $workspace, (int) $request->get_url_params()['request_id'] );
+			} elseif ( in_array( $operation, array( 'ai_review_history', 'ai_review_read' ), true ) ) {
 				$reviews = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
 				$result  = 'ai_review_read' === $operation ? $reviews->read( $workspace, (int) $request->get_url_params()['review'] ) : $reviews->history( $workspace, (int) $request->get_url_params()['asset_id'], (int) $request['after'], (int) $request['limit'] );
 			} elseif ( in_array( $operation, array( 'ai_evidence_preview', 'ai_evidence_approve', 'ai_evidence_read' ), true ) ) {
@@ -249,6 +255,11 @@ final class Controller {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );
 				$result   = $spending->request_history( $workspace, (int) $request['after'], (int) $request['limit'] );
+				$reviews  = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
+				foreach ( $result['items'] as &$item ) {
+					$item = array_merge( $item, $reviews->publication_status( $workspace, $item['id'] ) );
+				}
+				unset( $item );
 			} elseif ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );

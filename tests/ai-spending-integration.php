@@ -225,7 +225,7 @@ test('AI Settings REST prepares disabled policy with private projection, revisio
   foreach(['browser-request-one','browser-request-two'] as $key) { $savedRequest=$fixtureSpending->reserve($w,ai_digest('fixture-only-key'),$key,str_repeat('a',64),1000,2000); $fixtureSpending->reconcile($w,(int)$savedRequest['id'],null,true); }
   $setup=$fixtureSpending->status($w); $fixtureSpending->configure($w,['enabled'=>false,'monthly_cap'=>'10.50','model'=>'fixture-text-model','expected_config_id'=>$setup['config_id']],[]);
   $history=provider_rest('GET',$base.'/ai-requests?limit=1'); equal($history->get_status(),200); $page=$history->get_data()['data']; equal(count($page['items']),1); equal(is_int($page['next_cursor']),true);
-  equal(array_keys($page['items'][0]),['id','approval_id','model','created_at','maximum_cost','state','charge']); equal($page['items'][0]['state'],'cancelled');
+  equal(array_keys($page['items'][0]),['id','approval_id','model','created_at','maximum_cost','state','charge','can_publish','review_id']); equal($page['items'][0]['state'],'cancelled'); equal($page['items'][0]['can_publish'],false); equal($page['items'][0]['review_id'],null);
   $next=provider_rest('GET',$base.'/ai-requests?limit=1&after='.$page['next_cursor']); equal(count($next->get_data()['data']['items']),1); equal($next->get_data()['data']['next_cursor'],null);
   equal(provider_rest('GET',$base.'/ai-requests?limit=101')->get_status(),400); equal(provider_rest('GET',$base.'/ai-requests?after=-1')->get_status(),400); equal(provider_rest('GET',$base.'/ai-requests?after=abc')->get_status(),400);
   equal(provider_rest('GET','workspaces/'.$other.'/ai-requests')->get_data()['data']['items'],[]);

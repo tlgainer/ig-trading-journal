@@ -107,10 +107,47 @@ final class AiReviews {
 		$spending = new AiSpending( $this->db, $this->actor, $this->correlation );
 		$row      = $spending->request( $workspace, $request );
 		$receipt  = $spending->received( $workspace, $request );
-		if ( 'settled' !== $row['state'] || null === $receipt || 'completed' !== $receipt['result']['reason'] || ! is_array( $receipt['result']['review'] ) ) {
+		if ( 'settled' !== $row['state'] || null === $receipt || 'completed' !== ( $receipt['result']['reason'] ?? null ) || ! is_array( $receipt['result']['review'] ?? null ) ) {
 			throw new \UnexpectedValueException( 'AI response cannot be published before verified settlement and complete output.' );
 		}
 		return $this->save( $workspace, $receipt['approval_id'], $request, $receipt['result']['review'] );
+	}
+
+	/**
+	 * Project saved publication identity and original-owner eligibility.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $request Request.
+	 * @return array Flags only, never private receipt output.
+	 */
+	public function publication_status( int $workspace, int $request ): array {
+		$spending = new AiSpending( $this->db, $this->actor, $this->correlation );
+		$row      = $spending->request( $workspace, $request );
+		$prior    = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'ai_reviews' ) . ' WHERE workspace_id = %d AND request_id = %d', array( $workspace, $request ) );
+		$result   = array(
+			'can_publish' => false,
+			'review_id'   => null,
+		);
+		if ( $prior ) {
+			$review              = $this->read( $workspace, (int) $prior['id'] );
+			$result['review_id'] = $review['id'];
+			return $result;
+		}
+		if ( 'settled' !== $row['state'] || ! $row['approval_id'] || (int) $row['actor_id'] !== $this->actor ) {
+			return $result;
+		}
+		try {
+			$receipt = $spending->received( $workspace, $request );
+			if ( null !== $receipt && 'completed' === ( $receipt['result']['reason'] ?? null ) && is_array( $receipt['result']['review'] ?? null ) ) {
+				list($evidence) = $this->context( $workspace, $receipt['approval_id'], $request, true );
+				AiReview::build( $receipt['result']['review'], $evidence['bundle'], $row['model'] );
+				$result['can_publish'] = true;
+			}
+		} catch ( \InvalidArgumentException | \UnexpectedValueException | \OutOfBoundsException | \TypeError $error ) {
+			// Unusable stored evidence never grants an action or exposes private diagnostics.
+			$result['can_publish'] = false;
+		}
+		return $result;
 	}
 
 	/**

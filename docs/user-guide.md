@@ -380,3 +380,11 @@ As an owner, open **Settings > AI summary settings**. **Saved AI setup readiness
 Expand **Saved AI request activity** to see saved requests in a table. **Reload saved AI requests** reads stored history only and preserves unsaved settings. Search covers all loaded request metadata for this workspace. Reserved means not sent; delivery uncertain retains its budget hold; usage settled does not mean a review was published. Cancelled requests show no charge. Legacy entries are labelled unbound. No saved requests is normal before you have generated anything. There is no retry, send, cancel or publish button here. If loading fails, reload the table; no API charge is created by these reads.
 
 This source update is version 0.27.0-dev.2, schema 18, and introduces no additional SQL migration. A new install ZIP has not been produced for this slice.
+
+### Save a completed AI response as a review
+
+As the original authorizing owner, open **Settings > AI summary settings > Saved AI request activity**. An eligible completed response has **Save as review** in the Review column. Choose it to save the already stored output as a private review. It makes no AI call, adds no API charge and preserves unsaved settings. A saved row shows its review number.
+
+Open **Research > Stock fundamentals**, select the stock and reload **Saved AI reviews** to read it with its approved evidence. Saving does not validate the truth of AI claims or share anything publicly.
+
+If the save outcome is uncertain, choose **Reload saved AI requests** before retrying. A successful earlier write appears as a saved review ID; otherwise an eligible response can be saved again safely. Incomplete, refused, uncertain, invalid and over-budget results have no save action. Another owner cannot save output authorized by someone else. No button is normal when no eligible stored responses exist; new summary generation is still unavailable. This update is 0.27.0-dev.3/schema18 and adds no SQL migration or install ZIP.
