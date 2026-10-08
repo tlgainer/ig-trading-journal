@@ -1,6 +1,6 @@
 # Proposed OpenAI sender: data and destination
 
-This proposal describes the blocked sender implementation, not an enabled feature. Automatic approval review rejected adding the external egress path because it considered authorization for the exact sensitive payload and destination insufficient. No sender was written and no external request was made.
+The owner explicitly approved this implementation/testing proposal after automatic approval review initially rejected the external egress path. The disabled internal Responses sender is now implemented; see [sender contract](ai-http-transport.md). No external request has been made. Count transport and owner generation controls remain pending.
 
 ## Exact destination and request
 

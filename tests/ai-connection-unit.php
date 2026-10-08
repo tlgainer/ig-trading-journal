@@ -2,6 +2,10 @@
 /** Server configuration only; never open a connection or use real credentials. */
 require_once __DIR__.'/../src/Infrastructure/AiConnection.php';
 use GainerInteractive\IGTradingJournal\Infrastructure\AiConnection;
+require_once __DIR__.'/../src/Infrastructure/AiTransport.php';
+test('AI sender is disabled by default without server enablement',function() {
+ equal(GainerInteractive\IGTradingJournal\Infrastructure\AiTransport::enabled(),false);
+});
 test('OpenAI credential preparation defaults to unavailable with no key or digest exposure',function() {
  equal(AiConnection::status(),['credential_configured'=>false,'access_verified'=>false,'processing_available'=>false]);
 });

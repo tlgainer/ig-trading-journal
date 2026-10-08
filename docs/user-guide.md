@@ -356,3 +356,7 @@ The development source now has schema-15 storage for immutable, validated review
 As an owner, open **Research → Stock fundamentals**, select a stock and find **Saved AI reviews**. The table loads all saved review pages for that stock. Search covers review IDs, evidence approval IDs and saved dates. Choose **View** to read the summary, findings, cited snapshots and source provenance. Expand **Exact approved metrics and optional thesis** to inspect the evidence as it was approved; later journal changes do not replace it.
 
 **Reload saved reviews** refreshes stored history without contacting an AI or market-data provider. Empty history means no saved reviews exist; generation is still unavailable. These are AI-generated interpretations, not verified facts. Citations identify included snapshots and do not establish that a claim is accurate. Viewer roles cannot access this owner-only history. This update requires no new SQL migration.
+
+### Development sender status
+
+An internal OpenAI sender is now implemented and disabled by default. The user-facing count/generation workflow is still unavailable, so there is no new Generate summary button yet. Preparing your server key or approving evidence does not run this sender. The existing test ZIP is unchanged; no SQL migration is needed for this sender slice.
