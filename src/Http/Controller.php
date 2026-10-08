@@ -78,6 +78,7 @@ final class Controller {
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
 		self::route( $base . '/ai-requests', 'GET', 'ai_request_history' );
 		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/publish', 'POST', 'publish_ai_review' );
+		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/cancel', 'POST', 'cancel_ai_request' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/approve', 'POST', 'ai_evidence_approve' );
 		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)', 'GET', 'ai_evidence_read' );
@@ -221,7 +222,12 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'publish_ai_review' === $operation ) {
+			if ( 'cancel_ai_request' === $operation ) {
+				$service->authorize( $workspace, 'tgit_manage_members' );
+				Tracker::fields( $data, array(), array() );
+				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );
+				$result   = $spending->cancel_unsent( $workspace, (int) $request->get_url_params()['request_id'] );
+			} elseif ( 'publish_ai_review' === $operation ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				Tracker::fields( $data, array(), array() );
 				$reviews = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
@@ -257,7 +263,8 @@ final class Controller {
 				$result   = $spending->request_history( $workspace, (int) $request['after'], (int) $request['limit'] );
 				$reviews  = new AiReviews( new Database( $wpdb ), get_current_user_id(), $correlation );
 				foreach ( $result['items'] as &$item ) {
-					$item = array_merge( $item, $reviews->publication_status( $workspace, $item['id'] ) );
+					$item               = array_merge( $item, $reviews->publication_status( $workspace, $item['id'] ) );
+					$item['can_cancel'] = $spending->can_cancel_unsent( $workspace, $item['id'] );
 				}
 				unset( $item );
 			} elseif ( in_array( $operation, array( 'ai_settings', 'save_ai_settings', 'ai_enrollment' ), true ) ) {

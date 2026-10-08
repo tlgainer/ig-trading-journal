@@ -90,3 +90,6 @@ Fundamental schedule controls use native disabled states with a live prerequisit
 AI Settings now uses the existing scoped card, native accordion and collection patterns for reviewed readiness and saved request activity. Metadata search starts only after all workspace request cursor pages load. History reload preserves unsaved forms; workspace changes clear history and stale responses. Read failure clears the table and exposes a reload path. No generation/retry actions added. See ai-readiness-activity.md.
 
 AI request activity adds a compact Save as review action using shared table/button patterns. It preserves drafts, blocks overlapping writes, refreshes saved identity after success and requires reloading before retrying uncertain publication. Saved review IDs replace actions; unavailable output grants no button. No delivery retry is added. See ai-stored-publication.md.
+
+
+October 8, 2026: Owner recovery now includes cancelling original-owner unsent AI reservations from the shared activity table. Dispatch/uncertain/receipt-backed work remains protected. Unsaved Settings values survive recovery; unclear outcomes require explicit reload. See ai-unsent-cancellation.md. Generation controls remain unavailable pending their next verification slice.

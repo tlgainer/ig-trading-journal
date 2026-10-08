@@ -93,3 +93,6 @@ The disabled internal AiGeneration coordinator now connects server evidence, com
 Owner Settings now projects reviewed AI readiness flags and all cursor pages of scoped saved request metadata, with shared collection/search/density patterns. No secrets, prompt/usage bodies or processing routes are exposed. Source 0.27.0-dev.2 refreshes assets; schema stays 18. See [readiness/activity](ai-readiness-activity.md).
 
 Owner activity now exposes guarded Save as review for completed settled receipts. The empty-body publication route rejects client output, uses original-owner source checks and immutable audited retries, and changes no charges or posted history. Source 0.27.0-dev.3/schema18; no SQL or ZIP. See [publication](ai-stored-publication.md).
+
+
+October 8, 2026: Owner recovery now includes cancelling original-owner unsent AI reservations from the shared activity table. Dispatch/uncertain/receipt-backed work remains protected. Unsaved Settings values survive recovery; unclear outcomes require explicit reload. See ai-unsent-cancellation.md. Generation controls remain unavailable pending their next verification slice.

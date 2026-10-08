@@ -388,3 +388,8 @@ As the original authorizing owner, open **Settings > AI summary settings > Saved
 Open **Research > Stock fundamentals**, select the stock and reload **Saved AI reviews** to read it with its approved evidence. Saving does not validate the truth of AI claims or share anything publicly.
 
 If the save outcome is uncertain, choose **Reload saved AI requests** before retrying. A successful earlier write appears as a saved review ID; otherwise an eligible response can be saved again safely. Incomplete, refused, uncertain, invalid and over-budget results have no save action. Another owner cannot save output authorized by someone else. No button is normal when no eligible stored responses exist; new summary generation is still unavailable. This update is 0.27.0-dev.3/schema18 and adds no SQL migration or install ZIP.
+
+
+## Unsent AI request recovery (October 8, 2026)
+
+Settings > AI summaries > Saved AI request activity now offers Cancel unsent request for eligible original-owner reservations. Sent or uncertain requests retain their holds. See [recovery guide](ai-unsent-cancellation.md). Source 0.27.0-dev.4, schema 18; no new ZIP or SQL.

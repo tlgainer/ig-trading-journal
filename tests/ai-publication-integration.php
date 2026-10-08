@@ -50,7 +50,8 @@ test('Publication audit failure rolls back review and safely retries without cha
 
 test('Publication UI fixture retains completed receipts with processing switched off',function() {
  $context=receipt_context(); [$db,$tracker,$w,$asset,$approval,$spending,$request,$reviews,$response]=$context; $spending->receive($w,$request,receipt_body($response)); $status=$spending->status($w);
+ $credential=ai_digest('review-fixture-key'); $cancel=$spending->reserve($w,$credential,'browser-cancel',$db->object('ai_evidence_bundles',$w,$approval)['fingerprint'],10000,2000,$approval,ai_catalog_evidence(['credential_fingerprint'=>$credential]));
  $spending->configure($w,['enabled'=>false,'monthly_cap'=>'15','model'=>'fixture-text-model','expected_config_id'=>$status['config_id']],[]);
- file_put_contents(dirname(__DIR__).'/tmp/ai-publication-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'asset'=>$asset,'request'=>$request,'prefix'=>substr($db->table('ai_requests'),0,-strlen('tgit_ai_requests'))]));
+ file_put_contents(dirname(__DIR__).'/tmp/ai-publication-browser-fixtures.json',wp_json_encode(['workspace'=>$w,'asset'=>$asset,'request'=>$request,'cancel_request'=>(int)$cancel['id'],'prefix'=>substr($db->table('ai_requests'),0,-strlen('tgit_ai_requests'))]));
  equal($reviews->publication_status($w,$request)['can_publish'],true);
 });

@@ -93,3 +93,6 @@ Settings now explains saved setup readiness and offers an owner-only read-only r
 ## Stored-response review publication
 
 The owner Save as review action is implemented for eligible stored completed output, with original-authorizer checks, safe retries and no new API request. Remaining: genuine setup evidence verification, owner enable/generation controls and guarded delivery recovery. Source 0.27.0-dev.3/schema18; no new ZIP or SQL. See ai-stored-publication.md.
+
+
+October 8, 2026: Owner recovery now includes cancelling original-owner unsent AI reservations from the shared activity table. Dispatch/uncertain/receipt-backed work remains protected. Unsaved Settings values survive recovery; unclear outcomes require explicit reload. See ai-unsent-cancellation.md. Generation controls remain unavailable pending their next verification slice.

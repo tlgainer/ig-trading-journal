@@ -442,6 +442,33 @@ final class AiSpending {
 	}
 
 	/**
+	 * Release only an original owner's unsent reservation.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $id Request.
+	 * @return array Public lifecycle result only.
+	 */
+	public function cancel_unsent( int $workspace, int $id ): array {
+		$row = $this->reconcile( $workspace, $id, null, true );
+		return array(
+			'request_id' => (int) $row['id'],
+			'state'      => $row['state'],
+		);
+	}
+
+	/**
+	 * Describe advisory eligibility; the write rechecks under the spending lock.
+	 *
+	 * @param int $workspace Workspace.
+	 * @param int $id Request.
+	 * @return bool
+	 */
+	public function can_cancel_unsent( int $workspace, int $id ): bool {
+		$row = $this->request( $workspace, $id );
+		return 'reserved' === $row['state'] && (int) $row['actor_id'] === $this->actor && null === $this->received( $workspace, $id );
+	}
+
+	/**
 	 * Settle trusted normalized usage, retain unknown charges or cancel unsent work.
 	 *
 	 * @param int        $workspace Workspace.

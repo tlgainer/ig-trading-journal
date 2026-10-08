@@ -29,6 +29,23 @@
   ]) { const item = document.createElement('li'); item.textContent = text; $('readiness').append(item); }
  }
  const activityStatus = (message, error = false) => { $('activity-status').textContent = message; $('activity-status').setAttribute('role', error ? 'alert' : 'status'); };
+ async function cancelUnsent(row, button) {
+  if (role !== 'owner' || !row.can_cancel || historyLoading || window.tgitWriteBusy) return;
+  const expected = generation;
+  window.tgitWriteBusy = true; button.disabled = true;
+  activityStatus(`Releasing the unsent reservation for request #${row.id}…`);
+  try {
+   await request(`ai-requests/${row.id}/cancel`, {});
+   if (expected !== generation) return;
+   const current = await request('ai-settings');
+   if (expected !== generation) return;
+   for (const key of ['spent', 'reserved', 'remaining', 'period', 'resets_at', 'timezone', 'warning']) saved[key] = current[key];
+   summarize();
+   await loadHistory(true);
+   if (expected === generation) activityStatus(`Request #${row.id} cancelled. Its unused reservation was released. No AI request was sent. Unsaved settings are preserved.`);
+  } catch (error) { if (expected === generation) { row.can_cancel = false; activityStatus(`${error.message} Reload saved requests before retrying; the reservation may already have been released.`, true); } }
+  finally { window.tgitWriteBusy = false; }
+ }
  async function publishReview(row, button) {
   if (role !== 'owner' || !row.can_publish || historyLoading || window.tgitWriteBusy) return;
   const expected = generation;
@@ -58,8 +75,9 @@
     { key: 'state', label: 'State', render: (row) => labels[row.state] || row.state.replaceAll('_', ' ') },
     { key: 'maximum_cost', label: 'Original cost bound', render: (row) => `${tgitDisplayDecimal(row.maximum_cost)} USD` },
     { key: 'charge', label: 'Settled usage estimate', render: (row) => row.state === 'cancelled' ? 'Not charged — cancelled' : (row.charge === null ? 'Not settled' : `${tgitDisplayDecimal(row.charge)} USD`) },
-    { key: 'actions', label: 'Review', required: true, render: (row) => {
+    { key: 'actions', label: 'Actions', required: true, render: (row) => {
      if (row.review_id !== null) return `Saved review #${row.review_id}`;
+     if (row.can_cancel) { const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = 'Cancel unsent request'; button.setAttribute('aria-label', `Cancel unsent request ${row.id}`); button.addEventListener('click', () => cancelUnsent(row, button)); return button; }
      if (!row.can_publish) return 'Not available';
      const button = document.createElement('button'); button.type = 'button'; button.className = 'button'; button.textContent = 'Save as review'; button.setAttribute('aria-label', `Save response for request ${row.id} as a review`); button.addEventListener('click', () => publishReview(row, button)); return button;
     } }

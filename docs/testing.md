@@ -234,3 +234,6 @@ The UI keeps the shared write guard through saved-history refresh, preserves uns
 Source version 0.27.0-dev.3 refreshes assets; schema remains 18. No new SQL or install ZIP; latest packaged ZIP remains 0.27.0-dev.1/schema17. No real API credentials/data/calls or production change. Temporary fixtures/cookies/logs remain uncommitted. Owned HTTP/database fixture processes stopped after verification; database data retained. Updated requirements, coverage, guide and ai-stored-publication.md.
 
 Remaining: genuine model/pricing/count-cost verification, owner enable/generation controls and guarded uncertain-delivery recovery. Admin new-summary generation remains unavailable; server processing stays off.
+
+
+October 8, 2026 unsent cancellation verification: 116 unit and 199 disposable WordPress/database checks passed twice; PHP syntax, composer check-cs, JavaScript syntax and 6 REST URL checks passed. Browser publication/cancellation, unclear result recovery, allowance refresh and unsaved preservation passed at 360/768/1440px. Existing AI Settings and all eight admin sections passed. Initial browser assertion expected 0 rather than the correct 0.00 currency format; corrected and rerun with fresh fixtures. No live provider/AI calls, credentials or production data used. Full private-media dedicated fixtures were unchanged. No new production release ZIP.
