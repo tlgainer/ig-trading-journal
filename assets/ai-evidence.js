@@ -27,6 +27,23 @@
   const note = document.createElement('p'); note.textContent = 'Only the selected saved metrics and optional thesis are included. Prices, news, comparisons, images and other journal fields are excluded. Reporting duration and accounting-policy compatibility are unverified.'; $('detail').append(note);
   const details = document.createElement('details'), title = document.createElement('summary'), pre = document.createElement('pre');
   title.textContent = 'Exact evidence and source fingerprints'; pre.textContent = JSON.stringify(result.bundle, null, 2); pre.style.whiteSpace = 'pre-wrap'; pre.style.overflowWrap = 'anywhere'; details.append(title, pre); $('detail').append(details);
+  if (approved) {
+   const panel = document.createElement('section'), title = document.createElement('h4'), button = document.createElement('button'), message = document.createElement('p');
+   title.textContent = 'AI summary preparation'; button.type = 'button'; button.className = 'button'; button.textContent = 'Check summary setup'; message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite'); message.textContent = 'Check saved model, consent and budget without sending an AI request.';
+   const expected = generation;
+   button.addEventListener('click', async () => {
+    if (busy || window.tgitWriteBusy || expected !== generation) return;
+    button.disabled = true; message.textContent = 'Checking saved summary setup…';
+    try {
+     const result = await request(`ai-evidence/${resultId}/preflight`);
+     if (expected !== generation || !panel.isConnected) return;
+     const labels = { original_owner: 'Use evidence approved by your own owner account.', credential_configured: 'Configure the OpenAI server key in API setup.', model_evidence_current: 'Have the server administrator verify access and pricing for the saved model.', count_evidence_current: 'Have the server administrator verify counting access and cost.', server_enabled: 'Server processing is off.', policy_enabled: 'Shared AI processing is off.', workspace_consent: 'Save workspace consent in Settings.', budget_available: 'Restore an available monthly allowance in Settings.', workflow_available: 'Summary generation controls are not yet available.' };
+     message.textContent = `Saved model: ${result.model || 'not selected'}. Remaining allowance: ${tgitDisplayDecimal(result.remaining)} USD. ${result.blockers.map(key => labels[key] || key).join(' ')} This check does not estimate the request cost, reserve allowance or send an AI request.`;
+    } catch (error) { if (expected === generation && panel.isConnected) message.textContent = `Setup check failed: ${error.message} Try Check summary setup again.`; }
+    finally { if (expected === generation && panel.isConnected) button.disabled = false; }
+   });
+   const resultId = result.id; panel.append(title, button, message); $('detail').append(panel);
+  }
   const fingerprint = document.createElement('p'); fingerprint.textContent = `Evidence fingerprint: ${result.fingerprint}`; fingerprint.style.overflowWrap = 'anywhere'; $('detail').append(fingerprint);
  }
  function reset() {

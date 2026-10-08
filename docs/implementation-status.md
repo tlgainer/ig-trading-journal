@@ -407,3 +407,9 @@ Settings > AI summaries > Saved AI request activity now offers Cancel unsent req
 
 
 October 8, 2026 unsent cancellation verification: 116 unit and 199 disposable WordPress/database checks passed twice; PHP syntax, composer check-cs, JavaScript syntax and 6 REST URL checks passed. Browser publication/cancellation, unclear result recovery, allowance refresh and unsaved preservation passed at 360/768/1440px. Existing AI Settings and all eight admin sections passed. Initial browser assertion expected 0 rather than the correct 0.00 currency format; corrected and rerun with fresh fixtures. No live provider/AI calls, credentials or production data used. Full private-media dedicated fixtures were unchanged. No new production release ZIP.
+
+
+October 8, 2026: Approved AI evidence now offers Check summary setup in Research. The local preflight explains saved model, consent, budget and server evidence blockers without counting, reserving or sending. Generation remains unavailable pending genuine evidence verification and guarded enable/delivery controls. See [preflight guide](ai-generation-preflight.md). Source 0.27.0-dev.5/schema18; no SQL or ZIP.
+
+
+October 8, 2026 generation preflight verification: 116 unit and 202 disposable WordPress/database checks passed. New checks prove scoped original-owner flags, viewer/foreign denial, paused-budget blockers, corrupted-evidence denial, redacted projection and unchanged spending/evidence/receipt rows with external HTTP denied. PHP/JavaScript syntax, composer check-cs and 6 REST URL checks passed. Real local browser approved-evidence setup check, approval/reload and owner/viewer workflow passed; all eight admin sections passed at 360/768/1440px. No live API calls or production credentials/data; dedicated private-media tests unchanged. Source 0.27.0-dev.5/schema18, no SQL or new release ZIP.

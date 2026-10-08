@@ -77,6 +77,7 @@ final class Controller {
 		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
 		self::route( $base . '/ai-requests', 'GET', 'ai_request_history' );
+		self::route( $base . '/ai-evidence/(?P<approval>[1-9][0-9]*)/preflight', 'GET', 'ai_generation_preflight' );
 		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/publish', 'POST', 'publish_ai_review' );
 		self::route( $base . '/ai-requests/(?P<request_id>[1-9][0-9]*)/cancel', 'POST', 'cancel_ai_request' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-evidence/preview', 'POST', 'ai_evidence_preview' );
@@ -222,7 +223,9 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'cancel_ai_request' === $operation ) {
+			if ( 'ai_generation_preflight' === $operation ) {
+				$result = \GainerInteractive\IGTradingJournal\Application\AiPreflight::read( new Database( $wpdb ), get_current_user_id(), $correlation, $workspace, (int) $request->get_url_params()['approval'] );
+			} elseif ( 'cancel_ai_request' === $operation ) {
 				$service->authorize( $workspace, 'tgit_manage_members' );
 				Tracker::fields( $data, array(), array() );
 				$spending = new AiSpending( new Database( $wpdb ), get_current_user_id(), $correlation );

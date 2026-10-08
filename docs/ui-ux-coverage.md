@@ -93,3 +93,6 @@ AI request activity adds a compact Save as review action using shared table/butt
 
 
 October 8, 2026: Owner recovery now includes cancelling original-owner unsent AI reservations from the shared activity table. Dispatch/uncertain/receipt-backed work remains protected. Unsaved Settings values survive recovery; unclear outcomes require explicit reload. See ai-unsent-cancellation.md. Generation controls remain unavailable pending their next verification slice.
+
+
+October 8, 2026: Approved AI evidence now offers Check summary setup in Research. The local preflight explains saved model, consent, budget and server evidence blockers without counting, reserving or sending. Generation remains unavailable pending genuine evidence verification and guarded enable/delivery controls. See [preflight guide](ai-generation-preflight.md). Source 0.27.0-dev.5/schema18; no SQL or ZIP.

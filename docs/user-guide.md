@@ -393,3 +393,6 @@ If the save outcome is uncertain, choose **Reload saved AI requests** before ret
 ## Unsent AI request recovery (October 8, 2026)
 
 Settings > AI summaries > Saved AI request activity now offers Cancel unsent request for eligible original-owner reservations. Sent or uncertain requests retain their holds. See [recovery guide](ai-unsent-cancellation.md). Source 0.27.0-dev.4, schema 18; no new ZIP or SQL.
+
+
+October 8, 2026: Approved AI evidence now offers Check summary setup in Research. The local preflight explains saved model, consent, budget and server evidence blockers without counting, reserving or sending. Generation remains unavailable pending genuine evidence verification and guarded enable/delivery controls. See [preflight guide](ai-generation-preflight.md). Source 0.27.0-dev.5/schema18; no SQL or ZIP.

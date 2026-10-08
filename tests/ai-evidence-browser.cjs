@@ -27,6 +27,7 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Evidence overflow at ${width}`); }
    await card.getByRole('button', { name: 'Approve this evidence', exact: true }).click(); await card.getByRole('heading', { name: /Approved evidence #/ }).waitFor();
    assert((await card.locator('#tgit-ai-evidence-status').textContent()).includes('No summary was generated'));
+   await card.getByRole('button', { name: 'Check summary setup', exact: true }).click(); await card.getByText(/This check does not estimate the request cost/).waitFor(); assert((await card.textContent()).includes('Summary generation controls are not yet available.'));
    const original = await card.locator('pre').textContent(); await open(); await card.getByRole('heading', { name: /Approved evidence #/ }).waitFor(); assert.equal(await card.locator('pre').textContent(), original);
    await page.waitForFunction(() => !document.getElementById('tgit-ai-evidence-form').inert); await choose(); await card.getByRole('button', { name: 'Preview selected evidence', exact: true }).click(); await card.getByRole('heading', { name: 'Evidence preview', exact: true }).waitFor();
    const keys = []; let lost = false;
@@ -44,6 +45,6 @@ const sessions = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'u
    assert.equal(keys.length, 2); assert.equal(keys[0], keys[1]); assert.equal(await card.getByRole('button', { name: 'Check approval outcome', exact: true }).isVisible(), false);
    assert.deepEqual(errors, []); await context.close();
   }
-  console.log('PASS AI evidence owner/viewer controls, exact thesis exclusions, selection invalidation, approval/reload, responsive card and lost-response recovery using the original key.');
+  console.log('PASS AI evidence preflight, owner/viewer controls, exact thesis exclusions, selection invalidation, approval/reload, responsive card and lost-response recovery using the original key.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
