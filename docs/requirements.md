@@ -108,3 +108,6 @@ October 8, 2026: Owner explicitly approved enable/generation controls. Added gua
 
 
 October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from the owner public catalogue, plus workspace-only saved-asset search on all asset selectors. See asset-typeahead.md. Manual/crypto fallback and explicit exchange/currency verification remain; no schema change.
+
+
+October 9, 2026: dev.8 adds a separate fixed-source coin catalogue and type-aware crypto searches. Repeated symbols retain distinct IDs in suggestions; saved workspace IDs and manual exchange/currency remain authoritative. No schema migration.

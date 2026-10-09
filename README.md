@@ -6,7 +6,7 @@ Research and Settings have section shortcuts; server key setup is explained in S
 
 See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
 
-Development source is **0.27.0-dev.7/schema 18**, including [asset typeahead](docs/asset-typeahead.md) and [guarded owner AI summaries](docs/ai-owner-generation.md). The [latest development test build](docs/test-build-0.27.0-dev.7.md) includes all eighteen migrations. The latest production-designated release remains **0.26.0/schema 8**. Back up the database and private media together before explicitly reactivating older schemas. Development verification does not establish production hosting compatibility, live API entitlement or full production acceptance. The installation instructions below describe the production-designated package.
+Development source is **0.27.0-dev.8/schema 18**, including [asset typeahead](docs/asset-typeahead.md) and [guarded owner AI summaries](docs/ai-owner-generation.md). The [latest development test build](docs/test-build-0.27.0-dev.8.md) includes all eighteen migrations. The latest production-designated release remains **0.26.0/schema 8**. Back up the database and private media together before explicitly reactivating older schemas. Development verification does not establish production hosting compatibility, live API entitlement or full production acceptance. The installation instructions below describe the production-designated package.
 
 ## Installation
 
@@ -71,3 +71,6 @@ Development 0.27.0-dev.3 adds Save as review for eligible stored AI responses, u
 Owner AI summary controls are implemented in development source 0.27.0-dev.6. Processing defaults off and requires verified server evidence, shared policy and separate workspace consent. See docs/ai-owner-generation.md. No real API requests were used in implementation.
 
 October 8, 2026: latest installation test artifact is 0.27.0-dev.6/schema 18, including explicit owner summary controls and all eighteen migrations. See docs/test-build-0.27.0-dev.6.md for backup, reactivation and setup instructions. This is a development test ZIP; production acceptance remains outstanding.
+
+
+October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinct catalogue IDs for repeated symbols. Select Crypto before searching. Confirm network, exchange and currency; no schema change. See asset-typeahead.md.

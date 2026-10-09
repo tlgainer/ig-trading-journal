@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.7/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.7.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.8/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.8.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -407,3 +407,6 @@ October 8, 2026: Owner explicitly approved enable/generation controls. Added gua
 
 
 October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from the owner public catalogue, plus workspace-only saved-asset search on all asset selectors. See asset-typeahead.md. Manual/crypto fallback and explicit exchange/currency verification remain; no schema change.
+
+
+October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinct catalogue IDs for repeated symbols. Select Crypto before searching. Confirm network, exchange and currency; no schema change. See asset-typeahead.md.

@@ -429,3 +429,6 @@ October 8, 2026: packaged 0.27.0-dev.6/schema 18 as a verified development test 
 October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from the owner public catalogue, plus workspace-only saved-asset search on all asset selectors. See asset-typeahead.md. Manual/crypto fallback and explicit exchange/currency verification remain; no schema change.
 
 October 9, 2026: asset-search implementation and dev.7 test ZIP verified (116 unit/214 integration checks, search/layout/journal browsers, eleven private-media HTTP checks, extracted-package activation/upgrade). Usage and installation notes are in asset-typeahead.md and test-build-0.27.0-dev.7.md. Schema remains 18; production acceptance is still open.
+
+
+October 9, 2026: dev.8 adds a separate fixed-source coin catalogue and type-aware crypto searches. Repeated symbols retain distinct IDs in suggestions; saved workspace IDs and manual exchange/currency remain authoritative. No schema migration.

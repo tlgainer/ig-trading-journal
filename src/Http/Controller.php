@@ -74,6 +74,7 @@ final class Controller {
 		self::route( '/workspaces', 'POST', 'create_workspace' );
 		$base = '/workspaces/(?P<workspace>[1-9][0-9]*)';
 		self::route( $base . '/ticker-catalog', 'GET', 'ticker_catalog' );
+		self::route( $base . '/coin-catalog', 'GET', 'coin_catalog' );
 		self::route( $base . '/ai-settings', 'GET', 'ai_settings' );
 		self::route( $base . '/ai-settings', 'POST', 'save_ai_settings' );
 		self::route( $base . '/ai-enrollment', 'POST', 'ai_enrollment' );
@@ -226,7 +227,10 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'ticker_catalog' === $operation ) {
+			if ( 'coin_catalog' === $operation ) {
+				$service->authorize( $workspace, 'tgit_view' );
+				$result = array( 'items' => \GainerInteractive\IGTradingJournal\Infrastructure\CoinCatalog::read() );
+			} elseif ( 'ticker_catalog' === $operation ) {
 				$service->authorize( $workspace, 'tgit_view' );
 				$result = array( 'items' => \GainerInteractive\IGTradingJournal\Infrastructure\TickerCatalog::read() );
 			} elseif ( 'ai_generate' === $operation ) {
