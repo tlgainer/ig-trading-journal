@@ -424,3 +424,8 @@ October 8, 2026 read-only operation recovery verification: 116 unit and 205 disp
 October 8, 2026: Owner explicitly approved enable/generation controls. Added guarded Shared AI processing and Generate summary for exact approved evidence, with a 2,000-output-token ceiling, reviewed-policy binding under the reservation lock, retained browser UUID and read-only result recovery. No automatic generation/publication/resend. See [owner workflow](ai-owner-generation.md). Source 0.27.0-dev.6/schema18; no new SQL or ZIP. Genuine account/model/pricing/count-cost verification remains necessary before actual use.
 
 October 8, 2026: packaged 0.27.0-dev.6/schema 18 as a verified development test ZIP. Fresh/repeat activation and direct schema-8/schema-17 upgrades passed against extracted code. Next is owner staging installation and genuine server evidence/setup verification, followed by one explicitly requested live summary after separate authorization. Production acceptance remains open.
+
+
+October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from the owner public catalogue, plus workspace-only saved-asset search on all asset selectors. See asset-typeahead.md. Manual/crypto fallback and explicit exchange/currency verification remain; no schema change.
+
+October 9, 2026: asset-search implementation and dev.7 test ZIP verified (116 unit/214 integration checks, search/layout/journal browsers, eleven private-media HTTP checks, extracted-package activation/upgrade). Usage and installation notes are in asset-typeahead.md and test-build-0.27.0-dev.7.md. Schema remains 18; production acceptance is still open.

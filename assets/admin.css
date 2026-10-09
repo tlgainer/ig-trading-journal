@@ -130,3 +130,10 @@
 .tgit input:disabled, .tgit select:disabled, .tgit textarea:disabled { background: #f0f0f1; color: #646970; cursor: not-allowed; opacity: 1; }
 .tgit form[inert] { opacity: .65; }
 @media (max-width: 782px) { .tgit .tgit-section-shortcuts { top: 46px; } .tgit .tgit-shortcut-target { scroll-margin-top: 220px; } }
+
+.tgit .tgit-asset-search { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tgit .tgit-asset-search input { width: 100%; border: 1px solid #949494; }
+.tgit .tgit-asset-search small { display: block; line-height: 1.5; }
+
+.tgit .tgit-asset-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tgit .tgit-asset-field[hidden] { display: none; }

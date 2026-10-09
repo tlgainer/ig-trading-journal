@@ -2,11 +2,11 @@
 
 A private investment tracker and trading journal for WordPress, implementing the TG Investment Tracker PRD in staged slices.
 
-Research and Settings have section shortcuts; server key setup is explained in Settings > API setup. AI generation remains unavailable.
+Research and Settings have section shortcuts; server key setup is explained in Settings > API setup. Explicit owner AI generation controls are available in development and remain off until verified setup is complete.
 
 See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
 
-Development source is now **0.27.0-dev.1/schema 18** (the latest 0.27.0-dev.1 test ZIP remains schema 17) for the [financial data integration](docs/financial-data-integration.md). The latest released ZIP remains **0.26.0/schema 8**. Development includes provider evidence/quotas, disabled-by-default FMP and Alpha Vantage workers, owner mapping and schedule controls, stock totals, saved fundamentals/metrics and weekly schedules, configurable AI budget/model preparation, and owner evidence preview/approval controls. [Immutable AI review storage](docs/ai-review-storage.md) and owner-only saved-review history screens are implemented. Approval-bound requests and [atomic response receipts](docs/ai-response-receipts.md) are implemented internally; [Verified full-request manifests](docs/ai-execution-manifests.md) now bind complete prompt/count evidence to atomic reservations; The disabled internal [Responses sender](docs/ai-http-transport.md) is implemented; complete-input counting transport, owner generation controls and daily-change compatibility remain pending. Future packaging must include all eighteen SQL files through `018-ai-execution-manifests.sql`. Back up the database/private media and explicitly reactivate compatible development code; follow [operations](docs/operations.md) and the review migration contract. The installation instructions below describe the released package.
+Development source is **0.27.0-dev.7/schema 18**, including [asset typeahead](docs/asset-typeahead.md) and [guarded owner AI summaries](docs/ai-owner-generation.md). The [latest development test build](docs/test-build-0.27.0-dev.7.md) includes all eighteen migrations. The latest production-designated release remains **0.26.0/schema 8**. Back up the database and private media together before explicitly reactivating older schemas. Development verification does not establish production hosting compatibility, live API entitlement or full production acceptance. The installation instructions below describe the production-designated package.
 
 ## Installation
 
