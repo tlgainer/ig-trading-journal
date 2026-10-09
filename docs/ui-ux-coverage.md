@@ -105,3 +105,6 @@ October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from
 
 
 October 9, 2026: dev.8 adds a separate fixed-source coin catalogue and type-aware crypto searches. Repeated symbols retain distinct IDs in suggestions; saved workspace IDs and manual exchange/currency remain authoritative. No schema migration.
+
+
+October 9, 2026 - dev.9: Asset class is first in Add asset; scoped management-section margins align Add account/Add asset headings. Schema remains 18.

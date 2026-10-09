@@ -6,7 +6,7 @@ Research and Settings have section shortcuts; server key setup is explained in S
 
 See the [user guide](docs/user-guide.md) for setup and everyday workflows in the current build.
 
-Development source is **0.27.0-dev.8/schema 18**, including [asset typeahead](docs/asset-typeahead.md) and [guarded owner AI summaries](docs/ai-owner-generation.md). The [latest development test build](docs/test-build-0.27.0-dev.8.md) includes all eighteen migrations. The latest production-designated release remains **0.26.0/schema 8**. Back up the database and private media together before explicitly reactivating older schemas. Development verification does not establish production hosting compatibility, live API entitlement or full production acceptance. The installation instructions below describe the production-designated package.
+Development source is **0.27.0-dev.9/schema 18**, including [asset typeahead](docs/asset-typeahead.md) and [guarded owner AI summaries](docs/ai-owner-generation.md). The [latest development test build](docs/test-build-0.27.0-dev.9.md) includes all eighteen migrations. The latest production-designated release remains **0.26.0/schema 8**. Back up the database and private media together before explicitly reactivating older schemas. Development verification does not establish production hosting compatibility, live API entitlement or full production acceptance. The installation instructions below describe the production-designated package.
 
 ## Installation
 

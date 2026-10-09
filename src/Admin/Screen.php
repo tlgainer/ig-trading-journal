@@ -127,9 +127,9 @@ final class Screen {
 	</section>
 	<section><h2><?php esc_html_e( 'Add asset', 'ig-trading-journal' ); ?></h2>
 		<form id="tgit-asset-form" class="tgit-form">
+		<label><?php esc_html_e( 'Asset class', 'ig-trading-journal' ); ?><select name="asset_class"><option value="stock"><?php esc_html_e( 'Stock', 'ig-trading-journal' ); ?></option><option value="etf"><?php esc_html_e( 'ETF', 'ig-trading-journal' ); ?></option><option value="crypto"><?php esc_html_e( 'Crypto', 'ig-trading-journal' ); ?></option></select></label>
 		<label><?php esc_html_e( 'Symbol', 'ig-trading-journal' ); ?><input name="symbol" required maxlength="32"></label>
 		<label><?php esc_html_e( 'Exchange or network identity', 'ig-trading-journal' ); ?><input name="exchange" required maxlength="64"></label>
-		<label><?php esc_html_e( 'Asset class', 'ig-trading-journal' ); ?><select name="asset_class"><option value="stock"><?php esc_html_e( 'Stock', 'ig-trading-journal' ); ?></option><option value="etf"><?php esc_html_e( 'ETF', 'ig-trading-journal' ); ?></option><option value="crypto"><?php esc_html_e( 'Crypto', 'ig-trading-journal' ); ?></option></select></label>
 		<label><?php esc_html_e( 'Quote currency', 'ig-trading-journal' ); ?><input name="quote_currency" required pattern="[A-Z]{3}" maxlength="3" aria-description="<?php echo esc_attr( $quote_help ); ?>"></label>
 		<span class="tgit-help" tabindex="0" role="note" aria-label="<?php echo esc_attr( $quote_help ); ?>" data-tip="<?php echo esc_attr( $quote_help ); ?>">?</span>
 		<button class="button"><?php esc_html_e( 'Add asset', 'ig-trading-journal' ); ?></button>

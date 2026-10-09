@@ -272,3 +272,10 @@ Passed 116 unit and 217 disposable WordPress/MySQL integration checks, including
 Verified output/ig-trading-journal-0.27.0-dev.8-test.zip: 107 files, all 18 migrations, 298415 bytes; SHA-256 02eb3c11b2b9970081c69bb720cdafc4598dee70e2f84a15a8d0db83b82aa3ce. Archive integrity, exact source bytes, safe extraction, complete guide/README preservation and extracted PHP/JavaScript syntax passed. Schema remains 18. The public list was read only; 4387 valid suggestions were normalized from 4388 records. Tests use synthetic catalogues, no provider/OpenAI requests or production changes. Production acceptance remains outstanding.
 
 All eleven real authenticated private-media HTTP checks passed. Extracted ZIP fresh/repeat activation, workspace creation and isolated schema-17 to schema-18 upgrade passed. Owned local test services stopped with fixture data retained.
+
+
+### October 9, 2026 - Settings layout (0.27.0-dev.9)
+
+116 unit checks, PHP/JavaScript syntax, six REST URL checks and coding standards passed. Browser measurement of actual Settings markup and CSS at 360/768/1440 confirms Asset class first, aligned desktop section tops and no overflow. No new committed tests for this reversible layout change. Full integration evidence remains the preceding dev.8 run; no database/domain change.
+
+Test ZIP: 107 files, 18 migrations, 298054 bytes; SHA-256 8ddbccb433e5dee5f9dd78ae380123f6d231b3b6f3da3b624a7b158f65bf5bbf. Archive integrity, exact source bytes, safe extraction, complete guide preservation and extracted PHP/JavaScript syntax passed. Production acceptance remains outstanding.

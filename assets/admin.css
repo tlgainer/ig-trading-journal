@@ -137,3 +137,5 @@
 
 .tgit .tgit-asset-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .tgit .tgit-asset-field[hidden] { display: none; }
+
+.tgit .tgit-pages #tgit-management > section { margin-top: 0; }
