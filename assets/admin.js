@@ -107,14 +107,19 @@
   const [holdings, summary] = await Promise.all([all(`holdings?price_source=${source}`, expected), request(`workspaces/${selected}/stock-summary?price_source=${source}`)]);
   if (expected !== generation || valuation !== valuationGeneration || selected !== workspace) return;
   renderHoldings(holdings);
-  const amount = (value, currency) => value === null ? 'Unavailable' : `${tgitDisplayDecimal(value)} ${currency}`;
-  cards($('stock-summary'), summary.currency_groups, (row) => [
-   `${row.currency} · ${row.status === 'complete' ? 'Complete' : 'Partial coverage'}`,
-   `Market value: ${amount(row.market_value, row.currency)}${row.market_value === null ? ` · covered subtotal: ${amount(row.covered_market_value, row.currency)}` : ''}`,
-   `Unrealized gain/loss: ${amount(row.unrealized_gain, row.currency)}${row.unrealized_gain === null ? ` · covered subtotal: ${amount(row.covered_unrealized_gain, row.currency)}` : ''}`,
-   `Price coverage: ${row.priced_positions} / ${row.positions} positions. Gain coverage: ${row.gain_positions} / ${row.positions} positions.`,
-   `Price sessions: ${row.session_dates.join(', ') || 'Unavailable'}. Mixed sessions produce partial totals.`
-  ]);
+  const amount = (value, currency) => value === null ? 'Unavailable' : `${tgitDisplayDecimal(value, 2, 2)} ${currency}`;
+  $('stock-summary').replaceChildren();
+  for (const row of summary.currency_groups) {
+   const card = document.createElement('article'); card.className = 'tgit-card';
+   const heading = document.createElement('strong'); heading.textContent = `${row.currency} · ${row.status === 'complete' ? 'Complete' : 'Partial coverage'}`; card.append(heading);
+   const facts = document.createElement('dl'); facts.className = 'tgit-summary-facts';
+   const values = [['Market value', amount(row.market_value, row.currency)], ['Unrealized gain/loss', amount(row.unrealized_gain, row.currency)]];
+   if (row.market_value === null) values.push(['Market value — covered subtotal', amount(row.covered_market_value, row.currency)]);
+   if (row.unrealized_gain === null) values.push(['Unrealized gain/loss — covered subtotal', amount(row.covered_unrealized_gain, row.currency)]);
+   values.push(['Price coverage', `${row.priced_positions} / ${row.positions} positions`], ['Gain coverage', `${row.gain_positions} / ${row.positions} positions`], ['Price sessions', row.session_dates.join(', ') || 'Unavailable']);
+   for (const [label, value] of values) { const term = document.createElement('dt'), detail = document.createElement('dd'); term.textContent = label; detail.textContent = value; facts.append(term, detail); }
+   const note = document.createElement('p'); note.textContent = 'Mixed sessions produce partial totals.'; card.append(facts, note); $('stock-summary').append(card);
+  }
   if (!summary.currency_groups.length) $('stock-summary').textContent = 'No open stock positions.';
  }
  $('price-source').addEventListener('change', () => {

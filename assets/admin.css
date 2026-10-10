@@ -139,3 +139,13 @@
 .tgit .tgit-asset-field[hidden] { display: none; }
 
 .tgit .tgit-pages #tgit-management > section { margin-top: 0; }
+
+.tgit .tgit-summary-facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 14px 0; font-variant-numeric: tabular-nums; }
+.tgit .tgit-summary-facts dt, .tgit .tgit-summary-facts dd { margin: 0; padding: 10px 0; border-bottom: 1px solid #e5e5e5; overflow-wrap: anywhere; }
+.tgit .tgit-summary-facts dt { font-weight: 600; padding-right: 16px; }
+.tgit .tgit-summary-facts dd { text-align: right; }
+@media (max-width: 600px) {
+ .tgit .tgit-summary-facts { grid-template-columns: minmax(0, 1fr); }
+ .tgit .tgit-summary-facts dt { border-bottom: 0; padding-bottom: 0; }
+ .tgit .tgit-summary-facts dd { text-align: left; padding-top: 4px; }
+}

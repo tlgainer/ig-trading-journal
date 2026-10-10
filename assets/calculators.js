@@ -4,7 +4,7 @@
  const config = window.tgitConfig;
  let workspace = '';
  let generation = 0;
- const display = (value) => window.tgitDisplayDecimal ? window.tgitDisplayDecimal(value, 2) : value;
+ const display = (value) => window.tgitDisplayDecimal ? window.tgitDisplayDecimal(value, 2, 2) : value;
  const forms = [
   { id: 'tgit-option-calculator', type: 'option', output: 'tgit-option-result', lines: (result) => [
    `Bought option: ${result.option_type === 'call' ? 'Call' : 'Put'}`,
@@ -36,7 +36,7 @@
   ] },
   { id: 'tgit-leveraged-calculator', type: 'leveraged', output: 'tgit-leveraged-result', lines: (result) => [
    `Notional exposure: ${display(result.notional_exposure)} ${result.currency}`,
-   `Equivalent units: ${tgitDisplayDecimal(result.equivalent_units, 0)}`,
+   `Equivalent units: ${tgitDisplayDecimal(result.equivalent_units, 0, 8)}`,
    `Gross profit: ${display(result.gross_profit)} ${result.currency}`,
    `Entered costs: ${display(result.total_costs)} ${result.currency}`,
    `Net profit: ${display(result.net_profit)} ${result.currency}`,
@@ -44,7 +44,7 @@
    'Liquidation price: unavailable. Hypothetical linear scenario; no position is opened.'
   ] },
   { id: 'tgit-crypto-calculator', type: 'crypto', output: 'tgit-crypto-result', lines: (result) => [
-   `Units: ${tgitDisplayDecimal(result.units, 0)}`,
+   `Units: ${tgitDisplayDecimal(result.units, 0, 8)}`,
    `Gross position value: ${display(result.position_value)} ${result.currency}`,
    `Net exit value: ${display(result.net_exit_value)} ${result.currency}`,
    `Profit: ${display(result.profit_amount)} ${result.currency} (${display(result.profit_percentage)}%)`,
@@ -52,7 +52,7 @@
   ] },
   { id: 'tgit-risk-calculator', type: 'risk', output: 'tgit-risk-result', lines: (result) => [
    `Stop loss: ${display(result.stop_price)} ${result.currency}`,
-   `Position size: ${tgitDisplayDecimal(result.position_size, 0)} units`,
+   `Position size: ${tgitDisplayDecimal(result.position_size, 0, 8)} units`,
    `Starting capital required: ${display(result.capital_required)} ${result.currency}`,
    `Estimated loss at stop: ${display(result.risk_used)} ${result.currency}`
   ] }
@@ -75,9 +75,15 @@
   document.getElementById('tgit-option-result')?.replaceChildren();
  };
  optionForm?.elements.mode.addEventListener('change', optionFields); optionFields();
- function show(output, lines, error = false) {
+ function show(output, lines, error = false, summary = false) {
   output.replaceChildren(); output.setAttribute('role', error ? 'alert' : 'status');
-  for (const line of lines) { const item = document.createElement('p'); item.textContent = line; output.append(item); }
+  const facts = document.createElement('dl'); facts.className = 'tgit-summary-facts';
+  for (const line of lines) {
+   const separator = summary ? line.indexOf(': ') : -1;
+   if (separator > 0) { const label = document.createElement('dt'), value = document.createElement('dd'); label.textContent = line.slice(0, separator); value.textContent = line.slice(separator + 2); facts.append(label, value); }
+   else { const item = document.createElement('p'); item.textContent = line; output.append(item); }
+  }
+  if (facts.childElementCount) output.prepend(facts);
  }
  for (const item of forms) {
   const form = document.getElementById(item.id);
@@ -100,7 +106,7 @@
     const envelope = await response.json();
     if (expected !== generation || submittedRevision !== inputRevision) return;
     if (!response.ok) throw new Error(envelope.message || config.i18n.network);
-    show(output, item.lines(envelope.data));
+    show(output, item.lines(envelope.data), false, true);
    } catch (error) { if (expected === generation && submittedRevision === inputRevision) show(output, [error.message || config.i18n.network], true); }
    finally { button.disabled = false; }
   });

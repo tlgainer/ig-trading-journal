@@ -279,3 +279,10 @@ All eleven real authenticated private-media HTTP checks passed. Extracted ZIP fr
 116 unit checks, PHP/JavaScript syntax, six REST URL checks and coding standards passed. Browser measurement of actual Settings markup and CSS at 360/768/1440 confirms Asset class first, aligned desktop section tops and no overflow. No new committed tests for this reversible layout change. Full integration evidence remains the preceding dev.8 run; no database/domain change.
 
 Test ZIP: 107 files, 18 migrations, 298054 bytes; SHA-256 8ddbccb433e5dee5f9dd78ae380123f6d231b3b6f3da3b624a7b158f65bf5bbf. Archive integrity, exact source bytes, safe extraction, complete guide preservation and extracted PHP/JavaScript syntax passed. Production acceptance remains outstanding.
+
+
+### October 10, 2026 - summary readability (0.27.0-dev.10)
+
+116 unit checks, 10 decimal display regressions, six REST URL checks, Composer coding standards and extracted PHP/JavaScript syntax passed. Decimal checks cover rounding/carry beyond Number precision, negatives, tiny nonzero thresholds and unchanged default precision. Synthetic browser execution of actual calculator rendering and stock summary rendering passed bold semantic labels, separated partial coverage/subtotals, rounded values and layouts at 360/768/1440. Full database integration evidence remains dev.8; this change does not alter schema or financial calculations.
+
+Test ZIP: 107 files, 18 migrations, 298880 bytes. SHA-256 598aa6ef27a695b5e4bb229968310d98e14f25a628502c1f54a0d628af91655c. Archive integrity, exact packaged bytes, safe extraction and complete guide/README preservation passed. No provider requests or production changes. Full production acceptance remains outstanding.

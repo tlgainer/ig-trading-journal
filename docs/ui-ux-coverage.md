@@ -108,3 +108,6 @@ October 9, 2026: dev.8 adds a separate fixed-source coin catalogue and type-awar
 
 
 October 9, 2026 - dev.9: Asset class is first in Add asset; scoped management-section margins align Add account/Add asset headings. Schema remains 18.
+
+
+October 10, 2026 - dev.10: All six calculator results and open-stock currency totals use semantic label/value summary rows with bold labels, responsive stacking and separate coverage/subtotal rows. Display-only decimal rounding is limited to these summaries; original calculations and existing editable value formatting are preserved.

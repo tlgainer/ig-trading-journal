@@ -103,9 +103,18 @@
   instance.update(rows, options); return instance;
  };
  window.tgitResetCollection = (target) => { instances.delete(target); target.replaceChildren(); };
- window.tgitDisplayDecimal = (value, minimum = 2) => {
+ window.tgitDisplayDecimal = (value, minimum = 2, maximum = null) => {
   const match = String(value).match(/^(-?\d+)(?:\.(\d+))?$/);
   if (!match) return String(value);
+  if (maximum !== null) {
+   const negative = match[1].startsWith('-'), digits = match[1].replace('-', '');
+   const raw = match[2] || '', scale = 10n ** BigInt(maximum);
+   let rounded = BigInt(digits) * scale + BigInt(raw.slice(0, maximum).padEnd(maximum, '0') || '0');
+   if ((raw[maximum] || '0') >= '5') rounded += 1n;
+   if (rounded === 0n && /[1-9]/.test(digits + raw)) return `${negative ? '>' : '<'}${negative ? '-' : ''}${maximum ? `0.${'0'.repeat(maximum - 1)}1` : '1'}`;
+   const fraction = maximum ? (rounded % scale).toString().padStart(maximum, '0').replace(/0+$/, '').padEnd(minimum, '0') : '';
+   return `${negative && rounded !== 0n ? '-' : ''}${rounded / scale}${fraction ? `.${fraction}` : ''}`;
+  }
   const fraction = (match[2] || '').replace(/0+$/, '').padEnd(minimum, '0');
   return fraction ? `${match[1]}.${fraction}` : match[1];
  };
