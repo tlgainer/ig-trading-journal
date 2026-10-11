@@ -224,8 +224,9 @@ test('FMP failures preserve quota and uncertain delivery is never resent', funct
  [$s,$w,$asset,$mapping,$input]=provider_context(); $fmp=$s->save_mapping($w,$asset,array_replace($input,['provider'=>'fmp'])); $map=(int)$fmp['id'];
  $result=provider_http_mock(new WP_Error('fixture','Synthetic timeout'),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-timeout'),$calls,'fmp'); equal($calls,1); equal($result['state'],'uncertain');
  $again=provider_http_mock(provider_http_response('[]'),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-timeout'),$calls,'fmp'); equal($calls,0); equal($again['state'],'uncertain');
- foreach ([[402,'not entitled','failed'],[302,'redirect','failed'],[200,'{"Error Message":"synthetic"}','invalid_response'],[200,'[]','invalid_response']] as [$status,$body,$state]) {
+ foreach ([[401,'synthetic-secret-auth','failed'],[403,'synthetic-secret-plan','failed'],[429,'synthetic-secret-limit','failed'],[503,'synthetic-secret-server','failed'],[402,'not entitled','failed'],[302,'redirect','failed'],[200,'{"Error Message":"synthetic"}','invalid_response'],[200,'[]','invalid_response']] as [$status,$body,$state]) {
   $result=provider_http_mock(provider_http_response($body,$status),fn()=>QuoteRefresh::run($w,$owner,$map,'fmp-failure-'.$status.'-'.strlen($body)),$calls,'fmp'); equal($calls,1); equal($result['state'],$state);
+  if ($state==='failed') { equal($result['http_status'],$status); equal(isset($result['provider_error'],$result['message']),true); equal(str_contains(json_encode($result),'synthetic-secret'),false); }
  }
  equal($s->quotes($w,$asset),[]);
 });

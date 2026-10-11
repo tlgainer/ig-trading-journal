@@ -40,6 +40,31 @@ final class QuoteRefresh {
 	}
 
 	/**
+	 * Describe a rejected HTTP response without exposing provider bodies or credentials.
+	 *
+	 * @param int $status Provider HTTP status.
+	 * @return array
+	 */
+	public static function http_failure( int $status ): array {
+		$messages = array(
+			401 => array( 'authentication', 'Provider rejected authentication. Check the server API key and account status.' ),
+			402 => array( 'subscription', 'Provider requires subscription access for this request. Check whether your plan supports this endpoint and symbol.' ),
+			403 => array( 'access_denied', 'Provider denied access. Your plan may restrict this endpoint or symbol, even when other tickers work. Check provider account access.' ),
+			404 => array( 'not_found', 'Provider could not find the requested resource. Check its endpoint and mapped symbol.' ),
+			429 => array( 'rate_limit', 'Provider reported a rate limit. This can be a short-term limit even when your daily allowance remains. Wait before starting another refresh.' ),
+		);
+		$detail   = $messages[ $status ] ?? ( $status >= 500 && $status <= 599
+			? array( 'provider_unavailable', 'Provider service is temporarily unavailable. Try a new refresh later.' )
+			: array( 'http_error', 'Provider rejected the request. Check endpoint and symbol access in the provider dashboard.' ) );
+		return array(
+			'state'          => 'failed',
+			'http_status'    => $status,
+			'provider_error' => $detail[0],
+			'message'        => $detail[1] . ' This attempt still counts toward the plugin request allowance.',
+		);
+	}
+
+	/**
 	 * Process one quote; retries never resend completed or uncertain attempts.
 	 *
 	 * @param int    $workspace Workspace identifier.
@@ -120,7 +145,7 @@ final class QuoteRefresh {
 			}
 			if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
 				$service->fail( $workspace, $request['id'] );
-				return array( 'state' => 'failed' );
+				return self::http_failure( (int) wp_remote_retrieve_response_code( $response ) );
 			}
 			try {
 				$quote = 'fmp' === $identity['provider']

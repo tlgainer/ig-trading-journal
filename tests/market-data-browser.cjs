@@ -29,11 +29,11 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await row.getByRole('button', { name: /Edit .* mapping/ }).click(); await form.locator('[name=enabled]').selectOption('false'); await form.getByRole('button', { name: 'Save provider mapping', exact: true }).click();
   await page.waitForFunction((symbol) => [...document.querySelectorAll('#tgit-market-mappings tbody tr')].some((row) => row.textContent.includes(symbol) && row.textContent.includes('Disabled')), `${stock.symbol}-CONFIRMED`);
   // Simulate an uncertain provider outcome in the browser only; no external call.
-  const requestKeys = [];
+  const requestKeys = []; let mockResult = { state: 'uncertain' };
   await page.route('**/*', async (route) => {
    const target = new URL(route.request().url()).searchParams.get('rest_route') || '';
    if (target.endsWith('/market-data')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { providers: [{ provider: 'fmp', enabled: true, daily_limit: 250 }, { provider: 'alpha_vantage', enabled: false, daily_limit: 25 }] } }) });
-   if (target.endsWith('/refresh')) { requestKeys.push(route.request().headers()['idempotency-key']); return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { state: 'uncertain' } }) }); }
+   if (target.endsWith('/refresh')) { requestKeys.push(route.request().headers()['idempotency-key']); return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: mockResult }) }); }
    return route.continue();
   });
   await form.locator('[name=enabled]').selectOption('true'); await form.getByRole('button', { name: 'Save provider mapping', exact: true }).click();
@@ -41,6 +41,14 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   await page.reload(); await page.locator('#tgit-workspace').selectOption(String(fixture.workspace)); await page.locator('#tgit-content').waitFor({ state: 'visible' });
   await page.getByRole('tab', { name: 'Settings', exact: true }).click(); await row.getByRole('button', { name: /Check refresh outcome/ }).click(); await page.waitForFunction(() => !window.tgitWriteBusy);
   assert.equal(requestKeys.length, 2); assert.equal(requestKeys[0], requestKeys[1]);
+  mockResult = { state: 'failed', http_status: 403, provider_error: 'access_denied', message: 'Provider denied access. Your plan may restrict this endpoint or symbol.' };
+  await row.getByRole('button', { name: /Check refresh outcome/ }).click(); await page.waitForFunction(() => !window.tgitWriteBusy);
+  assert.equal(requestKeys[2], requestKeys[1]);
+  const denied = await page.locator('#tgit-market-status').textContent(); assert(denied.includes('FMP / ')); assert(denied.includes('HTTP 403')); assert(denied.includes('endpoint or symbol'));
+  await row.getByRole('button', { name: /Refresh price/ }).waitFor();
+  mockResult = { state: 'failed' }; await row.getByRole('button', { name: /Refresh price/ }).click(); await page.waitForFunction(() => !window.tgitWriteBusy);
+  assert.notEqual(requestKeys[3], requestKeys[2]); assert((await page.locator('#tgit-market-status').textContent()).includes('Provider request failed.'));
+
   for (const width of [360, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Market settings overflow at ${width}`); }
   assert.deepEqual(errors, []); console.log('PASS Market-data Settings: stock identity, owner mapping revisions, disabled providers, dirty guard, uncertain retry identity across reload and responsive table.');
  } finally { await browser.close(); }

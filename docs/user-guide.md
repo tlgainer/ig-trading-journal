@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.10/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.10.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.11/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.11.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -412,3 +412,5 @@ October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from
 October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinct catalogue IDs for repeated symbols. Select Crypto before searching. Confirm network, exchange and currency; no schema change. See asset-typeahead.md.
 
 Calculator results and open stock totals use bold labels and aligned values. These summaries display money and percentages to two decimal places and calculator units up to eight. Very small nonzero values show a less-than/greater-than threshold rather than zero. Display rounding does not alter calculations or saved ledger values.
+
+Price refresh failures now identify the provider, symbol and HTTP status. Authentication (401), subscription (402), denied access (403), missing resource (404), rate limiting (429) and provider outages (5xx) have separate safe explanations. A 403 can reflect endpoint/symbol restrictions even if other symbols work; it does not prove a specific subscription cause. Raw provider messages and API keys are never shown. Earlier failed attempts do not gain diagnostics retrospectively; use a new explicit refresh for a current result. Failed attempts retain their plugin request allowance usage.

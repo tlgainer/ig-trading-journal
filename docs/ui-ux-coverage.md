@@ -111,3 +111,6 @@ October 9, 2026 - dev.9: Asset class is first in Add asset; scoped management-se
 
 
 October 10, 2026 - dev.10: All six calculator results and open-stock currency totals use semantic label/value summary rows with bold labels, responsive stacking and separate coverage/subtotal rows. Display-only decimal rounding is limited to these summaries; original calculations and existing editable value formatting are preserved.
+
+
+October 11, 2026 - dev.11: Quote refresh failures return safe HTTP status/category/message and show provider/symbol context in Stock market data. Fixed descriptions cover 401/402/403/404/429/5xx, without claiming an exact subscription cause from 403 alone. No provider body/URL/credential is returned or persisted. Existing failed attempts remain generic; new explicit refreshes get diagnostics. Quota and uncertain retry contracts remain unchanged. Schema 18 unchanged.

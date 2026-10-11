@@ -286,3 +286,12 @@ Test ZIP: 107 files, 18 migrations, 298054 bytes; SHA-256 8ddbccb433e5dee5f9dd78
 116 unit checks, 10 decimal display regressions, six REST URL checks, Composer coding standards and extracted PHP/JavaScript syntax passed. Decimal checks cover rounding/carry beyond Number precision, negatives, tiny nonzero thresholds and unchanged default precision. Synthetic browser execution of actual calculator rendering and stock summary rendering passed bold semantic labels, separated partial coverage/subtotals, rounded values and layouts at 360/768/1440. Full database integration evidence remains dev.8; this change does not alter schema or financial calculations.
 
 Test ZIP: 107 files, 18 migrations, 298880 bytes. SHA-256 598aa6ef27a695b5e4bb229968310d98e14f25a628502c1f54a0d628af91655c. Archive integrity, exact packaged bytes, safe extraction and complete guide/README preservation passed. No provider requests or production changes. Full production acceptance remains outstanding.
+
+
+### October 11, 2026 - safe quote failure diagnostics (0.27.0-dev.11)
+
+117 unit and 217 disposable WordPress/MySQL integration checks passed. Provider fixtures now cover HTTP 401/402/403/429/503 and confirm raw synthetic secret-bearing error bodies do not escape. Quota, uncertain delivery and completed retry regressions passed. Composer coding standards, REST URL checks (6), decimal display checks (10) and extracted PHP/JavaScript syntax passed. The first unit run lacked the explicit QuoteRefresh require; corrected fixture passed. Initial database connections preceded slow disposable database startup; the complete suite passed after readiness.
+
+Verified ZIP: output/ig-trading-journal-0.27.0-dev.11-test.zip, 107 files, 18 migrations, 299784 bytes. SHA-256 a81449970ec597a718b2519ed9e6a9d3dd2d038d29a16f3896b95e8c4af5cc37. Integrity, exact bytes, safe extraction and complete guide preservation passed. Schema remains 18. No live provider traffic, production data, credentials or production changes. Full hosting/entitlement acceptance remains outstanding.
+
+Market-data browser workflow passed owner mapping revisions, disabled providers, dirty guards, uncertain identity across reload, detailed provider/symbol/HTTP-403 display, generic legacy fallback, new identity after known failure and 360/768/1440 layouts. Owned disposable HTTP/database services stopped; fixture data retained.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Infrastructure/ProviderJson.php';
 require_once __DIR__ . '/../src/Infrastructure/AlphaVantageQuote.php';
 require_once __DIR__ . '/../src/Infrastructure/FmpEodQuote.php';
+require_once __DIR__ . '/../src/Infrastructure/QuoteRefresh.php';
 require_once __DIR__ . '/fundamentals-unit.php';
 require_once __DIR__ . '/fundamental-metrics-unit.php';
 require_once __DIR__ . '/ai-budget-unit.php';
@@ -108,3 +109,14 @@ require_once __DIR__.'/ai-token-count-unit.php';
 require_once __DIR__.'/ai-connection-unit.php';
 require_once __DIR__.'/ai-count-policy-unit.php';
 require_once __DIR__.'/ai-configuration-unit.php';
+
+
+test('Quote failures classify HTTP status without returning untrusted response text', function () {
+ $cases = [401=>'authentication',402=>'subscription',403=>'access_denied',404=>'not_found',429=>'rate_limit',500=>'provider_unavailable',503=>'provider_unavailable',302=>'http_error'];
+ foreach ($cases as $status=>$code) {
+  $result = GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::http_failure($status);
+  equal($result['state'],'failed'); equal($result['http_status'],$status); equal($result['provider_error'],$code);
+  equal(array_keys($result),['state','http_status','provider_error','message']);
+  equal(str_contains($result['message'],'plugin request allowance'),true);
+ }
+});
