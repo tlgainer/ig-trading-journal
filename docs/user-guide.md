@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.11/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.11.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.12/schema 18** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -414,3 +414,14 @@ October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinc
 Calculator results and open stock totals use bold labels and aligned values. These summaries display money and percentages to two decimal places and calculator units up to eight. Very small nonzero values show a less-than/greater-than threshold rather than zero. Display rounding does not alter calculations or saved ledger values.
 
 Price refresh failures now identify the provider, symbol and HTTP status. Authentication (401), subscription (402), denied access (403), missing resource (404), rate limiting (429) and provider outages (5xx) have separate safe explanations. A 403 can reflect endpoint/symbol restrictions even if other symbols work; it does not prove a specific subscription cause. Raw provider messages and API keys are never shown. Earlier failed attempts do not gain diagnostics retrospectively; use a new explicit refresh for a current result. Failed attempts retain their plugin request allowance usage.
+
+
+### Risk-to-reward scenarios
+
+In Calculators, add **Stop-loss price** to Stock profit, Crypto profit or Linear leveraged crypto. The existing **Take-profit / exit price** becomes the reward target. In Long-position risk or Short-position risk, add **Take-profit price**. Optional fields can stay blank to use the previous profit/sizing calculation.
+
+For Bought call / put profit, select **Sell option before expiration** and enter a stop-loss **option premium per share**, alongside entry and take-profit premiums. Calls and puts both use premium below entry for stop loss and above entry for take profit. Do not enter underlying stock levels as premium targets. Risk-to-reward is unavailable in the expiration-payoff mode.
+
+The result shows estimated loss at stop, potential net reward at the target and **Risk-to-reward: 1:3.00** for three units of reward per unit of risk. Stock example: entry 100, stop 95, target 115, quantity 10 gives 50 risk and 150 reward before fees. Bought option example: entry premium 2, stop 1, target 5, one contract with multiplier 100 gives 100 risk and 300 reward before fees. Crypto example: entry 75,000, stop 70,000, target 90,000, capital 2,000 gives about 133.33 risk and 400 reward before fees.
+
+Entered fee/cost totals apply equally to either hypothetical exit; they increase stop loss and reduce target reward. The short sizing calculator reuses its entered stop-cost estimate at the target. Long sizing has no cost input. If costs erase the target profit, the ratio is unavailable. Invalid stop/target directions are rejected. Stops do not guarantee execution; gaps, slippage and liquidation can increase losses. Leverage changes exposure, not a fee-free ratio for identical price levels. Scenarios never open positions or change the ledger.

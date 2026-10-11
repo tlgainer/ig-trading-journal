@@ -13,6 +13,39 @@ final class Scenario {
 	public const VERSION = 'scenario-native-1';
 
 	/**
+	 * Compare exact scenario loss and reward at correctly sided price levels.
+	 *
+	 * @param string $direction Long or short price direction.
+	 * @param string $entry Entry price or bought option premium.
+	 * @param string $stop Stop price or premium.
+	 * @param string $target Take-profit price or premium.
+	 * @param string $risk Positive estimated loss from the stop scenario.
+	 * @param string $reward Signed net profit from the target scenario.
+	 * @return array Display-independent decimal results.
+	 * @throws \InvalidArgumentException On invalid levels or unsupported loss precision.
+	 */
+	public static function risk_reward( string $direction, string $entry, string $stop, string $target, string $risk, string $reward ): array {
+		foreach ( array( $entry, $stop, $target ) as $price ) {
+			Decimal::input( $price, 18 );
+		}
+		if ( ! in_array( $direction, array( 'long', 'short' ), true )
+			|| ( 'long' === $direction && ( Decimal::compare( $stop, $entry ) >= 0 || Decimal::compare( $target, $entry ) <= 0 ) )
+			|| ( 'short' === $direction && ( Decimal::compare( $stop, $entry ) <= 0 || Decimal::compare( $target, $entry ) >= 0 ) ) ) {
+			throw new \InvalidArgumentException( 'For long positions and bought options, stop loss must be below entry and take profit above entry. For shorts, stop loss must be above entry and take profit below entry.' );
+		}
+		if ( Decimal::compare( $risk, '0' ) <= 0 ) {
+			throw new \InvalidArgumentException( 'Estimated stop loss is below supported monetary precision.' );
+		}
+		return array(
+			'calculation_version' => 'scenario-risk-reward-1',
+			'estimated_loss'      => $risk,
+			'potential_reward'    => $reward,
+			'reward_multiple'     => Decimal::compare( $reward, '0' ) > 0 ? Decimal::round( Decimal::div( $reward, $risk ), 12 ) : null,
+		);
+	}
+
+
+	/**
 	 * Model a bought call or put premium sale or expiration cash payoff.
 	 *
 	 * @param array $input Decimal strings and explicitly selected scenario.

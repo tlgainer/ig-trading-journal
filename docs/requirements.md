@@ -111,3 +111,6 @@ October 9, 2026: source 0.27.0-dev.7 adds shared ticker/company suggestions from
 
 
 October 9, 2026: dev.8 adds a separate fixed-source coin catalogue and type-aware crypto searches. Repeated symbols retain distinct IDs in suggestions; saved workspace IDs and manual exchange/currency remain authoritative. No schema migration.
+
+
+October 11, 2026 - dev.12: Added optional risk-to-reward to all six scenario calculators, covering stock long/short, spot and linear leveraged crypto, bought calls/puts in premium close-out mode and long/short sizing. Shared semantic summary rows show estimated stop loss, net target reward and reward multiple per unit risk. Existing decimal profit functions are reused for cost treatment; invalid level directions reject and nonpositive net reward has no ratio. Optional fields preserve previous workflows, expiry options exclude stop-premium input, and scenarios remain scoped/non-posting. No schema change.

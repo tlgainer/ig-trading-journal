@@ -1962,7 +1962,7 @@ final class Tracker {
 	public function scenario( int $workspace, string $type, array $input ): array {
 		$this->authorize( $workspace, 'tgit_view' );
 		if ( 'crypto' === $type ) {
-			self::fields( $input, array( 'buy_price', 'sell_price', 'investment', 'buy_fee', 'sell_fee', 'currency', 'note' ), array( 'buy_price', 'sell_price', 'investment' ) );
+			self::fields( $input, array( 'buy_price', 'sell_price', 'stop_loss', 'investment', 'buy_fee', 'sell_fee', 'currency', 'note' ), array( 'buy_price', 'sell_price', 'investment' ) );
 			$result = Scenario::crypto(
 				Decimal::input( $input['buy_price'], 18, true ),
 				Decimal::input( $input['sell_price'], 18, true ),
@@ -1971,7 +1971,7 @@ final class Tracker {
 				Decimal::input( $input['sell_fee'] ?? '0', 12 )
 			);
 		} elseif ( 'leveraged' === $type ) {
-			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'collateral', 'leverage', 'entry_fee', 'exit_fee', 'other_costs', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'collateral', 'leverage' ) );
+			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'stop_loss', 'collateral', 'leverage', 'entry_fee', 'exit_fee', 'other_costs', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'collateral', 'leverage' ) );
 			if ( ! is_string( $input['direction'] ) ) {
 				throw new \InvalidArgumentException( 'Direction must be text.' );
 			}
@@ -1986,7 +1986,7 @@ final class Tracker {
 				Decimal::input( $input['other_costs'] ?? '0', 12 )
 			);
 		} elseif ( 'stock' === $type ) {
-			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'quantity', 'entry_fee', 'exit_fee', 'borrow_cost', 'dividend_cost', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'quantity' ) );
+			self::fields( $input, array( 'direction', 'entry_price', 'exit_price', 'stop_loss', 'quantity', 'entry_fee', 'exit_fee', 'borrow_cost', 'dividend_cost', 'currency', 'note' ), array( 'direction', 'entry_price', 'exit_price', 'quantity' ) );
 			if ( ! is_string( $input['direction'] ) ) {
 				throw new \InvalidArgumentException( 'Direction must be text.' );
 			}
@@ -2001,7 +2001,7 @@ final class Tracker {
 				Decimal::input( $input['dividend_cost'] ?? '0', 12 )
 			);
 		} elseif ( 'short-risk' === $type ) {
-			self::fields( $input, array( 'entry_price', 'stop_price', 'risk_budget', 'estimated_costs', 'currency', 'note' ), array( 'entry_price', 'stop_price', 'risk_budget' ) );
+			self::fields( $input, array( 'entry_price', 'stop_price', 'take_profit', 'risk_budget', 'estimated_costs', 'currency', 'note' ), array( 'entry_price', 'stop_price', 'risk_budget' ) );
 			$result = Scenario::short_risk(
 				Decimal::input( $input['entry_price'], 18, true ),
 				Decimal::input( $input['stop_price'], 18, true ),
@@ -2010,11 +2010,11 @@ final class Tracker {
 			);
 		} elseif ( 'option' === $type ) {
 			$common = array( 'option_type', 'mode', 'entry_premium', 'contracts', 'multiplier', 'entry_fee', 'exit_fee', 'currency', 'note' );
-			$prices = 'expiry' === ( $input['mode'] ?? '' ) ? array( 'strike', 'underlying_price' ) : array( 'exit_premium' );
-			self::fields( $input, array_merge( $common, $prices ), array_merge( array( 'option_type', 'mode', 'entry_premium', 'contracts', 'multiplier' ), $prices ) );
+			$prices = 'expiry' === ( $input['mode'] ?? '' ) ? array( 'strike', 'underlying_price' ) : array( 'exit_premium', 'stop_loss' );
+			self::fields( $input, array_merge( $common, $prices ), array_merge( array( 'option_type', 'mode', 'entry_premium', 'contracts', 'multiplier' ), array_diff( $prices, array( 'stop_loss' ) ) ) );
 			$result = Scenario::option( $input );
 		} elseif ( 'risk' === $type ) {
-			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'stop_price', 'currency', 'note' ), array( 'entry_price', 'risk_budget' ) );
+			self::fields( $input, array( 'entry_price', 'risk_budget', 'stop_distance', 'stop_price', 'take_profit', 'currency', 'note' ), array( 'entry_price', 'risk_budget' ) );
 			if ( isset( $input['stop_distance'] ) === isset( $input['stop_price'] ) ) {
 				throw new \InvalidArgumentException( 'Enter either a stop-loss price or a stop distance.' );
 			}
@@ -2033,6 +2033,36 @@ final class Tracker {
 			);
 		} else {
 			throw new \InvalidArgumentException( 'Unknown scenario type.' );
+		}
+		if ( isset( $input['stop_loss'] ) ) {
+			$stop       = Decimal::input( $input['stop_loss'], 18, 'option' !== $type );
+			$entry_key  = 'option' === $type ? 'entry_premium' : ( 'crypto' === $type ? 'buy_price' : 'entry_price' );
+			$target_key = 'option' === $type ? 'exit_premium' : ( 'crypto' === $type ? 'sell_price' : 'exit_price' );
+			$profit_key = 'crypto' === $type ? 'profit_amount' : 'net_profit';
+			$at_stop    = $input;
+			unset( $at_stop['stop_loss'] );
+			$at_stop[ $target_key ] = $stop;
+			$stop_result            = $this->scenario( $workspace, $type, $at_stop );
+			$result['risk_reward']  = Scenario::risk_reward(
+				$input['direction'] ?? 'long',
+				$input[ $entry_key ],
+				$stop,
+				$input[ $target_key ],
+				Decimal::sub( '0', $stop_result[ $profit_key ] ),
+				$result[ $profit_key ]
+			);
+		} elseif ( isset( $input['take_profit'] ) ) {
+			$target                = Decimal::input( $input['take_profit'], 18 );
+			$direction             = 'short-risk' === $type ? 'short' : 'long';
+			$reward                = Scenario::stock( $direction, $input['entry_price'], $target, $result['position_size'], $input['estimated_costs'] ?? '0' );
+			$result['risk_reward'] = Scenario::risk_reward(
+				$direction,
+				$input['entry_price'],
+				$result['stop_price'],
+				$target,
+				$result['risk_used'],
+				$reward['net_profit']
+			);
 		}
 		if ( isset( $input['note'] ) && ! is_string( $input['note'] ) ) {
 			throw new \InvalidArgumentException( 'Scenario note must be text.' );

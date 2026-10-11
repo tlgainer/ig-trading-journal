@@ -62,3 +62,27 @@ test('Linear scenarios enforce workspace privacy, decimal strings and non-postin
  }
  equal(count($tracker->list_objects($workspace, 'transactions')), 0);
 });
+
+
+test('Risk-reward works across six scenarios without changing ledger facts or scope', function () use ($tracker,$owner,$viewer) {
+ wp_set_current_user($owner); $workspace=(int)$tracker->create_workspace(['name'=>'Risk reward fixture'])['id'];
+ $cases=[
+  'stock'=>['direction'=>'long','entry_price'=>'100','exit_price'=>'115','quantity'=>'10','stop_loss'=>'95'],
+  'crypto'=>['buy_price'=>'100','sell_price'=>'115','investment'=>'1000','stop_loss'=>'95'],
+  'option'=>['option_type'=>'put','mode'=>'close','entry_premium'=>'2','exit_premium'=>'5','contracts'=>'1','multiplier'=>'100','stop_loss'=>'1'],
+  'leveraged'=>['direction'=>'short','entry_price'=>'100','exit_price'=>'85','collateral'=>'500','leverage'=>'2','stop_loss'=>'105'],
+  'risk'=>['entry_price'=>'100','risk_budget'=>'50','stop_price'=>'95','take_profit'=>'115'],
+  'short-risk'=>['entry_price'=>'100','risk_budget'=>'50','stop_price'=>'105','take_profit'=>'85'],
+ ];
+ foreach($cases as $type=>$input) {
+  $request=new WP_REST_Request('POST','/tgit/v1/workspaces/'.$workspace.'/calculators/'.$type); $request->set_header('Content-Type','application/json'); $request->set_body(wp_json_encode($input));
+  wp_set_current_user($viewer); equal(rest_do_request($request)->get_status(),403); wp_set_current_user($owner);
+  $response=rest_do_request($request); equal($response->get_status(),200); $data=$response->get_data()['data']; equal($data['posted'],false); decimal($data['risk_reward']['reward_multiple'],'3');
+  $optional=isset($input['stop_loss'])?'stop_loss':'take_profit';
+  $request->set_body(wp_json_encode(array_replace($input,[$optional=>100]))); equal(rest_do_request($request)->get_status(),400);
+  $request->set_body(wp_json_encode(array_replace($input,[$optional=>$input['entry_price']??$input['entry_premium']??$input['buy_price']]))); equal(rest_do_request($request)->get_status(),400);
+  unset($input[$optional]); $request->set_body(wp_json_encode($input)); $response=rest_do_request($request); equal($response->get_status(),200); equal(isset($response->get_data()['data']['risk_reward']),false);
+ }
+ $request=new WP_REST_Request('POST','/tgit/v1/workspaces/'.$workspace.'/calculators/option'); $request->set_header('Content-Type','application/json'); $request->set_body(wp_json_encode(['option_type'=>'call','mode'=>'expiry','entry_premium'=>'2','strike'=>'100','underlying_price'=>'110','contracts'=>'1','multiplier'=>'100','stop_loss'=>'1'])); equal(rest_do_request($request)->get_status(),400);
+ equal(count($tracker->list_objects($workspace,'transactions')),0);
+});

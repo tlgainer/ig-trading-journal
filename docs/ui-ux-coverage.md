@@ -114,3 +114,6 @@ October 10, 2026 - dev.10: All six calculator results and open-stock currency to
 
 
 October 11, 2026 - dev.11: Quote refresh failures return safe HTTP status/category/message and show provider/symbol context in Stock market data. Fixed descriptions cover 401/402/403/404/429/5xx, without claiming an exact subscription cause from 403 alone. No provider body/URL/credential is returned or persisted. Existing failed attempts remain generic; new explicit refreshes get diagnostics. Quota and uncertain retry contracts remain unchanged. Schema 18 unchanged.
+
+
+October 11, 2026 - dev.12: Added optional risk-to-reward to all six scenario calculators, covering stock long/short, spot and linear leveraged crypto, bought calls/puts in premium close-out mode and long/short sizing. Shared semantic summary rows show estimated stop loss, net target reward and reward multiple per unit risk. Existing decimal profit functions are reused for cost treatment; invalid level directions reject and nonpositive net reward has no ratio. Optional fields preserve previous workflows, expiry options exclude stop-premium input, and scenarios remain scoped/non-posting. No schema change.

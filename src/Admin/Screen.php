@@ -180,7 +180,7 @@ final class Screen {
 	<section><h2><?php esc_html_e( 'Transactions', 'ig-trading-journal' ); ?></h2><div id="tgit-transactions" class="tgit-cards"></div><button id="tgit-more-transactions" class="button" hidden><?php esc_html_e( 'Load more transactions', 'ig-trading-journal' ); ?></button></section>
 	<section id="tgit-calculators-section">
 	<h2><?php esc_html_e( 'Scenario calculators', 'ig-trading-journal' ); ?></h2>
-	<p><?php esc_html_e( 'Scenarios use the currency you enter and never post transactions. Fees are entered separately from investment principal.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Scenarios use the currency you enter and never post transactions. Fees are entered separately from investment principal. Add the optional stop loss or take profit to calculate risk-to-reward. A ratio of 1:3 means three units of potential reward for each unit of estimated loss. Entered costs are assumed identical at either exit; stops are estimates, not guaranteed fills.', 'ig-trading-journal' ); ?></p>
 	<div class="tgit-calculator-accordions">
 	<details class="tgit-calculator-accordion" open>
 	<summary><?php esc_html_e( 'Stock profit', 'ig-trading-journal' ); ?></summary>
@@ -195,6 +195,7 @@ final class Screen {
 	<label><?php esc_html_e( 'Exit fee amount', 'ig-trading-journal' ); ?><input name="exit_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
 	<label data-stock-short hidden><?php esc_html_e( 'Total estimated borrowing cost', 'ig-trading-journal' ); ?><input name="borrow_cost" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" disabled></label>
 	<label data-stock-short hidden><?php esc_html_e( 'Total estimated dividend payments', 'ig-trading-journal' ); ?><input name="dividend_cost" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" disabled></label>
+	<label><?php esc_html_e( 'Stop-loss price (optional, for risk-to-reward)', 'ig-trading-journal' ); ?><input name="stop_loss" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<p><?php esc_html_e( 'Short-sale proceeds are not available investment capital. Broker margin and borrow availability are not calculated. Return is measured against entry share value, not margin. Short losses are not capped by that value.', 'ig-trading-journal' ); ?></p>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate stock profit', 'ig-trading-journal' ); ?></button>
@@ -210,6 +211,7 @@ final class Screen {
 	<label><?php esc_html_e( 'Starting capital, excluding fees', 'ig-trading-journal' ); ?><input name="investment" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Entry fee', 'ig-trading-journal' ); ?><input name="buy_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
 	<label><?php esc_html_e( 'Exit fee', 'ig-trading-journal' ); ?><input name="sell_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Stop-loss price (optional, for risk-to-reward)', 'ig-trading-journal' ); ?><input name="stop_loss" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate profit', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-crypto-result" aria-live="polite"></output>
@@ -231,6 +233,7 @@ final class Screen {
 	<label data-option-mode="expiry" hidden><?php esc_html_e( 'Strike price', 'ig-trading-journal' ); ?><input name="strike" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" disabled></label>
 	<label data-option-mode="expiry" hidden><?php esc_html_e( 'Underlying stock price at expiration', 'ig-trading-journal' ); ?><input name="underlying_price" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" disabled></label>
 	<p id="tgit-option-multiplier-help"><?php esc_html_e( 'Use the actual contract multiplier; 100 is common but adjusted contracts can differ. Starting capital is option premium times contracts times multiplier, plus entry fees. Before expiration, enter your expected exit option premium: a stock price target alone cannot determine it.', 'ig-trading-journal' ); ?></p>
+	<label data-option-mode="close"><?php esc_html_e( 'Stop-loss option premium per share (optional)', 'ig-trading-journal' ); ?><input name="stop_loss" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate bought-option profit', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-option-result" aria-live="polite"></output>
@@ -250,6 +253,7 @@ final class Screen {
 	<label><?php esc_html_e( 'Entry fee amount', 'ig-trading-journal' ); ?><input name="entry_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
 	<label><?php esc_html_e( 'Exit fee amount', 'ig-trading-journal' ); ?><input name="exit_fee" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
 	<label><?php esc_html_e( 'Borrowing and funding cost amount', 'ig-trading-journal' ); ?><input name="other_costs" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0"></label>
+	<label><?php esc_html_e( 'Stop-loss price (optional, for risk-to-reward)', 'ig-trading-journal' ); ?><input name="stop_loss" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<p><?php esc_html_e( 'Liquidation price is unavailable without contract and account rules. This arithmetic assumes the position reaches the entered exit; actual liquidation may occur first. Loss can exceed collateral.', 'ig-trading-journal' ); ?></p>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate leveraged profit', 'ig-trading-journal' ); ?></button>
@@ -264,6 +268,7 @@ final class Screen {
 	<label><?php esc_html_e( 'Entry price per unit', 'ig-trading-journal' ); ?><input name="entry_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Maximum loss (risk budget)', 'ig-trading-journal' ); ?><input name="risk_budget" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Stop-loss price below entry', 'ig-trading-journal' ); ?><input name="stop_price" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
+	<label><?php esc_html_e( 'Take-profit price (optional, for risk-to-reward)', 'ig-trading-journal' ); ?><input name="take_profit" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate size', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-risk-result" aria-live="polite"></output>
@@ -279,6 +284,7 @@ final class Screen {
 	<label><?php esc_html_e( 'Maximum loss (risk budget)', 'ig-trading-journal' ); ?><input name="risk_budget" required inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Estimated total costs at the stop', 'ig-trading-journal' ); ?><input name="estimated_costs" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="0" aria-describedby="tgit-short-risk-help"></label>
 	<p id="tgit-short-risk-help"><?php esc_html_e( 'Include estimated entry/exit fees, borrowing, dividend payments and slippage as a total amount. Costs are reserved before sizing; recheck the estimate for the resulting share count. Gaps and changing costs can increase actual loss.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Take-profit price (optional, for risk-to-reward)', 'ig-trading-journal' ); ?><input name="take_profit" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?"></label>
 	<label><?php esc_html_e( 'Scenario note', 'ig-trading-journal' ); ?><input name="note" maxlength="500"></label>
 	<button class="button button-primary"><?php esc_html_e( 'Calculate short size', 'ig-trading-journal' ); ?></button>
 	<output id="tgit-short-risk-result" aria-live="polite"></output>

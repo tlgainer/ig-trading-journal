@@ -70,7 +70,7 @@
   if (!optionForm) return;
   for (const label of optionForm.querySelectorAll('[data-option-mode]')) {
    const active = label.dataset.optionMode === optionForm.elements.mode.value;
-   label.hidden = !active; const input = label.querySelector('input'); input.disabled = !active; input.required = active;
+   label.hidden = !active; const input = label.querySelector('input'); input.disabled = !active; input.required = active && input.name !== 'stop_loss';
   }
   document.getElementById('tgit-option-result')?.replaceChildren();
  };
@@ -99,6 +99,7 @@
    show(output, [config.i18n.loading]);
    try {
     const payload = Object.fromEntries(new FormData(form));
+    for (const name of ['stop_loss', 'take_profit']) if (payload[name] === '') delete payload[name];
     const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/calculators/${item.type}`), {
      method: 'POST', credentials: 'same-origin', cache: 'no-store',
      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': config.nonce }, body: JSON.stringify(payload)
@@ -106,7 +107,13 @@
     const envelope = await response.json();
     if (expected !== generation || submittedRevision !== inputRevision) return;
     if (!response.ok) throw new Error(envelope.message || config.i18n.network);
-    show(output, item.lines(envelope.data), false, true);
+    const result = envelope.data, lines = item.lines(result);
+    if (result.risk_reward) {
+     const ratio = result.risk_reward;
+     if (!lines.some(line => line.startsWith('Estimated loss at stop:'))) lines.push(`Estimated loss at stop: ${display(ratio.estimated_loss)} ${result.currency}`);
+     lines.push(`Potential reward at take profit: ${display(ratio.potential_reward)} ${result.currency}`, `Risk-to-reward: ${ratio.reward_multiple === null ? 'Unavailable — entered costs leave no positive reward' : `1:${display(ratio.reward_multiple)}`}`, 'Entered costs are included and assumed equal at either exit. Stops do not guarantee a fill; gaps, slippage and liquidation can increase loss.');
+    }
+    show(output, lines, false, true);
    } catch (error) { if (expected === generation && submittedRevision === inputRevision) show(output, [error.message || config.i18n.network], true); }
    finally { button.disabled = false; }
   });

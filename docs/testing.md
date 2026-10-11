@@ -295,3 +295,12 @@ Test ZIP: 107 files, 18 migrations, 298880 bytes. SHA-256 598aa6ef27a695b5e4bb22
 Verified ZIP: output/ig-trading-journal-0.27.0-dev.11-test.zip, 107 files, 18 migrations, 299784 bytes. SHA-256 a81449970ec597a718b2519ed9e6a9d3dd2d038d29a16f3896b95e8c4af5cc37. Integrity, exact bytes, safe extraction and complete guide preservation passed. Schema remains 18. No live provider traffic, production data, credentials or production changes. Full hosting/entitlement acceptance remains outstanding.
 
 Market-data browser workflow passed owner mapping revisions, disabled providers, dirty guards, uncertain identity across reload, detailed provider/symbol/HTTP-403 display, generic legacy fallback, new identity after known failure and 360/768/1440 layouts. Owned disposable HTTP/database services stopped; fixture data retained.
+
+
+### October 11, 2026 - risk-to-reward calculators (0.27.0-dev.12)
+
+121 unit and 218 disposable WordPress/MySQL integration checks passed. New tests cover long/short levels, premium-based bought options, cost-aware ratios, fee-erased reward, unsupported loss precision, all six REST scenarios, unauthorized scope, JSON-number rejection, optional-field fallback, expiry isolation and no ledger writes. Composer coding standards, six REST URL checks, ten display regressions and extracted PHP/JavaScript syntax passed. Initial unit fixture namespace imports and coding-standard alignment were corrected. Disposable database startup required waiting for readiness before the successful complete integration run.
+
+Verified test ZIP: output/ig-trading-journal-0.27.0-dev.12-test.zip, 107 files, all 18 migrations, 301628 bytes. SHA-256 59e0be306563eabcc40ffb88645c8a67728b3ac9f355041d28ddd3e01758902a. Integrity, exact packaged bytes, safe extraction and complete guide preservation passed. No schema change, external API traffic or production data/changes. Full hosting acceptance remains outstanding.
+
+Actual browser/REST workflow passed all six calculator forms, 1:3 displayed results, bought call/put premiums, optional stop omission, expiry isolation and 360/768/1440 responsive summaries without page errors. Owned test HTTP/database services stopped with fixture data retained.
