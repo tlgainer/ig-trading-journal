@@ -74,7 +74,7 @@ test('Tickerbot identical marks retain each receipt response time and migration 
  $first=null;
  for($i=0;$i<2;$i++){$a=$s->reserve_attempt($w,$run['run_id'],$run['lease_token'],'quotes',['S0']);$quote['response_as_of']=$now->modify('+'.$i.' seconds')->format('Y-m-d H:i:s.u');$quote['fetched_at']=$quote['response_as_of'];$id=$s->record_quote($w,$run['run_id'],$run['lease_token'],$a['attempt_id'],$map,$quote);if($first===null)$first=$id;else equal($id,$first);$s->finish_attempt($w,$run['run_id'],$run['lease_token'],$a['attempt_id'],'completed');}
  $cached=$s->latest_quote($w,$ids[0]);equal($cached['first_response_as_of'],$now->format('Y-m-d H:i:s.u'));equal($cached['response_as_of'],$now->modify('+1 seconds')->format('Y-m-d H:i:s.u'));equal($cached['last_received_at'],$quote['fetched_at']);
- update_option('tgit_schema_version','20');Installer::install();equal(get_option('tgit_schema_version'),'21');Installer::install();equal($s->latest_quote($w,$ids[0]),$cached);equal(TickerbotRefresh::queue($w,$run['run_id'],time()+1),false);
+ update_option('tgit_schema_version','20');Installer::install();equal(get_option('tgit_schema_version'),Installer::VERSION);Installer::install();equal($s->latest_quote($w,$ids[0]),$cached);equal(TickerbotRefresh::queue($w,$run['run_id'],time()+1),false);
 });
 
 
@@ -97,7 +97,7 @@ test('Tickerbot queued job uses server context IDs and current owner authorizati
  try{
   equal(TickerbotRefresh::queue($w,$run['run_id'],time()+5),true);$event=wp_get_scheduled_event('tgit_tickerbot_batch',[$w,$run['run_id']]);equal($event->args,[$w,$run['run_id']]);wp_unschedule_event($event->timestamp,'tgit_tickerbot_batch',$event->args);
   do_action('tgit_tickerbot_batch',$w,$run['run_id']);equal($calls,1);equal($s->latest_quote($w,$ids[0])['provider'],'tickerbot');do_action('tgit_tickerbot_batch',$w,$run['run_id']);equal($calls,1);
-  [$revoked,$rw,$rs,$rn,$rr]=tbw_context(1,TGIT_TICKERBOT_ACCOUNT_SCOPE);$db->query('UPDATE '.$db->table('memberships').' SET state=%s WHERE workspace_id=%d AND wp_user_id=%d',['revoked',$rw,$owner]);do_action('tgit_tickerbot_batch',$rw,$rr['run_id']);equal($calls,1);
+  [$revoked,$rw,$rs,$rn,$rr]=tbw_context(1,TGIT_TICKERBOT_ACCOUNT_SCOPE);$db->query('UPDATE '.$db->table('memberships').' SET state=%s WHERE workspace_id=%d AND wp_user_id=%d',['revoked',$rw,$owner]);do_action('tgit_tickerbot_batch',$rw,$rr['run_id']);equal($calls,1);$db->query('UPDATE '.$db->table('memberships').' SET state=%s WHERE workspace_id=%d AND wp_user_id=%d',['active',$rw,$owner]);$revoked->finish_run($rw,$rr['run_id'],$rr['lease_token'],'failed');
   equal(TickerbotRefresh::queue($w,$run['run_id'],time()+5),true);$before=$s->usage($w);\GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::deactivate();equal(wp_next_scheduled('tgit_tickerbot_batch',[$w,$run['run_id']]),false);equal($s->usage($w),$before);
 
  }finally{remove_filter('pre_http_request',$fixture,10);wp_clear_scheduled_hook('tgit_tickerbot_batch',[$w,$run['run_id']]);}

@@ -212,6 +212,7 @@ final class QuoteRefresh {
 	/** Stop provider jobs on deactivation without deleting evidence or quotas. */
 	public static function deactivate(): void {
 		wp_unschedule_hook( 'tgit_tickerbot_batch' );
+		wp_unschedule_hook( 'tgit_tickerbot_schedule_tick' );
 		wp_unschedule_hook( 'tgit_fundamental_schedule_scan' );
 		wp_unschedule_hook( 'tgit_scheduled_fundamental_refresh' );
 		wp_unschedule_hook( 'tgit_fundamental_refresh' );

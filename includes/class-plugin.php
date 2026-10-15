@@ -27,6 +27,9 @@ final class Plugin {
 		add_action( 'admin_enqueue_scripts', array( \GainerInteractive\IGTradingJournal\Admin\Screen::class, 'enqueue' ) );
 		add_action( 'tgit_media_cleanup', array( \GainerInteractive\IGTradingJournal\Infrastructure\MediaJobs::class, 'cleanup' ), 10, 2 );
 		add_action( 'admin_notices', array( self::class, 'notice' ) );
+		// phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- Callback declares 60-second local recovery; price cadence is 3600/7200/86400 seconds.
+		add_filter( 'cron_schedules', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringTickerbot::class, 'intervals' ) );
+		add_action( 'tgit_tickerbot_schedule_tick', array( \GainerInteractive\IGTradingJournal\Infrastructure\RecurringTickerbot::class, 'job' ), 10, 1 );
 		add_action( 'tgit_tickerbot_batch', array( \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotRefresh::class, 'job' ), 10, 2 );
 		add_action( 'tgit_quote_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\QuoteRefresh::class, 'job' ), 10, 4 );
 		add_action( 'tgit_fundamental_refresh', array( \GainerInteractive\IGTradingJournal\Infrastructure\FundamentalRefresh::class, 'job' ), 10, 5 );

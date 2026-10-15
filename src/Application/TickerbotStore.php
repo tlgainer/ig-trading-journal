@@ -16,6 +16,7 @@ use GainerInteractive\IGTradingJournal\Domain\TickerbotSchedule;
 /** Shared account admission and fenced workspace operations. */
 final class TickerbotStore {
 	use TickerbotDispatch;
+	use TickerbotCadence;
 
 	/**
 	 * Scoped persistence.
@@ -354,19 +355,23 @@ final class TickerbotStore {
 	 * @param int    $workspace Workspace ID.
 	 * @param string $key Retry identity.
 	 * @param string $cause manual or scheduled.
+	 * @param int    $cadence Explicit recurring enrollment, zero for existing direct operations.
 	 * @return array Private run token for a new claim; joins/status never expose it.
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
-	public function start_run( int $workspace, string $key, string $cause = 'manual' ): array {
-		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled' ), true ) ) {
+	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0 ): array {
+		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $key, $cause ): array {
+			function () use ( $workspace, $key, $cause, $cadence ): array {
 				$account  = $this->account();
 				$settings = $this->settings( $workspace, $account );
-				$prior    = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id = %d AND request_key = %s', array( $workspace, $key ) );
+				if ( $cadence ) {
+					$this->check_cadence( $workspace, $cadence, $account );
+				}
+				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id = %d AND request_key = %s', array( $workspace, $key ) );
 				if ( $prior ) {
 					if ( $prior['cause'] !== $cause || (int) $prior['account_id'] !== (int) $account['id'] ) {
 						throw new \DomainException( 'Refresh identity conflicts with its saved command.' );
@@ -408,6 +413,16 @@ final class TickerbotStore {
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = %d, active_workspace_id = %d, lease_until = %s WHERE id = %d', array( $id, $workspace, $until, $account['id'] ) );
 				if ( 'manual' === $cause ) {
 					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'last_manual_at' => $this->time() ) );
+				}
+				if ( $cadence ) {
+					$this->db->insert(
+						'tickerbot_run_cadences',
+						array(
+							'workspace_id' => $workspace,
+							'run_id'       => $id,
+							'cadence_id'   => $cadence,
+						)
+					);
 				}
 				$this->audit( $workspace, 'tickerbot.run.start', 'tickerbot_runs', $id );
 				return array(

@@ -25,6 +25,7 @@ trait TickerbotDispatch {
 			function () use ( $workspace, $run, $token ): int {
 				$account = $this->account();
 				$this->lease( $workspace, $run, $token, $account );
+				$this->guard_run_cadence( $workspace, $run, $account );
 				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id = %d AND run_id = %d', array( $workspace, $run ) );
 				if ( $prior ) {
 					return (int) $prior['id'];
@@ -82,6 +83,7 @@ trait TickerbotDispatch {
 	 * @throws \DomainException On superseded intent or identities.
 	 */
 	private function dispatch_inputs( int $workspace, array $batch, array $account ): array {
+		$this->guard_run_cadence( $workspace, (int) $batch['run_id'], $account );
 		$plan     = $this->db->object( 'tickerbot_plans', $workspace, (int) $batch['plan_id'] );
 		$settings = $this->settings( $workspace, $account );
 		$scope    = $this->scope_selection( $workspace );
