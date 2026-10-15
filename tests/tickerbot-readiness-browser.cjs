@@ -1,0 +1,39 @@
+/* Isolated readiness UI fixture: no cookies or provider traffic. */
+'use strict';
+const assert = require('node:assert/strict');
+const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/node_modules/playwright-core');
+(async () => {
+ const browser = await chromium.launch({ executablePath: process.env.TGIT_CHROME_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+ try {
+  const page = await browser.newPage();
+  await page.setContent('<details open id="tgit-tickerbot-setup" hidden><summary>Tickerbot setup and progress</summary><button id="tgit-tickerbot-reload">Reload saved status</button><p id="tgit-tickerbot-status" role="status"></p><div id="tgit-tickerbot-readiness"></div></details>');
+  await page.addStyleTag({ path: 'assets/admin.css' });
+  await page.evaluate(() => {
+   window.tgitConfig = { root: 'https://fixture.invalid/', nonce: 'synthetic', i18n: { network: 'Unavailable' } };
+   window.tgitRestUrl = (root, path) => root + path;
+   window.fixtureRequests = []; window.fixturePending = [];
+   window.fetch = (url, options) => { window.fixtureRequests.push({ url, options }); return new Promise((resolve) => window.fixturePending.push(resolve)); };
+  });
+  await page.addScriptTag({ path: 'assets/tickerbot.js' });
+  const change = (role, workspace) => page.evaluate(({ role, workspace }) => window.dispatchEvent(new CustomEvent('tgit-workspace', { detail: { role, workspace } })), { role, workspace });
+  const respond = (data, index = 0) => page.evaluate(({ data, index }) => window.fixturePending.splice(index, 1)[0]({ ok: true, json: async () => ({ data }) }), { data, index });
+  await change('owner', '1'); await change('owner', '2');
+  await respond({ credential_configured: true, account_scope_configured: true, saved: { enrolled: false } }, 1);
+  await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  await respond({ credential_configured: false, saved: { enrolled: true, latest_run: { state: 'FOREIGN-STALE' } } });
+  assert(!(await page.locator('#tgit-tickerbot-readiness').textContent()).includes('FOREIGN-STALE'));
+  assert((await page.locator('#tgit-tickerbot-readiness').textContent()).includes('Configured'));
+  await page.getByRole('button', { name: 'Reload saved status' }).click();
+  await respond({ credential_configured: true, account_scope_configured: true, saved: { enrolled: true, recurring_review: 'needs_review', interval_seconds: 7200, period: '2026-10', attempts: 7, soft_cap: 8000, projected_recurring_calls: 372, latest_run: { state: '<img src=x onerror=alert(1)>', cause: 'manual', started_at: '2026-10-15 12:00:00' } } });
+  await page.getByText('Owner review required before recurring work', { exact: true }).waitFor();
+  assert.equal(await page.locator('#tgit-tickerbot-readiness img').count(), 0);
+  assert((await page.locator('#tgit-tickerbot-readiness').textContent()).includes('<img src=x'));
+  await page.evaluate(() => { for (const request of window.fixtureRequests) { if (request.options.method || request.options.body || !request.url.endsWith('/tickerbot/status')) throw Error('Unexpected mutation/request'); } });
+  await change('viewer', '2'); assert.equal(await page.locator('#tgit-tickerbot-setup').isVisible(), false);
+  assert.equal(await page.locator('#tgit-tickerbot-readiness').textContent(), '');
+  await change('owner', '3'); await page.evaluate(() => window.fixturePending.shift()({ ok: false, json: async () => ({ message: 'Synthetic permission denied' }) }));
+  await page.getByRole('alert').getByText('Synthetic permission denied', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Reload saved status' }).isEnabled(), true);
+  console.log('PASS Tickerbot readiness UI: stale workspace responses, owner visibility, safe text, read-only requests and recoverable errors.');
+ } finally { await browser.close(); }
+})().catch((error) => { console.error(error.stack); process.exitCode = 1; });

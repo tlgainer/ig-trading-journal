@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.17/schema 23** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.18/schema 23** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -427,3 +427,15 @@ The result shows estimated loss at stop, potential net reward at the target and 
 Entered fee/cost totals apply equally to either hypothetical exit; they increase stop loss and reduce target reward. The short sizing calculator reuses its entered stop-cost estimate at the target. Long sizing has no cost input. If costs erase the target profit, the ratio is unavailable. Invalid stop/target directions are rejected. Stops do not guarantee execution; gaps, slippage and liquidation can increase losses. Leverage changes exposure, not a fee-free ratio for identical price levels. Scenarios never open positions or change the ledger.
 
 Tickerbot source now includes internal storage, inventory selections, gated batch dispatch and explicit recurring recovery and shared capacity guards (schema 23). No new installable ZIP or Tickerbot UI is provided yet. Keep Tickerbot disabled; the existing dev.12 ZIP remains schema 18. Source installers must back up the database/private media and explicitly reactivate to apply bundled migrations 019 through 023. See tickerbot-implementation.md for progress.
+
+### Tickerbot preparation status (development source dev.18)
+
+As a workspace owner, open **Settings > API setup > Tickerbot setup and progress**. **Reload saved status** only reads local saved information; it does not use a provider request or start a refresh. This development panel is preparation only. Keep the Tickerbot switches off until connection, mapping and cutover controls are delivered and verified.
+
+- **Server API key / Stable account reference:** configured means a valid-looking value exists on the server. It does not verify your subscription or provider access. Ask your host to replace the sample placeholders without duplicating definitions. All keys belonging to one provider account must use the same stable account reference, even when a key is rotated.
+- **Workspace enrollment:** not configured is expected before setup controls are delivered. Adding a key does not enroll a workspace or schedule requests.
+- **Recurring review:** Off means no current recurring opt-in. Owner review required means saved enrollment no longer matches its reviewed settings/scope/capacity. The panel cannot repair or enable enrollment yet.
+- **Counted attempts:** actual locally admitted requests for the displayed UTC month, including failed/uncertain attempts. This is separate from the **31-day recurring projection**, an estimate of normal scheduled quote calls across enrolled workspaces. Retries, discovery, manual requests and other applications are additional.
+- **Next due / latest run:** stored UTC times and outcome, not proof that host cron works or prices are current. A run with no completion recorded may require recovery; this panel never silently resends it.
+
+This panel does not change the price source used by holdings. FMP/Alpha Vantage settings continue to work as before. Tickerbot connection testing, mapping, enrollment actions and cutover are still pending in this source milestone.

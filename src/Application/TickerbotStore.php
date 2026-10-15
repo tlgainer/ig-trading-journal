@@ -18,6 +18,7 @@ final class TickerbotStore {
 	use TickerbotDispatch;
 	use TickerbotCadence;
 	use TickerbotCapacity;
+	use TickerbotReadiness;
 
 	/**
 	 * Scoped persistence.

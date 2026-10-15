@@ -90,6 +90,7 @@ final class Controller {
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/ai-reviews', 'GET', 'ai_review_history' );
 		self::route( $base . '/ai-reviews/(?P<review>[1-9][0-9]*)', 'GET', 'ai_review_read' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
+		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
@@ -227,7 +228,9 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'coin_catalog' === $operation ) {
+			if ( 'tickerbot_status' === $operation ) {
+				$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::status( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+			} elseif ( 'coin_catalog' === $operation ) {
 				$service->authorize( $workspace, 'tgit_view' );
 				$result = array( 'items' => \GainerInteractive\IGTradingJournal\Infrastructure\CoinCatalog::read() );
 			} elseif ( 'ticker_catalog' === $operation ) {

@@ -117,3 +117,5 @@ October 11, 2026 - dev.11: Quote refresh failures return safe HTTP status/catego
 
 
 October 11, 2026 - dev.12: Added optional risk-to-reward to all six scenario calculators, covering stock long/short, spot and linear leveraged crypto, bought calls/puts in premium close-out mode and long/short sizing. Shared semantic summary rows show estimated stop loss, net target reward and reward multiple per unit risk. Existing decimal profit functions are reused for cost treatment; invalid level directions reject and nonpositive net reward has no ratio. Optional fields preserve previous workflows, expiry options exclude stop-premium input, and scenarios remain scoped/non-posting. No schema change.
+
+October 15, 2026, Tickerbot C6a: Settings/API setup now includes an owner-only read-only readiness accordion using shared shell/table/control patterns. It discards stale workspace responses, uses text rendering, distinguishes saved settings from access/cron verification, and reloads only local evidence. Isolated browser behavior fixture passes; full rendered WordPress desktop/mobile acceptance remains pending before release.

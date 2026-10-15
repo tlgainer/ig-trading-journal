@@ -43,6 +43,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-research', plugins_url( 'assets/research.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot', plugins_url( 'assets/tickerbot.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-generation', plugins_url( 'assets/ai-generation.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -372,6 +373,14 @@ final class Screen {
 		<?php JournalScreen::render(); ?>
 	<section id="tgit-api-setup">
 	<h2><?php esc_html_e( 'API setup', 'ig-trading-journal' ); ?></h2>
+	<details id="tgit-tickerbot-setup" hidden><summary><?php esc_html_e( 'Tickerbot setup and progress', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Read-only preparation. Reloading this status sends no provider request and does not enable pricing or schedules. Connection testing, mapping controls and pricing cutover are still pending.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Keep the API key and stable account reference on the server. Keys from the same provider account must share the same account reference, including after key rotation. Keep all three processing switches off during preparation.', 'ig-trading-journal' ); ?></p>
+	<pre><?php echo esc_html( "define('TGIT_TICKERBOT_API_KEY', 'YOUR_TICKERBOT_KEY');\ndefine('TGIT_TICKERBOT_ACCOUNT_SCOPE', 'YOUR_STABLE_ACCOUNT_REFERENCE');\ndefine('TGIT_TICKERBOT_ENABLED', false);\ndefine('TGIT_TICKERBOT_WORKER_ENABLED', false);\ndefine('TGIT_TICKERBOT_SCHEDULER_ENABLED', false);" ); ?></pre>
+	<button type="button" class="button" id="tgit-tickerbot-reload"><?php esc_html_e( 'Reload saved status', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
+	<div id="tgit-tickerbot-readiness"></div>
+	</details>
 	<p><?php esc_html_e( 'Provider keys currently belong in wp-config.php on your server, before the line that loads WordPress. Ask your host to edit this file if needed. Keys are not entered into these forms or saved in journal notes.', 'ig-trading-journal' ); ?></p>
 	<details><summary><?php esc_html_e( 'FMP and Alpha Vantage configuration', 'ig-trading-journal' ); ?></summary>
 	<pre><?php echo esc_html( "define('TGIT_FMP_API_KEY', 'YOUR_FMP_KEY');\ndefine('TGIT_ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_KEY');\ndefine('TGIT_MARKET_DATA_ENABLED', false);\ndefine('TGIT_FUNDAMENTALS_ENABLED', false);" ); ?></pre>
