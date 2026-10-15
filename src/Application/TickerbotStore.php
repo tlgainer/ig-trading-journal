@@ -20,6 +20,7 @@ final class TickerbotStore {
 	use TickerbotCapacity;
 	use TickerbotReadiness;
 	use TickerbotConnection;
+	use TickerbotMapping;
 
 	/**
 	 * Scoped persistence.
@@ -370,7 +371,7 @@ final class TickerbotStore {
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
 	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0 ): array {
-		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
+		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
 		return $this->atomic(
@@ -516,13 +517,16 @@ final class TickerbotStore {
 			function () use ( $workspace, $run, $token, $family, $symbols, $batch ): array {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
-				if ( 'connection' === $current['cause'] ) {
-					if ( 'connection' !== $family || $batch ) {
+				if ( in_array( $current['cause'], array( 'connection', 'resolution' ), true ) ) {
+					if ( ( 'connection' === $current['cause'] ? 'connection' : 'catalogue' ) !== $family || $batch ) {
 						throw new \DomainException( 'Connection commands cannot dispatch other endpoint families.' );
 					}
 					$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d LIMIT 1 FOR UPDATE', array( $workspace, $run ) );
 					if ( $prior ) {
 						return array( 'state' => 'in_flight' );
+					}
+					if ( 'resolution' === $current['cause'] ) {
+						$this->guard_resolution( $workspace, $run );
 					}
 				}
 				if ( $batch ) {
@@ -703,7 +707,7 @@ final class TickerbotStore {
 						'completed_at' => $this->time(),
 					)
 				);
-				if ( 'connection' !== $current['cause'] ) {
+				if ( ! in_array( $current['cause'], array( 'connection', 'resolution' ), true ) ) {
 					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'next_due_at' => TickerbotSchedule::next( $this->now, (int) $settings['interval_seconds'] ) ) );
 				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = NULL, active_workspace_id = NULL, lease_until = NULL WHERE id = %d', array( $account['id'] ) );
@@ -727,31 +731,47 @@ final class TickerbotStore {
 		return $this->atomic(
 			$workspace,
 			function () use ( $workspace, $asset, $symbol, $identity, $expected ): int {
-				$row = $this->db->object( 'assets', $workspace, $asset );
-				if ( ! TickerbotQuote::identity( $row, $identity, $symbol ) ) {
-					throw new \InvalidArgumentException( 'Tickerbot asset identity is unresolved or incompatible.' );
-				}
-				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' WHERE workspace_id = %d AND asset_id = %d ORDER BY id DESC LIMIT 1', array( $workspace, $asset ) );
-				if ( (int) ( $prior['id'] ?? 0 ) !== $expected ) {
-					throw new \DomainException( 'Tickerbot mapping revision changed; reload it.' );
-				}
-				$id = $this->db->insert(
-					'tickerbot_mappings',
-					array(
-						'workspace_id'    => $workspace,
-						'asset_id'        => $asset,
-						'provider_symbol' => $symbol,
-						'asset_class'     => $row['asset_class'],
-						'exchange'        => $row['exchange'],
-						'currency'        => $row['quote_currency'],
-						'actor_id'        => $this->actor,
-						'checked_at'      => $this->time(),
-					)
-				);
-				$this->audit( $workspace, 'tickerbot.mapping.save', 'tickerbot_mappings', $id );
-				return $id;
+				return $this->append_mapping( $workspace, $asset, $symbol, $identity, $expected );
 			}
 		);
+	}
+
+	/**
+	 * Append under the existing workspace/account transaction.
+	 *
+	 * @param int    $workspace Workspace ID.
+	 * @param int    $asset Local asset ID.
+	 * @param string $symbol Canonical candidate.
+	 * @param array  $identity Server-verified identity.
+	 * @param int    $expected Prior mapping ID.
+	 * @return int New immutable mapping ID.
+	 * @throws \InvalidArgumentException On incompatible identity.
+	 * @throws \DomainException On stale revision.
+	 */
+	private function append_mapping( int $workspace, int $asset, string $symbol, array $identity, int $expected ): int {
+		$row = $this->db->object( 'assets', $workspace, $asset );
+		if ( ! TickerbotQuote::identity( $row, $identity, $symbol ) ) {
+			throw new \InvalidArgumentException( 'Tickerbot asset identity is unresolved or incompatible.' );
+		}
+		$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' WHERE workspace_id = %d AND asset_id = %d ORDER BY id DESC LIMIT 1', array( $workspace, $asset ) );
+		if ( (int) ( $prior['id'] ?? 0 ) !== $expected ) {
+			throw new \DomainException( 'Tickerbot mapping revision changed; reload it.' );
+		}
+		$id = $this->db->insert(
+			'tickerbot_mappings',
+			array(
+				'workspace_id'    => $workspace,
+				'asset_id'        => $asset,
+				'provider_symbol' => $symbol,
+				'asset_class'     => $row['asset_class'],
+				'exchange'        => $row['exchange'],
+				'currency'        => $row['quote_currency'],
+				'actor_id'        => $this->actor,
+				'checked_at'      => $this->time(),
+			)
+		);
+		$this->audit( $workspace, 'tickerbot.mapping.save', 'tickerbot_mappings', $id );
+		return $id;
 	}
 
 	/**

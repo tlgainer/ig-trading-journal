@@ -35,7 +35,7 @@ test('Tickerbot connection run rejects quote families duplicate admissions and f
 
 test('Tickerbot local setup rejects stale revisions atomically and migration 24 preserves receipts',function()use($db){
  [$s,$w]=tbs_context();$before=$s->usage($w);$failed=false;try{$s->configure($w,4000,7200,0,false,0);}catch(UnexpectedValueException $e){$failed=true;}equal($failed,true);equal($s->usage($w),$before);$s->configure($w,4000,86400,0,false,1);equal($s->readiness($w)['settings_revision'],2);equal($s->cadence($w),null);
- $result=TickerbotConnectionCheck::run($s,$w,wp_generate_uuid4(),fn()=>tbc_response());update_option('tgit_schema_version','23');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal(get_option('tgit_schema_version'),'24');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal($s->readiness($w)['connection']['state'],$result['state']);equal($s->usage($w)['attempts'],1);
+ $result=TickerbotConnectionCheck::run($s,$w,wp_generate_uuid4(),fn()=>tbc_response());update_option('tgit_schema_version','23');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal(get_option('tgit_schema_version'),\GainerInteractive\IGTradingJournal\Infrastructure\Installer::VERSION);\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal($s->readiness($w)['connection']['state'],$result['state']);equal($s->usage($w)['attempts'],1);
 });
 
 test('Tickerbot disabled transport blocks new work but permits saved same-key outcome reads',function()use($owner){

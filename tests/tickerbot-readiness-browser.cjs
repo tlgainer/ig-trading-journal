@@ -52,6 +52,15 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   const tests = await page.evaluate(() => window.fixtureRequests.filter((row) => row.url.endsWith('/tickerbot/connection')));
   assert.equal(tests.length, 2); assert(tests[0].options.headers['Idempotency-Key']); assert.equal(tests[0].options.headers['Idempotency-Key'], tests[1].options.headers['Idempotency-Key']);
   assert.equal(await page.getByRole('button', { name: 'Test connection (one request)', exact: true }).isEnabled(), true);
+  const previous = await page.evaluate(() => window.fixtureRequests.length);
+  await page.locator('[name=monthly_cap]').fill('4999');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('tgit-tickerbot-mapping-updated', { detail: { workspace: '3' } })));
+  assert.equal(await page.evaluate(() => window.fixtureRequests.length), previous);
+  await page.locator('[name=monthly_cap]').fill('5000');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('tgit-tickerbot-mapping-updated', { detail: { workspace: '3' } })));
+  await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
+  await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.fixtureRequests.at(-1).options.method), undefined);
   console.log('PASS Tickerbot readiness UI: stale workspace responses, owner visibility, safe text, read-only requests and recoverable errors.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack); process.exitCode = 1; });

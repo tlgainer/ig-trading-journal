@@ -137,9 +137,13 @@ final class TickerbotProvider implements QuoteProvider {
 	 * @param array  $asset Stable local identity only.
 	 * @param string $symbol Explicit candidate, never a fuzzy match.
 	 * @return array Mapping state; no provider row is stored.
+	 * @throws \InvalidArgumentException On an excessive search candidate.
 	 */
 	public function resolve( array $asset, string $symbol ): array {
 		TickerbotQuote::symbol( $symbol );
+		if ( strlen( $symbol ) > 64 ) {
+			throw new \InvalidArgumentException( 'Catalogue candidates must be at most 64 characters.' );
+		}
 		$class  = 'crypto' === ( $asset['asset_class'] ?? '' ) ? 'crypto' : 'stocks';
 		$result = $this->request(
 			'tickers',
@@ -161,6 +165,7 @@ final class TickerbotProvider implements QuoteProvider {
 		return array(
 			'state'           => count( $matches ) === 1 ? 'mapped' : ( $rows ? 'ambiguous' : 'unsupported' ),
 			'provider_symbol' => $symbol,
+			'identity'        => count( $matches ) === 1 ? array_intersect_key( reset( $matches ), array_flip( array( 'ticker', 'asset_class', 'asset_type', 'currency_name', 'exchange', 'exchange_mic' ) ) ) : null,
 		);
 	}
 

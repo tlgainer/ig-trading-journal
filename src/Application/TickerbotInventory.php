@@ -126,9 +126,10 @@ final class TickerbotInventory {
 	 * @return array Safe inventory entry.
 	 */
 	public static function entry( array $asset, ?array $mapping, array $origins ): array {
-		$supported = in_array( $asset['asset_class'], array( 'stock', 'etf', 'crypto' ), true ) && ( 'crypto' !== $asset['asset_class'] || 'USD' === $asset['quote_currency'] );
-		$current   = $mapping && (int) $mapping['workspace_id'] === (int) $asset['workspace_id'] && (int) $mapping['asset_id'] === (int) $asset['id'] && $mapping['asset_class'] === $asset['asset_class'] && $mapping['exchange'] === $asset['exchange'] && $mapping['currency'] === $asset['quote_currency'];
-		if ( $current && 'crypto' === $asset['asset_class'] && 'X:' . $asset['symbol'] . 'USD' !== $mapping['provider_symbol'] ) {
+		$supported       = in_array( $asset['asset_class'], array( 'stock', 'etf', 'crypto' ), true ) && ( 'crypto' !== $asset['asset_class'] || 'USD' === $asset['quote_currency'] );
+		$current         = $mapping && (int) $mapping['workspace_id'] === (int) $asset['workspace_id'] && (int) $mapping['asset_id'] === (int) $asset['id'] && $mapping['asset_class'] === $asset['asset_class'] && $mapping['exchange'] === $asset['exchange'] && $mapping['currency'] === $asset['quote_currency'];
+		$expected_symbol = 'crypto' === $asset['asset_class'] ? 'X:' . $asset['symbol'] . 'USD' : $asset['symbol'];
+		if ( $current && $expected_symbol !== $mapping['provider_symbol'] ) {
 			$current = false;
 		}
 		if ( $current ) {

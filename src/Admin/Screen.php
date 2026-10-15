@@ -44,6 +44,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot', plugins_url( 'assets/tickerbot.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot-mapping', plugins_url( 'assets/tickerbot-mapping.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-generation', plugins_url( 'assets/ai-generation.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -387,6 +388,16 @@ final class Screen {
 	<div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-test" disabled><?php esc_html_e( 'Test connection (one request)', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-new-test" hidden><?php esc_html_e( 'Start a separate test', 'ig-trading-journal' ); ?></button></div>
 	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
 	<div id="tgit-tickerbot-readiness"></div>
+	<details id="tgit-tickerbot-mapping"><summary><?php esc_html_e( 'Verify an asset mapping', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Choose a saved asset. Verify mapping sends one counted catalogue request and saves only an exact identity match. It does not request a price or confirm price coverage. Stocks and ETFs require the exact saved symbol, exchange and quote currency. Crypto currently requires a USD identity; other quote identities are unsupported by this adapter.', 'ig-trading-journal' ); ?></p>
+	<form id="tgit-tickerbot-mapping-form" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Saved asset', 'ig-trading-journal' ); ?><select name="asset_id" required></select></label>
+	<label><?php esc_html_e( 'Canonical provider candidate', 'ig-trading-journal' ); ?><input name="provider_symbol" readonly></label>
+	<button type="submit" class="button" id="tgit-tickerbot-map-save" disabled><?php esc_html_e( 'Verify mapping (one request)', 'ig-trading-journal' ); ?></button>
+	<button type="button" class="button" id="tgit-tickerbot-map-separate" hidden><?php esc_html_e( 'Start a separate verification', 'ig-trading-journal' ); ?></button>
+	</form>
+	<p id="tgit-tickerbot-map-status" role="status" aria-live="polite"></p><div id="tgit-tickerbot-map-current"></div>
+	</details>
 	</details>
 	<p><?php esc_html_e( 'Provider keys currently belong in wp-config.php on your server, before the line that loads WordPress. Ask your host to edit this file if needed. Keys are not entered into these forms or saved in journal notes.', 'ig-trading-journal' ); ?></p>
 	<details><summary><?php esc_html_e( 'FMP and Alpha Vantage configuration', 'ig-trading-journal' ); ?></summary>

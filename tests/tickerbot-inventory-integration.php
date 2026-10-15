@@ -12,6 +12,11 @@ function tbi_asset(int $workspace,string $symbol):int {
  return (int)$tracker->create_object($workspace,'assets',['symbol'=>$symbol,'exchange'=>'XNAS','asset_class'=>'stock','quote_currency'=>'USD'])['id'];
 }
 
+test('Tickerbot inventory flags old differing-symbol stock mappings for explicit review',function(){
+ $asset=['id'=>1,'workspace_id'=>1,'symbol'=>'AAPL','asset_class'=>'stock','exchange'=>'XNAS','quote_currency'=>'USD'];$mapping=['id'=>7,'workspace_id'=>1,'asset_id'=>1,'provider_symbol'=>'MSFT','asset_class'=>'stock','exchange'=>'XNAS','currency'=>'USD'];
+ equal(TickerbotInventory::entry($asset,$mapping,[])['state'],'needs_mapping');$mapping['provider_symbol']='AAPL';equal(TickerbotInventory::entry($asset,$mapping,[])['state'],'mapped');
+});
+
 test('Tickerbot saved scope is explicit revisioned owner scoped and follows planned state',function()use($db,$tracker,$owner,$viewer){
  [$s,$w,$scope,$now]=tbs_context();$asset=tbi_asset($w,'AAPL');$list=(int)$tracker->create_watchlist($w,['name'=>'Enabled ideas'],'scope-list')['id'];
  $tracker->add_watchlist_item($w,$list,['asset_id'=>$asset,'status'=>'sell'],'scope-item');

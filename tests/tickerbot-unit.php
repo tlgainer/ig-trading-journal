@@ -20,6 +20,7 @@ test('Tickerbot retains exact decimals and honest fair-value timestamps', functi
  $row=tb_row();$row['price_asof']=null;$quote=tb_parse(['ticker'=>'AAPL','data'=>$row],[tb_asset()])['accepted'][1];equal($quote['price_asof'],null);equal($quote['source_time_semantics'],'unknown');equal($quote['response_as_of'],null);
 });
 test('Tickerbot distinguishes crypto BTC from the BTC equity and rejects currency mismatch', function () {
+	 equal(TickerbotQuote::identity(tb_asset(),tb_row('MSFT'),'MSFT'),false);
  $asset=tb_asset(1,'BTC','crypto');$row=tb_row('BTC');equal(TickerbotQuote::identity($asset,$row,'BTC'),false);
  $row=array_replace(tb_row('X:BTCUSD'),['asset_class'=>'crypto','price_source'=>'exchange_rate']);equal(TickerbotQuote::identity($asset,$row,'X:BTCUSD'),true);
  $row['currency_name']='usdt';equal(TickerbotQuote::identity($asset,$row,'X:BTCUSD'),false);$row['currency_name']=null;equal(TickerbotQuote::identity($asset,$row,'X:BTCUSD'),false);

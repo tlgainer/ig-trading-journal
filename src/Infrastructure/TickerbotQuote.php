@@ -43,7 +43,7 @@ final class TickerbotQuote {
 		if ( 'crypto' === $class ) {
 			return 'crypto' === ( $row['asset_class'] ?? null ) && 'USD' === $asset['quote_currency'] && 'X:' . ( $asset['symbol'] ?? '' ) . 'USD' === $symbol;
 		}
-		if ( ! in_array( $class, array( 'stock', 'etf' ), true ) || 'stocks' !== ( $row['asset_class'] ?? null )
+		if ( ( $asset['symbol'] ?? null ) !== $symbol || ! in_array( $class, array( 'stock', 'etf' ), true ) || 'stocks' !== ( $row['asset_class'] ?? null )
 			|| ( 'etf' === $class ) !== ( 'ETF' === ( $row['asset_type'] ?? null ) ) ) {
 			return false;
 		}

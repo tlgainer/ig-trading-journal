@@ -69,6 +69,7 @@
   finally { if (expected === generation) { button.disabled = false; form.inert = !latest; controls(); } }
  }
  button.addEventListener('click', () => { if (!window.tgitWriteBusy && (!dirty() || confirm('Discard unsaved Tickerbot setup changes?'))) load(); });
+ window.addEventListener('tgit-tickerbot-mapping-updated', (event) => { if (workspace && event.detail.workspace === workspace && !dirty()) load(); });
  async function command(path, body, key) {
   const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/tickerbot/${path}`), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce, 'Content-Type': 'application/json', ...(key ? { 'Idempotency-Key': key } : {}) }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(result.message || config.i18n.network); return result.data;

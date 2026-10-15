@@ -93,6 +93,8 @@ final class Controller {
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
 		self::route( $base . '/tickerbot/connection', 'POST', 'tickerbot_connection' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'GET', 'tickerbot_mapping' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'POST', 'tickerbot_resolve' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
@@ -230,7 +232,19 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'tickerbot_settings' === $operation ) {
+			if ( in_array( $operation, array( 'tickerbot_mapping', 'tickerbot_resolve' ), true ) ) {
+				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$asset = (int) $request->get_url_params()['asset_id'];
+				if ( 'tickerbot_mapping' === $operation ) {
+					$result = $setup->mapping_current( $workspace, $asset );
+				} else {
+					Tracker::fields( $data, array( 'provider_symbol', 'expected_mapping_id' ), array( 'provider_symbol', 'expected_mapping_id' ) );
+					if ( ! is_string( $data['provider_symbol'] ) || ! is_int( $data['expected_mapping_id'] ) ) {
+						throw new \InvalidArgumentException( 'A canonical candidate and reviewed mapping ID are required.' );
+					}
+					$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotResolution::run( $setup, $workspace, $asset, $data['provider_symbol'], $data['expected_mapping_id'], (string) $request->get_header( 'idempotency-key' ) );
+				}
+			} elseif ( 'tickerbot_settings' === $operation ) {
 				Tracker::fields( $data, array( 'monthly_cap', 'interval_seconds', 'expected_revision' ), array( 'monthly_cap', 'interval_seconds', 'expected_revision' ) );
 				foreach ( $data as $value ) {
 					if ( ! is_int( $value ) ) {
