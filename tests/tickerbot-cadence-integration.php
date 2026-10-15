@@ -68,5 +68,5 @@ test('Tickerbot recurring hook recovers lost queued batches without page visits 
   wp_clear_scheduled_hook('tgit_tickerbot_batch',[$w,$id]);do_action('tgit_tickerbot_schedule_tick',$w);equal((bool)wp_next_scheduled('tgit_tickerbot_batch',[$w,$id]),true);do_action('tgit_tickerbot_batch',$w,$id);equal($calls,1);equal($s->latest_quote($w,$asset)['provider'],'tickerbot');do_action('tgit_tickerbot_schedule_tick',$w);equal($calls,1);
   $s->save_cadence($w,false,1);equal(RecurringTickerbot::queue($w),false);equal(wp_next_scheduled('tgit_tickerbot_schedule_tick',[$w]),false);do_action('tgit_tickerbot_schedule_tick',$w);equal($calls,1);$s->save_cadence($w,true,2);equal(RecurringTickerbot::queue($w),true);QuoteRefresh::deactivate();equal(wp_next_scheduled('tgit_tickerbot_schedule_tick',[$w]),false);
  }finally{wp_set_current_user($owner);remove_filter('pre_http_request',$fixture,10);wp_clear_scheduled_hook('tgit_tickerbot_batch',[$w,$id??0]);wp_clear_scheduled_hook('tgit_tickerbot_schedule_tick',[$w]);}
- update_option('tgit_schema_version','21');Installer::install();equal(get_option('tgit_schema_version'),'22');Installer::install();equal((int)$s->cadence($w)['revision'],3);
+ update_option('tgit_schema_version','21');Installer::install();equal(get_option('tgit_schema_version'),Installer::VERSION);Installer::install();equal((int)$s->cadence($w)['revision'],3);
 });

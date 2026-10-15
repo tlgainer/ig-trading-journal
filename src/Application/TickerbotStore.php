@@ -17,6 +17,7 @@ use GainerInteractive\IGTradingJournal\Domain\TickerbotSchedule;
 final class TickerbotStore {
 	use TickerbotDispatch;
 	use TickerbotCadence;
+	use TickerbotCapacity;
 
 	/**
 	 * Scoped persistence.
@@ -280,6 +281,9 @@ final class TickerbotStore {
 				$settings = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_settings' ) . ' WHERE workspace_id = %d FOR UPDATE', array( $workspace ) );
 				if ( $settings && (int) $settings['account_id'] !== (int) $account['id'] ) {
 					throw new \DomainException( 'Account regrouping requires reviewed migration; it cannot reset usage.' );
+				}
+				if ( $cap > 0 && $this->capacity_total( $account ) > $cap ) {
+					throw new \DomainException( 'Soft cap cannot underfund reserved recurring capacity; opt out or reduce enrolled scopes first.' );
 				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET monthly_cap = %d WHERE id = %d', array( $cap, $account['id'] ) );
 				if ( $clear_pause ) {
@@ -852,15 +856,19 @@ final class TickerbotStore {
 			function () use ( $workspace ): array {
 				$account = $this->account();
 				$this->settings( $workspace, $account );
-				$counts = $this->counts( $account );
+				$counts   = $this->counts( $account );
+				$capacity = $this->capacity_total( $account );
 				return array(
-					'period'          => $this->now->format( 'Y-m' ),
-					'attempts'        => $counts['monthly'],
-					'recent_attempts' => $counts['recent'],
-					'soft_cap'        => (int) $account['monthly_cap'],
-					'remaining'       => max( 0, (int) $account['monthly_cap'] - $counts['monthly'] ),
-					'warning'         => $counts['monthly'] * 5 >= (int) $account['monthly_cap'] * 4,
-					'paused_until'    => $account['paused_until'],
+					'period'                    => $this->now->format( 'Y-m' ),
+					'attempts'                  => $counts['monthly'],
+					'recent_attempts'           => $counts['recent'],
+					'soft_cap'                  => (int) $account['monthly_cap'],
+					'remaining'                 => max( 0, (int) $account['monthly_cap'] - $counts['monthly'] ),
+					'warning'                   => $counts['monthly'] * 5 >= (int) $account['monthly_cap'] * 4,
+					'projected_recurring_calls' => $capacity,
+					'projection_headroom'       => max( 0, (int) $account['monthly_cap'] - $capacity ),
+					'projection_over_cap'       => $capacity > (int) $account['monthly_cap'],
+					'paused_until'              => $account['paused_until'],
 				);
 			}
 		);

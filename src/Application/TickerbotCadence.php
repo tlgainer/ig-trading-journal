@@ -31,8 +31,8 @@ trait TickerbotCadence {
 				if ( $expected_revision < 0 || (int) ( $prior['revision'] ?? 0 ) !== $expected_revision ) {
 					throw new \UnexpectedValueException( 'Recurring enrollment changed; reload before saving.' );
 				}
-				$scope = $this->scope_selection( $workspace );
-				$id    = $this->db->insert(
+				$scope     = $this->scope_selection( $workspace );
+				$id        = $this->db->insert(
 					'tickerbot_cadences',
 					array(
 						'workspace_id'      => $workspace,
@@ -44,6 +44,8 @@ trait TickerbotCadence {
 						'created_at'        => $this->time(),
 					)
 				);
+				$inventory = $enabled ? $this->inventory( $workspace ) : null;
+				$this->write_capacity( $workspace, $account, $id, $inventory ? $inventory['projected_monthly_attempts'] : 0 );
 				$this->audit( $workspace, 'tickerbot.cadence.save', 'tickerbot_cadences', $id );
 				return array(
 					'id'       => $id,
@@ -80,6 +82,10 @@ trait TickerbotCadence {
 		$scope    = $this->scope_selection( $workspace );
 		if ( ! $current || (int) $current['id'] !== $cadence || 1 !== (int) $current['enabled'] || (int) $current['actor_id'] !== $this->actor || (int) $current['settings_revision'] !== (int) $settings['revision'] || (int) $current['scope_revision'] !== $scope['revision'] ) {
 			throw new \DomainException( 'Recurring enrollment is disabled, revoked or needs renewed review.' );
+		}
+		$capacity = $this->db->row( 'SELECT cadence_id,settings_revision,scope_revision FROM ' . $this->db->table( 'tickerbot_capacity' ) . ' WHERE workspace_id = %d AND account_id = %d', array( $workspace, $account['id'] ) );
+		if ( ! $capacity || (int) $capacity['cadence_id'] !== $cadence || (int) $capacity['settings_revision'] !== (int) $settings['revision'] || (int) $capacity['scope_revision'] !== $scope['revision'] ) {
+			throw new \DomainException( 'Recurring capacity needs renewed review.' );
 		}
 		return $settings;
 	}

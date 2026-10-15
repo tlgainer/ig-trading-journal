@@ -144,6 +144,7 @@ require __DIR__ . '/tickerbot-store-integration.php';
 require __DIR__ . '/tickerbot-inventory-integration.php';
 require __DIR__ . '/tickerbot-worker-integration.php';
 require __DIR__ . '/tickerbot-cadence-integration.php';
+require __DIR__ . '/tickerbot-capacity-integration.php';
 
 require __DIR__ . '/research-integration.php';
 require __DIR__ . '/report-integration.php';

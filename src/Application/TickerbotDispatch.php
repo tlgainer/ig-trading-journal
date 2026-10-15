@@ -24,7 +24,7 @@ trait TickerbotDispatch {
 			$workspace,
 			function () use ( $workspace, $run, $token ): int {
 				$account = $this->account();
-				$this->lease( $workspace, $run, $token, $account );
+				$current = $this->lease( $workspace, $run, $token, $account );
 				$this->guard_run_cadence( $workspace, $run, $account );
 				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id = %d AND run_id = %d', array( $workspace, $run ) );
 				if ( $prior ) {
@@ -32,7 +32,8 @@ trait TickerbotDispatch {
 				}
 				$settings  = $this->settings( $workspace, $account );
 				$inventory = $this->inventory( $workspace );
-				if ( $inventory['projected_monthly_attempts'] > (int) $account['monthly_cap'] ) {
+				$this->plan_capacity( $workspace, $account, $inventory, $run );
+				if ( 'scheduled' === $current['cause'] && $inventory['projected_monthly_attempts'] > (int) $account['monthly_cap'] ) {
 					throw new \DomainException( 'Eligible quote projection exceeds the account soft cap.' );
 				}
 				$id = $this->db->insert(
