@@ -2,7 +2,20 @@
 /** Tickerbot synthetic contracts; no HTTP, credentials or financial writes. */
 declare(strict_types=1);
 require_once __DIR__.'/../src/Infrastructure/TickerbotQuote.php';
+require_once __DIR__.'/../src/Infrastructure/TickerbotCoverageSummary.php';
 use GainerInteractive\IGTradingJournal\Infrastructure\TickerbotQuote;
+use GainerInteractive\IGTradingJournal\Infrastructure\TickerbotCoverageSummary;
+
+test('Tickerbot coverage retains only bounded counts null flags and response time without price inference',function(){
+ $body=['ticker'=>'AAPL','as_of'=>'2026-10-14T12:00:00Z','name'=>'synthetic-secret','measured_fields'=>['not-retained'],'live_row'=>['columns'=>'3','populated'=>'2','null_fields'=>['price'],'extra'=>'not-retained']];$summary=TickerbotCoverageSummary::parse($body,'AAPL');equal($summary,['columns'=>3,'populated'=>2,'price_null'=>true,'price_asof_null'=>false,'as_of'=>'2026-10-14 12:00:00.000000']);equal(TickerbotCoverageSummary::validate($summary),$summary);equal(str_contains(json_encode($summary),'secret'),false);
+ $body['as_of']=null;$body['live_row']=['columns'=>'0','populated'=>'0','null_fields'=>[]];equal(TickerbotCoverageSummary::parse($body,'AAPL')['as_of'],null);equal(TickerbotCoverageSummary::parse($body,'AAPL')['price_null'],false);
+});
+
+test('Tickerbot coverage rejects malformed counts null lists identity and timestamps',function(){
+ $body=['ticker'=>'AAPL','live_row'=>['columns'=>'2','populated'=>'1','null_fields'=>['price']]];
+ foreach([['ticker'=>'MSFT'],['as_of'=>'not-a-date'],['live_row'=>['columns'=>'2','populated'=>'3','null_fields'=>[]]],['live_row'=>['columns'=>'2','populated'=>'0','null_fields'=>['price','price']]],['live_row'=>['columns'=>'2','populated'=>'1','null_fields'=>['<script>']]],['live_row'=>['columns'=>'10001','populated'=>'10001','null_fields'=>[]]],['live_row'=>['columns'=>'2.0','populated'=>'1','null_fields'=>['price']]],['live_row'=>['columns'=>'2','populated'=>'1','null_fields'=>[]]]]as$patch){rejects(fn()=>TickerbotCoverageSummary::parse(array_replace($body,$patch),'AAPL'));}
+ rejects(fn()=>TickerbotCoverageSummary::validate(['columns'=>1,'populated'=>1,'price_null'=>true,'price_asof_null'=>false,'as_of'=>null]));
+});
 
 function tb_asset(int $id=1, string $symbol='AAPL', string $class='stock'): array {
  return ['id'=>$id,'symbol'=>$symbol,'asset_class'=>$class,'exchange'=>'XNAS','quote_currency'=>'USD','provider_symbol'=>$class==='crypto'?'X:'.$symbol.'USD':$symbol];

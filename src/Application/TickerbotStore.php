@@ -21,6 +21,7 @@ final class TickerbotStore {
 	use TickerbotReadiness;
 	use TickerbotConnection;
 	use TickerbotMapping;
+	use TickerbotCoverage;
 
 	/**
 	 * Scoped persistence.
@@ -371,7 +372,7 @@ final class TickerbotStore {
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
 	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0 ): array {
-		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
+		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution', 'coverage' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
 		return $this->atomic(
@@ -517,8 +518,12 @@ final class TickerbotStore {
 			function () use ( $workspace, $run, $token, $family, $symbols, $batch ): array {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
-				if ( in_array( $current['cause'], array( 'connection', 'resolution' ), true ) ) {
-					if ( ( 'connection' === $current['cause'] ? 'connection' : 'catalogue' ) !== $family || $batch ) {
+				if ( in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
+					if ( array(
+						'connection' => 'connection',
+						'resolution' => 'catalogue',
+						'coverage'   => 'coverage',
+					)[ $current['cause'] ] !== $family || $batch ) {
 						throw new \DomainException( 'Connection commands cannot dispatch other endpoint families.' );
 					}
 					$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d LIMIT 1 FOR UPDATE', array( $workspace, $run ) );
@@ -527,6 +532,9 @@ final class TickerbotStore {
 					}
 					if ( 'resolution' === $current['cause'] ) {
 						$this->guard_resolution( $workspace, $run );
+					}
+					if ( 'coverage' === $current['cause'] ) {
+						$this->guard_coverage( $workspace, $run );
 					}
 				}
 				if ( $batch ) {
@@ -707,7 +715,7 @@ final class TickerbotStore {
 						'completed_at' => $this->time(),
 					)
 				);
-				if ( ! in_array( $current['cause'], array( 'connection', 'resolution' ), true ) ) {
+				if ( ! in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
 					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'next_due_at' => TickerbotSchedule::next( $this->now, (int) $settings['interval_seconds'] ) ) );
 				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = NULL, active_workspace_id = NULL, lease_until = NULL WHERE id = %d', array( $account['id'] ) );

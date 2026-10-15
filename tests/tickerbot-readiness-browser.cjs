@@ -61,6 +61,10 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
   await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => window.fixtureRequests.at(-1).options.method), undefined);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('tgit-tickerbot-coverage-updated', { detail: { workspace: '3' } })));
+  await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
+  await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.fixtureRequests.at(-1).options.method), undefined);
   console.log('PASS Tickerbot readiness UI: stale workspace responses, owner visibility, safe text, read-only requests and recoverable errors.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack); process.exitCode = 1; });

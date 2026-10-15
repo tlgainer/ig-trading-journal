@@ -25,7 +25,7 @@ trait TickerbotDispatch {
 			function () use ( $workspace, $run, $token ): int {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
-				if ( in_array( $current['cause'], array( 'connection', 'resolution' ), true ) ) {
+				if ( in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
 					throw new \DomainException( 'Connection commands cannot prepare quote plans.' );
 				}
 				$this->guard_run_cadence( $workspace, $run, $account );

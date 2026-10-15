@@ -45,6 +45,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot', plugins_url( 'assets/tickerbot.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-mapping', plugins_url( 'assets/tickerbot-mapping.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot-coverage', plugins_url( 'assets/tickerbot-coverage.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-fundamentals', plugins_url( 'assets/fundamentals.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-generation', plugins_url( 'assets/ai-generation.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -397,6 +398,15 @@ final class Screen {
 	<button type="button" class="button" id="tgit-tickerbot-map-separate" hidden><?php esc_html_e( 'Start a separate verification', 'ig-trading-journal' ); ?></button>
 	</form>
 	<p id="tgit-tickerbot-map-status" role="status" aria-live="polite"></p><div id="tgit-tickerbot-map-current"></div>
+	</details>
+	<details id="tgit-tickerbot-coverage"><summary><?php esc_html_e( 'Check mapped asset coverage', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Coverage is a separate counted metadata request. A verified current mapping is required. Counts and null flags do not verify a usable price, market timestamp, real-time access or fundamentals. Reading saved coverage sends no provider request.', 'ig-trading-journal' ); ?></p>
+	<form id="tgit-tickerbot-coverage-form" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Saved asset', 'ig-trading-journal' ); ?><select name="asset_id" required></select></label>
+	<button type="submit" class="button" id="tgit-tickerbot-coverage-save" disabled><?php esc_html_e( 'Check coverage (one request)', 'ig-trading-journal' ); ?></button>
+	<button type="button" class="button" id="tgit-tickerbot-coverage-separate" hidden><?php esc_html_e( 'Start a separate coverage check', 'ig-trading-journal' ); ?></button>
+	</form>
+	<p id="tgit-tickerbot-coverage-status" role="status" aria-live="polite"></p><div id="tgit-tickerbot-coverage-current"></div>
 	</details>
 	</details>
 	<p><?php esc_html_e( 'Provider keys currently belong in wp-config.php on your server, before the line that loads WordPress. Ask your host to edit this file if needed. Keys are not entered into these forms or saved in journal notes.', 'ig-trading-journal' ); ?></p>

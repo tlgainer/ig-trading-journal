@@ -6,6 +6,7 @@ require_once __DIR__.'/../src/Domain/Decimal.php';
 require_once __DIR__.'/../src/Infrastructure/ProviderJson.php';
 require_once __DIR__.'/../src/Infrastructure/QuoteProvider.php';
 require_once __DIR__.'/../src/Infrastructure/TickerbotQuote.php';
+require_once __DIR__.'/../src/Infrastructure/TickerbotCoverageSummary.php';
 require_once __DIR__.'/../src/Infrastructure/TickerbotProvider.php';
 use GainerInteractive\IGTradingJournal\Infrastructure\TickerbotProvider;
 function is_wp_error($response): bool {return $response instanceof stdClass;}
@@ -35,7 +36,7 @@ tb_check($provider->test_connection()['state']==='connected');
 $catalogRow=['ticker'=>'AAPL','asset_class'=>'stocks','asset_type'=>'CS','currency_name'=>'usd','exchange'=>'NASDAQ','exchange_mic'=>'XNAS'];
 $p=new TickerbotProvider(static fn()=>true,static function($url)use($catalogRow){tb_check(str_contains($url,'/tickers?search=AAPL&asset_class=stocks&limit=50'));return ['status'=>200,'body'=>json_encode(['results'=>[$catalogRow]]),'headers'=>[]];});
 $asset=['id'=>1,'symbol'=>'AAPL','asset_class'=>'stock','quote_currency'=>'USD','exchange'=>'XNAS'];tb_check($p->resolve($asset,'AAPL')['state']==='mapped');
-$p=new TickerbotProvider(static fn()=>true,static fn()=>['status'=>200,'body'=>json_encode(['ticker'=>'AAPL','as_of'=>null,'live_row'=>['columns'=>1,'populated'=>1,'null_fields'=>[],'extra'=>'ignored']]),'headers'=>[]]);tb_check(!isset($p->coverage('AAPL')['live_row']['extra']));
+$p=new TickerbotProvider(static fn()=>true,static fn()=>['status'=>200,'body'=>json_encode(['ticker'=>'AAPL','as_of'=>null,'live_row'=>['columns'=>1,'populated'=>1,'null_fields'=>[],'extra'=>'ignored']]),'headers'=>[]]);$coverage=$p->coverage('AAPL');tb_check($coverage['state']==='covered'&&$coverage['summary']['columns']===1&&!isset($coverage['live_row']));
 $p=new TickerbotProvider(static fn()=>true,static fn()=>new stdClass());tb_check($p->test_connection()['state']==='transport_error');
 $p=new TickerbotProvider(static fn()=>true,static fn()=>['status'=>200,'body'=>'not-json-synthetic-secret','headers'=>[]]);tb_check($p->test_connection()['state']==='invalid_response');
 $before=count($calls);$duplicate=$assets[0];$duplicate['id']=999;$deduplicated=$provider->quotes([$assets[0],$duplicate]);tb_check(count($calls)===$before+1&&count($deduplicated['accepted'])===2);

@@ -95,6 +95,8 @@ final class Controller {
 		self::route( $base . '/tickerbot/connection', 'POST', 'tickerbot_connection' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'GET', 'tickerbot_mapping' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'POST', 'tickerbot_resolve' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-coverage', 'GET', 'tickerbot_coverage' );
+		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-coverage', 'POST', 'tickerbot_check_coverage' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
@@ -232,7 +234,18 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'tickerbot_mapping', 'tickerbot_resolve' ), true ) ) {
+			if ( in_array( $operation, array( 'tickerbot_coverage', 'tickerbot_check_coverage' ), true ) ) {
+				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$asset = (int) $request->get_url_params()['asset_id'];
+				if ( 'tickerbot_coverage' === $operation ) {
+					$result = $setup->coverage_current( $workspace, $asset );
+				} else {
+					Tracker::fields( $data, array( 'expected_mapping_id' ), array( 'expected_mapping_id' ) );
+					if ( ! is_int( $data['expected_mapping_id'] ) ) {
+						throw new \InvalidArgumentException( 'A reviewed mapping ID is required.' ); }
+					$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotCoverageCheck::run( $setup, $workspace, $asset, $data['expected_mapping_id'], (string) $request->get_header( 'idempotency-key' ) );
+				}
+			} elseif ( in_array( $operation, array( 'tickerbot_mapping', 'tickerbot_resolve' ), true ) ) {
 				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
 				$asset = (int) $request->get_url_params()['asset_id'];
 				if ( 'tickerbot_mapping' === $operation ) {

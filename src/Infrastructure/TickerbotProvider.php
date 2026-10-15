@@ -180,15 +180,14 @@ final class TickerbotProvider implements QuoteProvider {
 		if ( 'completed' !== $result['state'] ) {
 			return $result;
 		}
-		$body = $result['body'];
-		return ( $body['ticker'] ?? null ) === $symbol && is_array( $body['live_row'] ?? null )
-			? array(
-				'state'           => 'covered',
-				'provider_symbol' => $symbol,
-				'as_of'           => TickerbotQuote::timestamp( $body['as_of'] ?? null ),
-				'live_row'        => array_intersect_key( $body['live_row'], array_flip( array( 'columns', 'populated', 'null_fields' ) ) ),
-			)
-			: array( 'state' => 'invalid_response' );
+		try {
+			return array(
+				'state'   => 'covered',
+				'summary' => TickerbotCoverageSummary::parse( $result['body'], $symbol ),
+			);
+		} catch ( \Throwable $error ) {
+			return array( 'state' => 'invalid_response' );
+		}
 	}
 
 	/**
