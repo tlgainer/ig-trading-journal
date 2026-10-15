@@ -304,3 +304,8 @@ Market-data browser workflow passed owner mapping revisions, disabled providers,
 Verified test ZIP: output/ig-trading-journal-0.27.0-dev.12-test.zip, 107 files, all 18 migrations, 301628 bytes. SHA-256 59e0be306563eabcc40ffb88645c8a67728b3ac9f355041d28ddd3e01758902a. Integrity, exact packaged bytes, safe extraction and complete guide preservation passed. No schema change, external API traffic or production data/changes. Full hosting acceptance remains outstanding.
 
 Actual browser/REST workflow passed all six calculator forms, 1:3 displayed results, bought call/put premiums, optional stop omission, expiry isolation and 360/768/1440 responsive summaries without page errors. Owned test HTTP/database services stopped with fixture data retained.
+
+
+### October 14, 2026 - Tickerbot adapter foundation
+
+125 unit checks and isolated synthetic Tickerbot transport fixtures passed, including 51 symbols/two batches, shared canonical symbols, bearer/TLS/redirect bounds, admission denial, disabled/invalid-key gates, precision, partial batch retention, connection/catalogue/coverage parsing and safe 401/402/403/429 diagnostics/Retry-After. Composer coding standards, six REST URL checks, ten display checks and new PHP syntax passed. Initial fixture future-time handling and coding-standard annotations were repaired before the passing run. No new browser surfaces, SQL, actual provider traffic or release artifact. Existing WordPress/database/browser regression evidence remains dev.12; full integrated Tickerbot staging and plan AC acceptance remain pending before cutover.

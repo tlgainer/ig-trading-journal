@@ -222,5 +222,6 @@ test('Valuation excludes future observations and deterministically labels stale 
 require_once __DIR__ . '/provider-unit.php';
 require_once __DIR__ . '/fundamental-schedule-unit.php';
 require_once __DIR__ . '/risk-reward-unit.php';
+require_once __DIR__ . '/tickerbot-unit.php';
 
 echo "$passed tests passed.\n";
