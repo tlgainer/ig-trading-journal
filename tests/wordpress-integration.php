@@ -142,6 +142,7 @@ require __DIR__ . '/replay-integration.php';
 require __DIR__ . '/scenario-integration.php';
 require __DIR__ . '/tickerbot-store-integration.php';
 require __DIR__ . '/tickerbot-inventory-integration.php';
+require __DIR__ . '/tickerbot-worker-integration.php';
 
 require __DIR__ . '/research-integration.php';
 require __DIR__ . '/report-integration.php';

@@ -15,6 +15,8 @@ use GainerInteractive\IGTradingJournal\Domain\TickerbotSchedule;
 
 /** Shared account admission and fenced workspace operations. */
 final class TickerbotStore {
+	use TickerbotDispatch;
+
 	/**
 	 * Scoped persistence.
 	 *
@@ -470,10 +472,11 @@ final class TickerbotStore {
 	 * @param string $token Private lease.
 	 * @param string $family Endpoint family.
 	 * @param array  $symbols Exact canonical quote symbols.
+	 * @param int    $batch Optional durable batch, zero for counted setup operations.
 	 * @return array Admission or safe blocking reason.
 	 * @throws \InvalidArgumentException On unsupported family.
 	 */
-	public function reserve_attempt( int $workspace, int $run, string $token, string $family, array $symbols = array() ): array {
+	public function reserve_attempt( int $workspace, int $run, string $token, string $family, array $symbols = array(), int $batch = 0 ): array {
 		if ( ! in_array( $family, array( 'quotes', 'connection', 'catalogue', 'coverage', 'history', 'enrichment' ), true ) ) {
 			throw new \InvalidArgumentException( 'Unsupported Tickerbot endpoint family.' );
 		}
@@ -485,9 +488,26 @@ final class TickerbotStore {
 		}
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $run, $token, $family, $symbols ): array {
+			function () use ( $workspace, $run, $token, $family, $symbols, $batch ): array {
 				$account = $this->account();
 				$this->lease( $workspace, $run, $token, $account );
+				if ( $batch ) {
+					$row  = $this->db->object( 'tickerbot_batches', $workspace, $batch );
+					$busy = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id = %d AND run_id = %d AND state = %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'dispatching' ) );
+					if ( $busy ) {
+						return array( 'state' => 'in_flight' );
+					}
+					if ( 'quotes' !== $family || (int) $row['run_id'] !== $run || ! in_array( $row['state'], array( 'pending', 'waiting' ), true ) || 3 <= (int) $row['attempts'] || json_decode( $row['symbols_json'], true, 512, JSON_THROW_ON_ERROR ) !== $symbols ) {
+						throw new \DomainException( 'Batch is not eligible for this attempt.' );
+					}
+					if ( $row['next_due_at'] > $this->time() ) {
+						return array(
+							'state'       => 'waiting',
+							'next_due_at' => $row['next_due_at'],
+						);
+					}
+					$this->dispatch_inputs( $workspace, $row, $account );
+				}
 				$counts = $this->counts( $account );
 				if ( $account['paused_until'] && $account['paused_until'] > $this->time() ) {
 					return array(
@@ -516,6 +536,29 @@ final class TickerbotStore {
 						'created_at'   => $this->time(),
 					)
 				);
+				if ( $batch ) {
+					$ordinal = (int) $row['attempts'] + 1;
+					$this->db->update_object(
+						'tickerbot_batches',
+						$workspace,
+						$batch,
+						array(
+							'state'             => 'dispatching',
+							'attempts'          => $ordinal,
+							'active_attempt_id' => $id,
+						)
+					);
+					$this->db->insert(
+						'tickerbot_batch_attempts',
+						array(
+							'workspace_id' => $workspace,
+							'run_id'       => $run,
+							'batch_id'     => $batch,
+							'attempt_id'   => $id,
+							'ordinal'      => $ordinal,
+						)
+					);
+				}
 				$this->audit( $workspace, 'tickerbot.attempt.admit', 'tickerbot_attempts', $id );
 				return array(
 					'state'      => 'admitted',
@@ -535,16 +578,25 @@ final class TickerbotStore {
 	 * @param int      $attempt Attempt ID.
 	 * @param string   $state Safe adapter result.
 	 * @param int|null $retry_after Delay on rate limit.
+	 * @param array    $issues Selective normalized per-asset issue codes.
 	 * @return void
 	 * @throws \InvalidArgumentException On unsupported outcome/delay.
 	 */
-	public function finish_attempt( int $workspace, int $run, string $token, int $attempt, string $state, ?int $retry_after = null ): void {
+	public function finish_attempt( int $workspace, int $run, string $token, int $attempt, string $state, ?int $retry_after = null, array $issues = array() ): void {
 		if ( ! in_array( $state, array( 'completed', 'authentication', 'monthly_quota', 'capability', 'unsupported', 'rate_limit', 'provider_error', 'http_error', 'transport_error', 'invalid_response' ), true ) || ( null !== $retry_after && ( $retry_after < 1 || $retry_after > 2678400 ) ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot attempt outcome.' );
 		}
+		if ( count( $issues ) > 10000 || ( $issues && 'completed' !== $state ) ) {
+			throw new \InvalidArgumentException( 'Too many batch issues.' );
+		}
+		foreach ( $issues as $asset => $issue ) {
+			if ( ! is_int( $asset ) || $asset < 1 || ! in_array( $issue, array( 'unsupported', 'invalid_quote', 'identity_mismatch' ), true ) ) {
+				throw new \InvalidArgumentException( 'Invalid selective batch issue.' );
+			}
+		}
 		$this->atomic(
 			$workspace,
-			function () use ( $workspace, $run, $token, $attempt, $state, $retry_after ): void {
+			function () use ( $workspace, $run, $token, $attempt, $state, $retry_after, $issues ): void {
 				$account = $this->account();
 				$this->lease( $workspace, $run, $token, $account );
 				$row = $this->db->object( 'tickerbot_attempts', $workspace, $attempt );
@@ -577,6 +629,7 @@ final class TickerbotStore {
 				if ( null !== $until ) {
 					$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = %s WHERE id = %d', array( $until, $account['id'] ) );
 				}
+				$this->settle_dispatch( $workspace, $run, $attempt, $state, $issues );
 				$this->audit( $workspace, 'tickerbot.attempt.finish', 'tickerbot_attempts', $attempt );
 			}
 		);
@@ -601,9 +654,10 @@ final class TickerbotStore {
 			function () use ( $workspace, $run, $token, $state ): void {
 				$account = $this->account();
 				$this->lease( $workspace, $run, $token, $account );
-				$settings = $this->settings( $workspace, $account );
-				$pending  = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d AND state = %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'admitted' ) );
-				if ( 'completed' === $state && $pending ) {
+				$settings   = $this->settings( $workspace, $account );
+				$pending    = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d AND state = %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'admitted' ) );
+				$unfinished = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id = %d AND run_id = %d AND state <> %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'completed' ) );
+				if ( 'completed' === $state && ( $pending || $unfinished ) ) {
 					throw new \DomainException( 'An unfinished provider attempt cannot be reported as a completed run.' );
 				}
 				$this->db->update_object(
@@ -724,7 +778,8 @@ final class TickerbotStore {
 				$prior       = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_quote_receipts' ) . ' WHERE workspace_id = %d AND attempt_id = %d AND mapping_id = %d', array( $workspace, $attempt, $mapping ) );
 				if ( $prior ) {
 					$stored = $this->db->object( 'tickerbot_quotes', $workspace, (int) $prior['quote_id'] );
-					if ( $stored['fingerprint'] !== $fingerprint ) {
+					$times  = $this->db->row( 'SELECT response_as_of FROM ' . $this->db->table( 'tickerbot_receipt_times' ) . ' WHERE workspace_id = %d AND receipt_id = %d', array( $workspace, $prior['id'] ) );
+					if ( $stored['fingerprint'] !== $fingerprint || $prior['fetched_at'] !== $fetched || ( $times && $times['response_as_of'] !== $response_time ) ) {
 						throw new \DomainException( 'Attempt quote receipt is immutable.' );
 					}
 					return (int) $prior['quote_id'];
@@ -746,7 +801,7 @@ final class TickerbotStore {
 						'fetched_at'            => $fetched,
 					)
 				);
-				$this->db->insert(
+				$receipt  = $this->db->insert(
 					'tickerbot_quote_receipts',
 					array(
 						'workspace_id' => $workspace,
@@ -754,6 +809,14 @@ final class TickerbotStore {
 						'mapping_id'   => $mapping,
 						'quote_id'     => $id,
 						'fetched_at'   => $fetched,
+					)
+				);
+				$this->db->insert(
+					'tickerbot_receipt_times',
+					array(
+						'workspace_id'   => $workspace,
+						'receipt_id'     => $receipt,
+						'response_as_of' => $response_time,
 					)
 				);
 				$this->audit( $workspace, 'tickerbot.quote.accept', 'tickerbot_quotes', $id );
@@ -823,7 +886,8 @@ final class TickerbotStore {
 		$r   = $this->db->table( 'tickerbot_quote_receipts' );
 		$q   = $this->db->table( 'tickerbot_quotes' );
 		$a   = $this->db->table( 'assets' );
-		$row = $this->db->row( 'SELECT q.*, m.provider_symbol, m.asset_class, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $workspace, $asset ) );
+		$t   = $this->db->table( 'tickerbot_receipt_times' );
+		$row = $this->db->row( 'SELECT q.*, q.response_as_of AS first_response_as_of, t.response_as_of AS response_as_of, m.provider_symbol, m.asset_class, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id LEFT JOIN ' . $t . ' t ON t.workspace_id = r.workspace_id AND t.receipt_id = r.id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $workspace, $asset ) );
 		return $row ? array_merge( $row, array( 'provider' => 'tickerbot' ) ) : null;
 	}
 }

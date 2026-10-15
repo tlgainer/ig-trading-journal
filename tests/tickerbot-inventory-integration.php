@@ -51,5 +51,5 @@ test('Tickerbot scope audit failures roll back and migration 20 preserves revisi
  try{try{$s->select_scope($w,[],[],0);throw new LogicException('Audit failure accepted');}catch(RuntimeException $error){}}
  finally{$db->query('DROP TRIGGER '.$trigger);$wpdb->suppress_errors($prior);}
  equal($s->scope_selection($w)['revision'],0);$s->select_scope($w,[],[],0);$before=$s->scope_selection($w);
- update_option('tgit_schema_version','19');Installer::install();equal(get_option('tgit_schema_version'),'20');Installer::install();equal($s->scope_selection($w),$before);
+ update_option('tgit_schema_version','19');Installer::install();equal(get_option('tgit_schema_version'),Installer::VERSION);Installer::install();equal($s->scope_selection($w),$before);
 });
