@@ -14,7 +14,7 @@ function tbs_context(int $cap=8000,string $clock='2026-10-14T12:00:00Z'):array {
 function tbs_denied(callable $work):void {try{$work();}catch(DomainException|OutOfBoundsException|InvalidArgumentException $e){return;}throw new RuntimeException('Expected scoped operation to fail.');}
 
 test('Schema 19 upgrades from 18 and repeated install preserves account enrollment',function()use($db){
- [$s,$w]=tbs_context();$before=$s->usage($w);update_option('tgit_schema_version','18');Installer::install();equal(get_option('tgit_schema_version'),'19');Installer::install();equal($s->usage($w),$before);equal(count($db->rows('SELECT id FROM '.$db->table('tickerbot_policy_revisions').' WHERE workspace_id=%d',[$w])),1);
+ [$s,$w]=tbs_context();$before=$s->usage($w);update_option('tgit_schema_version','18');Installer::install();equal(get_option('tgit_schema_version'),Installer::VERSION);Installer::install();equal($s->usage($w),$before);equal(count($db->rows('SELECT id FROM '.$db->table('tickerbot_policy_revisions').' WHERE workspace_id=%d',[$w])),1);
 });
 test('Tickerbot shared budget counts failures, warns and suspends optional calls',function()use($tracker,$db,$owner,$viewer){
  [$s,$w,$scope,$now]=tbs_context(5);$other=(int)$tracker->create_workspace(['name'=>'Same account fixture'])['id'];$s->configure($other,5);

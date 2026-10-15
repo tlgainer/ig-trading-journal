@@ -146,6 +146,111 @@ final class TickerbotStore {
 	}
 
 	/**
+	 * Persist explicit tracking selections without enabling requests.
+	 *
+	 * @param int   $workspace Workspace ID.
+	 * @param array $watchlists Enabled watchlist IDs.
+	 * @param array $trades Individually opted-in planned trade IDs.
+	 * @param int   $expected_revision Last reviewed scope revision, zero initially.
+	 * @return array Committed revision and selections.
+	 * @throws \InvalidArgumentException On malformed IDs or non-planned trades.
+	 */
+	public function select_scope( int $workspace, array $watchlists, array $trades, int $expected_revision ): array {
+		foreach ( array( $watchlists, $trades ) as $ids ) {
+			if ( count( $ids ) > 10000 || $expected_revision < 0 ) {
+				throw new \InvalidArgumentException( 'Invalid Tickerbot inventory selection.' );
+			}
+			foreach ( $ids as $id ) {
+				if ( ! is_int( $id ) || $id < 1 ) {
+					throw new \InvalidArgumentException( 'Inventory selections require positive integer IDs.' );
+				}
+			}
+		}
+		$watchlists = array_values( array_unique( $watchlists ) );
+		$trades     = array_values( array_unique( $trades ) );
+		sort( $watchlists, SORT_NUMERIC );
+		sort( $trades, SORT_NUMERIC );
+		return $this->atomic(
+			$workspace,
+			function () use ( $workspace, $watchlists, $trades, $expected_revision ): array {
+				$account  = $this->account();
+				$settings = $this->db->row( 'SELECT account_id FROM ' . $this->db->table( 'tickerbot_settings' ) . ' WHERE workspace_id = %d FOR UPDATE', array( $workspace ) );
+				if ( ! $settings || (int) $settings['account_id'] !== (int) $account['id'] ) {
+					throw new \DomainException( 'Configure this workspace account before selecting inventory.' );
+				}
+				$current = $this->scope_selection( $workspace );
+				if ( $current['revision'] !== $expected_revision ) {
+					throw new \UnexpectedValueException( 'Inventory selection changed; reload before saving.' );
+				}
+				foreach ( $watchlists as $id ) {
+					$this->db->object( 'watchlists', $workspace, $id );
+				}
+				foreach ( $trades as $id ) {
+					$trade = $this->db->object( 'trades', $workspace, $id );
+					if ( 'planned' !== $trade['state'] ) {
+						throw new \InvalidArgumentException( 'Only explicitly selected planned trades can enroll.' );
+					}
+					$this->db->object( 'assets', $workspace, (int) $trade['asset_id'] );
+				}
+				$id = $this->db->insert(
+					'tickerbot_scope_revisions',
+					array(
+						'workspace_id'    => $workspace,
+						'revision'        => $expected_revision + 1,
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Exact numeric ID arrays; fail closed on encoding error.
+						'watchlists_json' => json_encode( $watchlists, JSON_THROW_ON_ERROR ),
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Exact numeric ID arrays; fail closed on encoding error.
+						'trades_json'     => json_encode( $trades, JSON_THROW_ON_ERROR ),
+						'actor_id'        => $this->actor,
+						'created_at'      => $this->time(),
+					)
+				);
+				$this->audit( $workspace, 'tickerbot.scope.select', 'tickerbot_scope_revisions', $id );
+				return array(
+					'revision'       => $expected_revision + 1,
+					'watchlists'     => $watchlists,
+					'trades'         => $trades,
+					'worker_enabled' => false,
+				);
+			}
+		);
+	}
+
+	/**
+	 * Read the latest explicit selection; missing selection means opt-out.
+	 *
+	 * @param int $workspace Workspace ID.
+	 * @return array Revision and local IDs only.
+	 */
+	public function scope_selection( int $workspace ): array {
+		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_manage_members' );
+		$row = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_scope_revisions' ) . ' WHERE workspace_id = %d ORDER BY revision DESC LIMIT 1', array( $workspace ) );
+		return array(
+			'revision'   => $row ? (int) $row['revision'] : 0,
+			'watchlists' => $row ? json_decode( $row['watchlists_json'], true, 512, JSON_THROW_ON_ERROR ) : array(),
+			'trades'     => $row ? json_decode( $row['trades_json'], true, 512, JSON_THROW_ON_ERROR ) : array(),
+		);
+	}
+
+	/**
+	 * Prepare inventory from saved opt-ins and the configured elapsed cadence.
+	 *
+	 * @param int $workspace Workspace ID.
+	 * @return array Complete local inventory, without external requests.
+	 * @throws \DomainException When the workspace has no matching enrollment.
+	 */
+	public function inventory( int $workspace ): array {
+		$selection = $this->scope_selection( $workspace );
+		$settings  = $this->db->row( 'SELECT s.interval_seconds FROM ' . $this->db->table( 'tickerbot_settings' ) . ' s INNER JOIN ' . $this->db->table( 'tickerbot_accounts' ) . ' a ON a.id = s.account_id WHERE s.workspace_id = %d AND a.scope_digest = %s', array( $workspace, $this->scope ) );
+		if ( ! $settings ) {
+			throw new \DomainException( 'Workspace is not enrolled in this account.' );
+		}
+		$inventory                   = TickerbotInventory::load( $this->db, $this->actor, $workspace, $selection['watchlists'], (int) $settings['interval_seconds'], $selection['trades'] );
+		$inventory['scope_revision'] = $selection['revision'];
+		return $inventory;
+	}
+
+	/**
 	 * Save owner enrollment without enabling any worker or external request.
 	 *
 	 * @param int  $workspace Workspace ID.

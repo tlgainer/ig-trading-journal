@@ -19,23 +19,31 @@ final class TickerbotInventory {
 	 * Load every eligible asset, independent of loaded-page UI filters.
 	 *
 	 * Watchlists are an explicit selection, not inferred from buy/sell/hold labels.
-	 * Planned trades remain excluded until a persisted opt-in is implemented.
+	 * Only individually opted-in trades still in planned state are included.
 	 *
 	 * @param Database $db Persistence.
 	 * @param int      $actor Authorizing owner.
 	 * @param int      $workspace Workspace.
 	 * @param array    $watchlists Explicit enabled watchlist IDs.
 	 * @param int      $interval Elapsed refresh seconds.
+	 * @param array    $trades Explicit planned-trade IDs.
 	 * @return array Inventory and conservative normal-cycle projection.
 	 * @throws \InvalidArgumentException On invalid scope selection.
 	 * @throws \RuntimeException When inventory exceeds the supported bound.
 	 */
-	public static function load( Database $db, int $actor, int $workspace, array $watchlists = array(), int $interval = 7200 ): array {
+	public static function load( Database $db, int $actor, int $workspace, array $watchlists = array(), int $interval = 7200, array $trades = array() ): array {
 		$tracker = new Tracker( $db, $actor, 'tickerbot-inventory' );
 		$tracker->authorize( $workspace, 'tgit_manage_members' );
 		TickerbotSchedule::projected( 0, $interval );
-		if ( count( $watchlists ) > 10000 ) {
+		if ( count( $watchlists ) > 10000 || count( $trades ) > 10000 ) {
 			throw new \InvalidArgumentException( 'Too many enabled watchlists.' );
+		}
+		foreach ( array( $watchlists, $trades ) as $ids ) {
+			foreach ( $ids as $id ) {
+				if ( ! is_int( $id ) || $id < 1 ) {
+					throw new \InvalidArgumentException( 'Inventory selections require positive integer IDs.' );
+				}
+			}
 		}
 		$eligible = array();
 		$cursor   = 0;
@@ -62,6 +70,12 @@ final class TickerbotInventory {
 				$cursor = count( $items ) === 100 ? (int) end( $items )['id'] : 0;
 			} while ( $cursor );
 		}
+		foreach ( array_unique( $trades ) as $id ) {
+			$trade = $db->object( 'trades', $workspace, $id );
+			if ( 'planned' === $trade['state'] ) {
+				$eligible[ (int) $trade['asset_id'] ]['planned_trade'] = true;
+			}
+		}
 		if ( count( $eligible ) > 10000 ) {
 			throw new \RuntimeException( 'Tickerbot inventory exceeds the supported scope; no partial refresh is permitted.' );
 		}
@@ -84,7 +98,9 @@ final class TickerbotInventory {
 	 */
 	public static function plan( array $rows, int $interval = 7200 ): array {
 		$symbols = array();
+		$planned = false;
 		foreach ( $rows as $row ) {
+			$planned = $planned || in_array( 'planned_trade', $row['origins'] ?? array(), true );
 			if ( 'mapped' === $row['state'] ) {
 				$symbols[] = $row['provider_symbol'];
 			}
@@ -97,7 +113,7 @@ final class TickerbotInventory {
 			'batches'                    => array_chunk( $symbols, 50 ),
 			'projected_monthly_attempts' => TickerbotSchedule::projected( count( $symbols ), $interval ),
 			'complete'                   => true,
-			'planned_trades_included'    => false,
+			'planned_trades_included'    => $planned,
 		);
 	}
 

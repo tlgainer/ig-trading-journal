@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.13/schema 19** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.14/schema 20** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -426,4 +426,4 @@ The result shows estimated loss at stop, potential net reward at the target and 
 
 Entered fee/cost totals apply equally to either hypothetical exit; they increase stop loss and reduce target reward. The short sizing calculator reuses its entered stop-cost estimate at the target. Long sizing has no cost input. If costs erase the target profit, the ratio is unavailable. Invalid stop/target directions are rejected. Stops do not guarantee execution; gaps, slippage and liquidation can increase losses. Leverage changes exposure, not a fee-free ratio for identical price levels. Scenarios never open positions or change the ledger.
 
-Tickerbot source now includes an internal durable storage migration (schema 19). No new installable ZIP or Tickerbot UI is provided yet. Keep Tickerbot disabled; the existing dev.12 ZIP remains schema 18. Source installers must back up the database/private media and explicitly reactivate to apply migration 019. See tickerbot-implementation.md for progress.
+Tickerbot source now includes an internal durable storage and explicit inventory selections (schema 20). No new installable ZIP or Tickerbot UI is provided yet. Keep Tickerbot disabled; the existing dev.12 ZIP remains schema 18. Source installers must back up the database/private media and explicitly reactivate to apply bundled migrations 019 and 020. See tickerbot-implementation.md for progress.

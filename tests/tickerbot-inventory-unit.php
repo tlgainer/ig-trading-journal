@@ -25,3 +25,8 @@ test('Tickerbot inventory deduplicates canonical batches without losing local in
  $plan=TickerbotInventory::plan($rows);equal(count($plan['items']),53);equal(count($plan['symbols']),51);equal(array_map('count',$plan['batches']),[50,1]);equal($plan['projected_monthly_attempts'],744);equal($plan['planned_trades_included'],false);
  equal(TickerbotInventory::plan([])['batches'],[]);rejects(fn()=>TickerbotInventory::plan([],60));
 });
+
+test('Tickerbot inventory reports planned eligibility only for explicitly supplied origins',function(){
+ equal(TickerbotInventory::plan([['state'=>'needs_mapping','origins'=>['planned_trade']]])['planned_trades_included'],true);
+ equal(TickerbotInventory::plan([['state'=>'unsupported','origins'=>['watchlist']]])['planned_trades_included'],false);
+});

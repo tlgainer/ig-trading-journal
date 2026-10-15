@@ -75,4 +75,4 @@ October 8, 2026: latest installation test artifact is 0.27.0-dev.6/schema 18, in
 
 October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinct catalogue IDs for repeated symbols. Select Crypto before searching. Confirm network, exchange and currency; no schema change. See asset-typeahead.md.
 
-Tickerbot work in development source 0.27.0-dev.13/schema 19 adds internal storage/quota controls; active pricing and the last dev.12/schema-18 test ZIP remain unchanged. See docs/tickerbot-implementation.md. No cutover build yet.
+Tickerbot work in development source 0.27.0-dev.14/schema 20 adds internal storage/quota controls and explicit inventory selections; active pricing and the last dev.12/schema-18 test ZIP remain unchanged. See docs/tickerbot-implementation.md. No cutover build yet.

@@ -120,3 +120,5 @@ October 14, 2026 - Tickerbot Stage A/B foundation: documented current provider c
 
 
 October 14, 2026 - Tickerbot C1, dev.13/schema 19: added separate additive migration 019, trusted account-scope budget/rolling-minute controls, lease-fenced run state, cooldown/due times, durable error pauses, verified immutable mapping revisions, deduplicated marks and attempt receipts, policy history and scoped cached reads. No Tickerbot worker/owner UI or default cutover yet. See tickerbot-implementation.md; active pricing remains unchanged and all server Tickerbot switches stay off.
+
+October 14, 2026 - Tickerbot C2b, dev.14/schema 20: added separate migration 020 for append-only owner inventory selections. Workspace-scoped enrollment explicitly selects watchlists and individual planned trades, checks reviewed revisions and audits atomically. Inventory includes only positive holdings and selected trades still planned, traverses all pages, deduplicates canonical batches and uses configured cadence. No worker, owner UI, HTTP, active-provider switch or ZIP yet. See tickerbot-implementation.md for verification and remaining cutover gates.
