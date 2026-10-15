@@ -447,3 +447,6 @@ October 11, 2026 - dev.12: Added optional risk-to-reward to all six scenario cal
 
 
 October 14, 2026 - Tickerbot Stage A/B foundation: documented current provider calls/cadence and future schema/valuation changes in tickerbot-implementation.md. Added disabled provider interface/adapter with mandatory per-attempt admission boundary, bounded bearer transport, exact catalogue identity, coverage, fifty-symbol batching, decimal mark parsing and honest source-time semantics. Synthetic tests distinguish BTC equity/crypto, invalid/currency-mismatched marks, partial batches and safe errors. Durable quota/scheduler/persistence, owner UI, production inventory/live verification and default cutover remain pending; no schema/version/ZIP or active-provider change.
+
+
+October 14, 2026 - Tickerbot C1, dev.13/schema 19: added separate additive migration 019, trusted account-scope budget/rolling-minute controls, lease-fenced run state, cooldown/due times, durable error pauses, verified immutable mapping revisions, deduplicated marks and attempt receipts, policy history and scoped cached reads. No Tickerbot worker/owner UI or default cutover yet. See tickerbot-implementation.md; active pricing remains unchanged and all server Tickerbot switches stay off.
