@@ -25,6 +25,9 @@ trait TickerbotDispatch {
 			function () use ( $workspace, $run, $token ): int {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
+				if ( 'connection' === $current['cause'] ) {
+					throw new \DomainException( 'Connection commands cannot prepare quote plans.' );
+				}
 				$this->guard_run_cadence( $workspace, $run, $account );
 				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id = %d AND run_id = %d', array( $workspace, $run ) );
 				if ( $prior ) {

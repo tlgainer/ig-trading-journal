@@ -48,7 +48,7 @@ test('Tickerbot one-off manual refresh uses actual admission rather than a recur
 });
 
 test('Tickerbot legacy cadence requires explicit capacity review and migration 23 preserves claims',function()use($db,$owner){
- [$s,$w,$scope,$now]=tbs_context();$legacy=$db->insert('tickerbot_cadences',['workspace_id'=>$w,'revision'=>1,'enabled'=>1,'actor_id'=>$owner,'settings_revision'=>1,'scope_revision'=>0,'created_at'=>$now->format('Y-m-d H:i:s')]);update_option('tgit_schema_version','22');Installer::install();equal(get_option('tgit_schema_version'),'23');
+ [$s,$w,$scope,$now]=tbs_context();$legacy=$db->insert('tickerbot_cadences',['workspace_id'=>$w,'revision'=>1,'enabled'=>1,'actor_id'=>$owner,'settings_revision'=>1,'scope_revision'=>0,'created_at'=>$now->format('Y-m-d H:i:s')]);update_option('tgit_schema_version','22');Installer::install();equal(get_option('tgit_schema_version'),Installer::VERSION);
  tbs_denied(fn()=>$s->cadence_tick($w,$legacy));equal($s->usage($w)['projected_recurring_calls'],0);$s->save_cadence($w,true,1);equal($s->cadence_tick($w,(int)$s->cadence($w)['id'])['state'],'not_due');$before=$s->usage($w);Installer::install();equal($s->usage($w),$before);
 });
 

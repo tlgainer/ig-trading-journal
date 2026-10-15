@@ -374,10 +374,17 @@ final class Screen {
 	<section id="tgit-api-setup">
 	<h2><?php esc_html_e( 'API setup', 'ig-trading-journal' ); ?></h2>
 	<details id="tgit-tickerbot-setup" hidden><summary><?php esc_html_e( 'Tickerbot setup and progress', 'ig-trading-journal' ); ?></summary>
-	<p><?php esc_html_e( 'Read-only preparation. Reloading this status sends no provider request and does not enable pricing or schedules. Connection testing, mapping controls and pricing cutover are still pending.', 'ig-trading-journal' ); ?></p>
-	<p><?php esc_html_e( 'Keep the API key and stable account reference on the server. Keys from the same provider account must share the same account reference, including after key rotation. Keep all three processing switches off during preparation.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Reload saved status reads local evidence only. Save setup records local settings without enabling schedules. Test connection sends one counted request for the fixed AAPL access probe; it does not fetch holdings or verify their coverage.', 'ig-trading-journal' ); ?></p>
+	<p><?php esc_html_e( 'Keep the API key and stable account reference on the server. Keys from the same provider account must share the same reference after key rotation. Keep all switches off while preparing. In verified staging, enable only the transport switch for explicit connection tests; keep worker and scheduler off until mapping and cutover acceptance.', 'ig-trading-journal' ); ?></p>
 	<pre><?php echo esc_html( "define('TGIT_TICKERBOT_API_KEY', 'YOUR_TICKERBOT_KEY');\ndefine('TGIT_TICKERBOT_ACCOUNT_SCOPE', 'YOUR_STABLE_ACCOUNT_REFERENCE');\ndefine('TGIT_TICKERBOT_ENABLED', false);\ndefine('TGIT_TICKERBOT_WORKER_ENABLED', false);\ndefine('TGIT_TICKERBOT_SCHEDULER_ENABLED', false);" ); ?></pre>
 	<button type="button" class="button" id="tgit-tickerbot-reload"><?php esc_html_e( 'Reload saved status', 'ig-trading-journal' ); ?></button>
+	<form id="tgit-tickerbot-form" class="tgit-form tgit-grid">
+	<label><?php esc_html_e( 'Shared monthly request soft cap', 'ig-trading-journal' ); ?><input name="monthly_cap" type="number" min="0" max="10000" step="1" value="8000" required></label>
+	<label><?php esc_html_e( 'Prepared refresh interval', 'ig-trading-journal' ); ?><select name="interval_seconds"><option value="3600"><?php esc_html_e( 'Hourly', 'ig-trading-journal' ); ?></option><option value="7200" selected><?php esc_html_e( 'Every two hours', 'ig-trading-journal' ); ?></option><option value="86400"><?php esc_html_e( 'Daily', 'ig-trading-journal' ); ?></option></select></label>
+	<p><?php esc_html_e( 'Only the controlling workspace can change the shared cap. Zero pauses requests. Saving does not opt in to recurring work or clear a provider pause. Changing saved settings requires renewed recurring review.', 'ig-trading-journal' ); ?></p>
+	<button type="submit" class="button" id="tgit-tickerbot-save"><?php esc_html_e( 'Save local setup', 'ig-trading-journal' ); ?></button>
+	</form>
+	<div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-test" disabled><?php esc_html_e( 'Test connection (one request)', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-new-test" hidden><?php esc_html_e( 'Start a separate test', 'ig-trading-journal' ); ?></button></div>
 	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
 	<div id="tgit-tickerbot-readiness"></div>
 	</details>

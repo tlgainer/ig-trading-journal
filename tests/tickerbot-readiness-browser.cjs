@@ -6,7 +6,7 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
  const browser = await chromium.launch({ executablePath: process.env.TGIT_CHROME_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
  try {
   const page = await browser.newPage();
-  await page.setContent('<details open id="tgit-tickerbot-setup" hidden><summary>Tickerbot setup and progress</summary><button id="tgit-tickerbot-reload">Reload saved status</button><p id="tgit-tickerbot-status" role="status"></p><div id="tgit-tickerbot-readiness"></div></details>');
+  await page.setContent('<select id="tgit-workspace"></select><div id="tgit-tabs"></div><details open id="tgit-tickerbot-setup" hidden><summary>Tickerbot setup and progress</summary><button id="tgit-tickerbot-reload">Reload saved status</button><form id="tgit-tickerbot-form"><input name="monthly_cap" value="8000"><select name="interval_seconds"><option value="7200">Two hours</option></select><button id="tgit-tickerbot-save">Save</button></form><button id="tgit-tickerbot-test">Test</button><button id="tgit-tickerbot-new-test">Separate</button><p id="tgit-tickerbot-status" role="status"></p><div id="tgit-tickerbot-readiness"></div></details>');
   await page.addStyleTag({ path: 'assets/admin.css' });
   await page.evaluate(() => {
    window.tgitConfig = { root: 'https://fixture.invalid/', nonce: 'synthetic', i18n: { network: 'Unavailable' } };
@@ -34,6 +34,24 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   await change('owner', '3'); await page.evaluate(() => window.fixturePending.shift()({ ok: false, json: async () => ({ message: 'Synthetic permission denied' }) }));
   await page.getByRole('alert').getByText('Synthetic permission denied', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Reload saved status' }).isEnabled(), true);
+  const ready = { credential_configured: true, account_scope_configured: true, transport_enabled: true, saved: { enrolled: true, settings_revision: 1, can_manage_budget: true, soft_cap: 8000, interval_seconds: 7200, recurring_review: 'off', period: '2026-10', attempts: 0, projected_recurring_calls: 0 } };
+  await page.getByRole('button', { name: 'Reload saved status' }).click(); await respond(ready);
+  await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  await page.locator('[name=monthly_cap]').fill('5000'); await page.locator('#tgit-tickerbot-save').click();
+  await page.waitForFunction(() => window.fixturePending.length === 1); await respond({ id: 1 });
+  await page.waitForFunction(() => window.fixturePending.length === 1); ready.saved.soft_cap = 5000; ready.saved.settings_revision = 2; await respond(ready);
+  await page.getByText('Local setup saved. No provider request or recurring enrollment was created.', { exact: true }).waitFor();
+  const policy = await page.evaluate(() => window.fixtureRequests.find((row) => row.url.endsWith('/tickerbot/settings')));
+  assert.deepEqual(JSON.parse(policy.options.body), { monthly_cap: 5000, interval_seconds: 7200, expected_revision: 1 });
+  await page.evaluate(() => { if (!crypto.randomUUID) crypto.randomUUID = () => '11111111-1111-4111-8111-111111111111'; });
+  await page.getByRole('button', { name: 'Test connection (one request)', exact: true }).click(); await respond({ state: 'uncertain' });
+  await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
+  await page.getByRole('button', { name: 'Check connection test outcome', exact: true }).waitFor();
+  await page.waitForFunction(() => !window.tgitWriteBusy); await page.getByRole('button', { name: 'Check connection test outcome', exact: true }).click(); await respond({ state: 'connected', checked_at: '2026-10-15 12:00:00' });
+  await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready); await page.waitForFunction(() => !window.tgitWriteBusy);
+  const tests = await page.evaluate(() => window.fixtureRequests.filter((row) => row.url.endsWith('/tickerbot/connection')));
+  assert.equal(tests.length, 2); assert(tests[0].options.headers['Idempotency-Key']); assert.equal(tests[0].options.headers['Idempotency-Key'], tests[1].options.headers['Idempotency-Key']);
+  assert.equal(await page.getByRole('button', { name: 'Test connection (one request)', exact: true }).isEnabled(), true);
   console.log('PASS Tickerbot readiness UI: stale workspace responses, owner visibility, safe text, read-only requests and recoverable errors.');
  } finally { await browser.close(); }
 })().catch((error) => { console.error(error.stack); process.exitCode = 1; });

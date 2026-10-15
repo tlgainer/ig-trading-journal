@@ -19,6 +19,7 @@ final class TickerbotStore {
 	use TickerbotCadence;
 	use TickerbotCapacity;
 	use TickerbotReadiness;
+	use TickerbotConnection;
 
 	/**
 	 * Scoped persistence.
@@ -258,28 +259,32 @@ final class TickerbotStore {
 	/**
 	 * Save owner enrollment without enabling any worker or external request.
 	 *
-	 * @param int  $workspace Workspace ID.
-	 * @param int  $cap Account monthly soft cap, zero pauses admission.
-	 * @param int  $interval Elapsed seconds.
-	 * @param int  $symbols Projected unique eligible symbols.
-	 * @param bool $clear_pause Explicit operator intervention, controller only.
+	 * @param int      $workspace Workspace ID.
+	 * @param int      $cap Account monthly soft cap, zero pauses admission.
+	 * @param int      $interval Elapsed seconds.
+	 * @param int      $symbols Projected unique eligible symbols.
+	 * @param bool     $clear_pause Explicit operator intervention, controller only.
+	 * @param int|null $expected_revision Reviewed revision for owner setup commands.
 	 * @return array Safe enrollment/projection.
 	 * @throws \InvalidArgumentException On invalid limits or projection.
 	 */
-	public function configure( int $workspace, int $cap = 8000, int $interval = 7200, int $symbols = 0, bool $clear_pause = false ): array {
+	public function configure( int $workspace, int $cap = 8000, int $interval = 7200, int $symbols = 0, bool $clear_pause = false, ?int $expected_revision = null ): array {
 		$projection = TickerbotSchedule::projected( $symbols, $interval );
 		if ( $cap < 0 || $cap > 10000 || ( $cap > 0 && $projection > $cap ) ) {
 			throw new \InvalidArgumentException( 'Projected quote calls exceed the selected soft cap or free-tier maximum.' );
 		}
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $cap, $interval, $projection, $clear_pause ): array {
+			function () use ( $workspace, $cap, $interval, $projection, $clear_pause, $expected_revision ): array {
 				$this->db->query( 'INSERT IGNORE INTO ' . $this->db->table( 'tickerbot_accounts' ) . ' (scope_digest,controller_workspace_id,monthly_cap) VALUES (%s,%d,%d)', array( $this->scope, $workspace, $cap ) );
 				$account = $this->account();
 				if ( (int) $account['controller_workspace_id'] !== $workspace && ( $cap !== (int) $account['monthly_cap'] || $clear_pause ) ) {
 					throw new \DomainException( 'Only the controlling workspace can change the shared account budget or pause.' );
 				}
 				$settings = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_settings' ) . ' WHERE workspace_id = %d FOR UPDATE', array( $workspace ) );
+				if ( null !== $expected_revision && ( $expected_revision < 0 || (int) ( $settings['revision'] ?? 0 ) !== $expected_revision ) ) {
+					throw new \UnexpectedValueException( 'Tickerbot settings changed; reload before saving.' );
+				}
 				if ( $settings && (int) $settings['account_id'] !== (int) $account['id'] ) {
 					throw new \DomainException( 'Account regrouping requires reviewed migration; it cannot reset usage.' );
 				}
@@ -365,7 +370,7 @@ final class TickerbotStore {
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
 	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0 ): array {
-		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
+		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
 		return $this->atomic(
@@ -392,7 +397,7 @@ final class TickerbotStore {
 						'run_id' => (int) $account['active_run_id'],
 					) : array( 'state' => 'busy' );
 				}
-				if ( 'manual' === $cause && $settings['last_manual_at'] && $settings['last_manual_at'] > $this->now->modify( '-5 minutes' )->format( 'Y-m-d H:i:s' ) ) {
+				if ( 'scheduled' !== $cause && $settings['last_manual_at'] && $settings['last_manual_at'] > $this->now->modify( '-5 minutes' )->format( 'Y-m-d H:i:s' ) ) {
 					return array( 'state' => 'cooldown' );
 				}
 				if ( 'scheduled' === $cause && $settings['next_due_at'] > $this->time() ) {
@@ -416,7 +421,7 @@ final class TickerbotStore {
 					)
 				);
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = %d, active_workspace_id = %d, lease_until = %s WHERE id = %d', array( $id, $workspace, $until, $account['id'] ) );
-				if ( 'manual' === $cause ) {
+				if ( 'scheduled' !== $cause ) {
 					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'last_manual_at' => $this->time() ) );
 				}
 				if ( $cadence ) {
@@ -510,7 +515,16 @@ final class TickerbotStore {
 			$workspace,
 			function () use ( $workspace, $run, $token, $family, $symbols, $batch ): array {
 				$account = $this->account();
-				$this->lease( $workspace, $run, $token, $account );
+				$current = $this->lease( $workspace, $run, $token, $account );
+				if ( 'connection' === $current['cause'] ) {
+					if ( 'connection' !== $family || $batch ) {
+						throw new \DomainException( 'Connection commands cannot dispatch other endpoint families.' );
+					}
+					$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d LIMIT 1 FOR UPDATE', array( $workspace, $run ) );
+					if ( $prior ) {
+						return array( 'state' => 'in_flight' );
+					}
+				}
 				if ( $batch ) {
 					$row  = $this->db->object( 'tickerbot_batches', $workspace, $batch );
 					$busy = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id = %d AND run_id = %d AND state = %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'dispatching' ) );
@@ -672,8 +686,8 @@ final class TickerbotStore {
 		$this->atomic(
 			$workspace,
 			function () use ( $workspace, $run, $token, $state ): void {
-				$account = $this->account();
-				$this->lease( $workspace, $run, $token, $account );
+				$account    = $this->account();
+				$current    = $this->lease( $workspace, $run, $token, $account );
 				$settings   = $this->settings( $workspace, $account );
 				$pending    = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_attempts' ) . ' WHERE workspace_id = %d AND run_id = %d AND state = %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'admitted' ) );
 				$unfinished = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id = %d AND run_id = %d AND state <> %s LIMIT 1 FOR UPDATE', array( $workspace, $run, 'completed' ) );
@@ -689,7 +703,9 @@ final class TickerbotStore {
 						'completed_at' => $this->time(),
 					)
 				);
-				$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'next_due_at' => TickerbotSchedule::next( $this->now, (int) $settings['interval_seconds'] ) ) );
+				if ( 'connection' !== $current['cause'] ) {
+					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'next_due_at' => TickerbotSchedule::next( $this->now, (int) $settings['interval_seconds'] ) ) );
+				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = NULL, active_workspace_id = NULL, lease_until = NULL WHERE id = %d', array( $account['id'] ) );
 				$this->audit( $workspace, 'tickerbot.run.finish', 'tickerbot_runs', $run );
 			}

@@ -91,6 +91,8 @@ final class Controller {
 		self::route( $base . '/ai-reviews/(?P<review>[1-9][0-9]*)', 'GET', 'ai_review_read' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
+		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
+		self::route( $base . '/tickerbot/connection', 'POST', 'tickerbot_connection' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamentals', 'GET', 'fundamentals' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/fundamental-metrics', 'POST', 'fundamental_metrics' );
 		self::route( $base . '/provider-mappings/(?P<mapping>[1-9][0-9]*)/fundamentals/refresh', 'POST', 'refresh_fundamentals' );
@@ -228,7 +230,20 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'tickerbot_status' === $operation ) {
+			if ( 'tickerbot_settings' === $operation ) {
+				Tracker::fields( $data, array( 'monthly_cap', 'interval_seconds', 'expected_revision' ), array( 'monthly_cap', 'interval_seconds', 'expected_revision' ) );
+				foreach ( $data as $value ) {
+					if ( ! is_int( $value ) ) {
+						throw new \InvalidArgumentException( 'Tickerbot settings require integer values.' );
+					}
+				}
+				$setup  = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$result = $setup->configure( $workspace, $data['monthly_cap'], $data['interval_seconds'], 0, false, $data['expected_revision'] );
+			} elseif ( 'tickerbot_connection' === $operation ) {
+				Tracker::fields( $data, array(), array() );
+				$setup  = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotConnectionCheck::run( $setup, $workspace, (string) $request->get_header( 'idempotency-key' ) );
+			} elseif ( 'tickerbot_status' === $operation ) {
 				$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::status( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
 			} elseif ( 'coin_catalog' === $operation ) {
 				$service->authorize( $workspace, 'tgit_view' );
