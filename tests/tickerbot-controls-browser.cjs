@@ -1,0 +1,33 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/node_modules/playwright-core');
+(async () => {
+ const browser = await chromium.launch({ executablePath: process.env.TGIT_CHROME_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+ try {
+  const page = await browser.newPage();
+  await page.setContent('<div class="tgit"><select id="tgit-workspace"></select><div id="tgit-tabs"></div><details open id="tgit-tickerbot-controls" hidden><summary>Assets and recurring refresh</summary><button id="tgit-tickerbot-controls-reload">Reload asset selections</button><p role="status" id="tgit-tickerbot-controls-status"></p><form class="tgit-form" id="tgit-tickerbot-scope-form"><div class="tgit-grid"><fieldset><legend>Watchlists</legend><div id="tgit-tickerbot-list-choices"></div></fieldset><fieldset><legend>Planned trades</legend><div id="tgit-tickerbot-trade-choices"></div></fieldset></div><button>Save asset selections</button></form><div id="tgit-tickerbot-inventory"></div><form class="tgit-form" id="tgit-tickerbot-cadence-form"><label>Recurring intent<select name="enabled"><option value="off">Off</option><option value="on">On</option></select></label><label><input name="acknowledged" type="checkbox">Reviewed</label><button>Save recurring intent</button></form></details></div>');
+  await page.addStyleTag({path:'assets/admin.css'});
+  await page.evaluate(() => {
+   window.tgitConfig={root:'https://fixture.invalid/',nonce:'synthetic',i18n:{network:'Unavailable'}};window.tgitRestUrl=(root,path)=>root+path;window.calls=[];
+   window.data={selection:{revision:1,watchlists:[2],trades:[]},settings_revision:3,interval_seconds:7200,watchlists:[{id:2,name:'<img src=x onerror=alert(1)>'},{id:3,name:'Other list'}],trades:[{id:4,title:'Planned idea',state:'planned'},{id:5,title:'Closed idea',state:'closed'}],cadence:{revision:0,enabled:false},inventory:{items:[{symbol:'AAPL',asset_class:'stock',origins:['watchlist'],state:'mapped'}],symbols:['AAPL'],batches:[['AAPL']],projected_monthly_attempts:372,complete:true}};
+   window.fetch=async(url,options)=>{window.calls.push({url,options});if(window.defer)return new Promise(resolve=>window.pending=resolve);if(window.fail){window.fail=false;return{ok:false,json:async()=>({message:'Stale review; reload'})};}if(options.method){const body=JSON.parse(options.body);if(url.endsWith('/scope')){window.data.selection={revision:2,watchlists:body.watchlists,trades:body.trades};}else{window.data.cadence={revision:window.data.cadence.revision+1,enabled:body.enabled};}}return{ok:true,json:async()=>({data:structuredClone(window.data)})};};
+  });
+  await page.addScriptTag({path:'assets/tickerbot-controls.js'});
+  const owner = (workspace) => page.evaluate(workspace=>{window.dispatchEvent(new CustomEvent('tgit-workspace',{detail:{workspace,role:'owner'}}));window.dispatchEvent(new CustomEvent('tgit-tickerbot-status-loaded',{detail:{workspace,enrolled:true}}));},workspace);
+  await owner('1'); await page.getByText('Saved selections loaded. No provider request was made.',{exact:true}).waitFor();
+  assert.equal(await page.locator('img').count(),0);assert((await page.locator('#tgit-tickerbot-list-choices').textContent()).includes('<img'));
+  assert.equal(await page.locator('[name=trades][value="5"]').isDisabled(),true);assert.equal(await page.locator('[name=watchlists][value="2"]').isChecked(),true);
+  assert.equal(await page.evaluate(()=>window.calls.every(row=>!row.options.method)),true);
+  await page.locator('[name=enabled]').selectOption('on');assert.equal(await page.getByRole('button',{name:'Save recurring intent',exact:true}).isDisabled(),true);
+  await page.locator('[name=acknowledged]').check();await page.locator('[name=watchlists][value="3"]').check();await page.getByRole('button',{name:'Save recurring intent',exact:true}).click();await page.getByRole('alert').getByText('Save or reload changed asset selections before recurring review.').waitFor();assert.equal(await page.evaluate(()=>window.calls.filter(row=>row.options.method).length),0);
+  await page.getByRole('button',{name:'Save asset selections',exact:true}).click();await page.waitForFunction(()=>!window.tgitWriteBusy);assert.equal(await page.locator('[name=acknowledged]').isChecked(),false);
+  const scope=await page.evaluate(()=>JSON.parse(window.calls.find(row=>row.url.endsWith('/scope')).options.body));assert.deepEqual(scope,{watchlists:[2,3],trades:[],expected_revision:1});
+  await page.locator('[name=enabled]').selectOption('on');await page.locator('[name=acknowledged]').check();await page.getByRole('button',{name:'Save recurring intent',exact:true}).click();await page.waitForFunction(()=>!window.tgitWriteBusy);
+  const cadence=await page.evaluate(()=>JSON.parse(window.calls.find(row=>row.url.endsWith('/cadence')).options.body));assert.deepEqual(cadence,{enabled:true,acknowledged:true,expected_revision:0,expected_settings:3,expected_scope:2});assert.equal(await page.locator('[name=acknowledged]').isChecked(),false);
+  await page.locator('[name=enabled]').selectOption('off');await page.getByRole('button',{name:'Save recurring intent',exact:true}).click();await page.waitForFunction(()=>!window.tgitWriteBusy);assert.equal(await page.evaluate(()=>JSON.parse(window.calls.filter(row=>row.url.endsWith('/cadence')).at(-1).options.body).acknowledged),false);
+  for(const width of [360,768,1440]){await page.setViewportSize({width,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));}
+  await page.evaluate(()=>window.fail=true);await page.getByRole('button',{name:'Reload asset selections'}).click();await page.getByRole('alert').getByText('Stale review; reload').waitFor();assert.equal(await page.getByRole('button',{name:'Save asset selections',exact:true}).isDisabled(),true);
+  await page.evaluate(()=>window.defer=true);await page.getByRole('button',{name:'Reload asset selections'}).click();await page.waitForFunction(()=>Boolean(window.pending));await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('tgit-workspace',{detail:{workspace:'2',role:'viewer'}}));window.pending({ok:true,json:async()=>({data:window.data})});});assert.equal(await page.locator('#tgit-tickerbot-controls').isVisible(),false);assert.equal(await page.locator('#tgit-tickerbot-inventory').textContent(),'');
+  console.log('PASS Owner scope/cadence UI: local reads, explicit reviewed writes, dirty scope guard, acknowledgment reset, disable, safe text, stale response fencing and responsive fixture.');
+ } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -15,23 +15,28 @@ trait TickerbotCadence {
 	/**
 	 * Save explicit recurring intent without queueing or enabling server processing.
 	 *
-	 * @param int  $workspace Workspace ID.
-	 * @param bool $enabled Owner opt-in.
-	 * @param int  $expected_revision Last reviewed revision, zero initially.
+	 * @param int      $workspace Workspace ID.
+	 * @param bool     $enabled Owner opt-in.
+	 * @param int      $expected_revision Last reviewed revision, zero initially.
+	 * @param int|null $expected_settings Reviewed settings revision for owner commands.
+	 * @param int|null $expected_scope Reviewed scope revision for owner commands.
 	 * @return array Saved revision; no lease capabilities.
 	 * @throws \UnexpectedValueException On stale review.
 	 */
-	public function save_cadence( int $workspace, bool $enabled, int $expected_revision ): array {
+	public function save_cadence( int $workspace, bool $enabled, int $expected_revision, ?int $expected_settings = null, ?int $expected_scope = null ): array {
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $enabled, $expected_revision ): array {
+			function () use ( $workspace, $enabled, $expected_revision, $expected_settings, $expected_scope ): array {
 				$account  = $this->account();
 				$settings = $this->settings( $workspace, $account );
 				$prior    = $this->cadence( $workspace );
 				if ( $expected_revision < 0 || (int) ( $prior['revision'] ?? 0 ) !== $expected_revision ) {
 					throw new \UnexpectedValueException( 'Recurring enrollment changed; reload before saving.' );
 				}
-				$scope     = $this->scope_selection( $workspace );
+				$scope = $this->scope_selection( $workspace );
+				if ( ( null !== $expected_settings && $expected_settings !== (int) $settings['revision'] ) || ( null !== $expected_scope && $expected_scope !== $scope['revision'] ) ) {
+					throw new \UnexpectedValueException( 'Settings or asset selection changed; reload before saving recurring intent.' );
+				}
 				$id        = $this->db->insert(
 					'tickerbot_cadences',
 					array(

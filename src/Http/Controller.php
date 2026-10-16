@@ -91,6 +91,9 @@ final class Controller {
 		self::route( $base . '/ai-reviews/(?P<review>[1-9][0-9]*)', 'GET', 'ai_review_read' );
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
+		self::route( $base . '/tickerbot/controls', 'GET', 'tickerbot_controls' );
+		self::route( $base . '/tickerbot/scope', 'POST', 'tickerbot_scope' );
+		self::route( $base . '/tickerbot/cadence', 'POST', 'tickerbot_cadence' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
 		self::route( $base . '/tickerbot/connection', 'POST', 'tickerbot_connection' );
 		self::route( $base . '/tickerbot/pause-recovery', 'POST', 'tickerbot_recover_pause' );
@@ -235,7 +238,24 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( 'tickerbot_recover_pause' === $operation ) {
+			if ( in_array( $operation, array( 'tickerbot_controls', 'tickerbot_scope', 'tickerbot_cadence' ), true ) ) {
+				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				if ( 'tickerbot_controls' === $operation ) {
+					$result = $setup->controls( $workspace );
+				} elseif ( 'tickerbot_scope' === $operation ) {
+					Tracker::fields( $data, array( 'watchlists', 'trades', 'expected_revision' ), array( 'watchlists', 'trades', 'expected_revision' ) );
+					if ( ! is_array( $data['watchlists'] ) || ! array_is_list( $data['watchlists'] ) || ! is_array( $data['trades'] ) || ! array_is_list( $data['trades'] ) || ! is_int( $data['expected_revision'] ) ) {
+						throw new \InvalidArgumentException( 'Explicit ID lists and a reviewed scope revision are required.' );
+					}
+					$result = $setup->select_scope( $workspace, $data['watchlists'], $data['trades'], $data['expected_revision'] );
+				} else {
+					Tracker::fields( $data, array( 'enabled', 'acknowledged', 'expected_revision', 'expected_settings', 'expected_scope' ), array( 'enabled', 'acknowledged', 'expected_revision', 'expected_settings', 'expected_scope' ) );
+					if ( ! is_bool( $data['enabled'] ) || ! is_bool( $data['acknowledged'] ) || ( $data['enabled'] && ! $data['acknowledged'] ) || ! is_int( $data['expected_revision'] ) || ! is_int( $data['expected_settings'] ) || ! is_int( $data['expected_scope'] ) ) {
+						throw new \InvalidArgumentException( 'Review current settings and asset scope and acknowledge recurring requests before enabling.' );
+					}
+					$result = $setup->save_cadence( $workspace, $data['enabled'], $data['expected_revision'], $data['expected_settings'], $data['expected_scope'] );
+				}
+			} elseif ( 'tickerbot_recover_pause' === $operation ) {
 				Tracker::fields( $data, array( 'expected_revision', 'acknowledged' ), array( 'expected_revision', 'acknowledged' ) );
 				if ( ! is_int( $data['expected_revision'] ) || ! is_bool( $data['acknowledged'] ) ) {
 					throw new \InvalidArgumentException( 'A reviewed pause revision and explicit acknowledgment are required.' ); }

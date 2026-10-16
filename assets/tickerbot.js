@@ -12,6 +12,7 @@
  const storageKey = (selected = workspace) => `tgit-tickerbot-connection:${config.actorId}:${selected}`;
  const snapshot = () => `${form.elements.monthly_cap.value}:${form.elements.interval_seconds.value}`;
  const dirty = () => baseline && snapshot() !== baseline;
+ window.tgitTickerbotSetupDirty = dirty;
  function controls() {
   test.textContent = operation ? 'Check connection test outcome' : 'Test connection (one request)';
   test.disabled = window.tgitWriteBusy || !latest || (!operation && !(latest.credential_configured && latest.account_scope_configured && latest.transport_enabled && latest.saved?.enrolled));
@@ -70,11 +71,12 @@
    form.elements.monthly_cap.value = latest.saved?.soft_cap ?? 8000; form.elements.interval_seconds.value = latest.saved?.interval_seconds ?? 7200;
    form.elements.monthly_cap.readOnly = latest.saved?.enrolled && !latest.saved.can_manage_budget;
    document.getElementById('tgit-tickerbot-save').disabled = !latest.account_scope_configured;
-   baseline = snapshot(); render(latest); message.setAttribute('role', 'status'); message.textContent = 'Saved status loaded. No provider request was made.';
+   baseline = snapshot(); render(latest); window.dispatchEvent(new CustomEvent('tgit-tickerbot-status-loaded', { detail: { workspace: selected, enrolled: Boolean(latest.saved?.enrolled) } })); message.setAttribute('role', 'status'); message.textContent = 'Saved status loaded. No provider request was made.';
   } catch (error) { if (expected === generation) { message.setAttribute('role', 'alert'); message.textContent = error.message; } }
   finally { if (expected === generation) { button.disabled = false; form.inert = !latest; controls(); } }
  }
  button.addEventListener('click', () => { if (!window.tgitWriteBusy && (!dirty() || confirm('Discard unsaved Tickerbot setup changes?'))) load(); });
+ window.addEventListener('tgit-tickerbot-controls-updated', (event) => { if (workspace && event.detail.workspace === workspace && !dirty()) load(); });
  window.addEventListener('tgit-tickerbot-mapping-updated', (event) => { if (workspace && event.detail.workspace === workspace && !dirty()) load(); });
  window.addEventListener('tgit-tickerbot-coverage-updated', (event) => { if (workspace && event.detail.workspace === workspace && !dirty()) load(); });
  async function command(path, body, key) {

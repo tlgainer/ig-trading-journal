@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.22/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.23/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -470,3 +470,14 @@ In Settings > API setup, reload the Tickerbot saved status, then expand Recover 
 Rate-limit and monthly-quota waits cannot be shortened. An active operation must finish or its lease expire. A future legacy pause with an unknown cause needs trusted server review. If the pause changes during review, reload and review the new status. After an uncertain save, reload status before trying another recovery.
 
 Recovery clears only the reviewed pause. It preserves counted requests, budget, cooldown, selected assets, schedules and all enablement switches; it sends no request and creates no scheduled work. A zero budget still prevents new requests. Keep production Tickerbot switches off until recurring and pricing-cutover acceptance is complete. Source upgrades require a backup and explicit reactivation with all twenty-seven bundled migrations, including 027-tickerbot-pause-recovery.sql.
+
+### Choose Tickerbot assets and recurring intent (development source dev.23)
+
+Open Settings > API setup > Tickerbot setup and progress. Save local setup first, then expand Assets and recurring refresh. Reload asset selections reads local records only.
+
+1. Positive open holdings are always included. Select additional whole watchlists and individual planned trades. Watchlists remain included regardless of their watch/buy/sell labels. An opted-in trade stops contributing when it leaves planned status. Existing selections for such trades can be removed.
+2. Select Save asset selections. Review the complete saved inventory table, mapping blockers, interval and projected calls. Unsaved checkboxes do not change the preview. Verify missing mappings and check coverage separately; a mapped identity does not prove populated prices.
+3. To authorize future recurring requests, choose On - reviewed saved scope, acknowledge the saved scope and interval, then Save recurring intent. Changing saved settings or selections requires renewed review. A stale review is rejected; reload and review again. The estimate covers normal cycles over 31 days, excluding retries, discovery and other applications; shared limits still apply.
+4. Choose Off and save to withdraw recurring intent. This releases forecast capacity without refunding counted requests. An already admitted request may still finish; opt-out fences later scheduled admissions.
+
+These local saves make no provider request and change no server switches or current holdings price source. Actual recurring work additionally requires server transport, worker and scheduler switches, valid access/mappings, budget and functioning host cron. Inventory is dynamic as holdings, watchlist contents, planned status and mappings change. Keep production Tickerbot processing off until host scheduling, live coverage and pricing-cutover acceptance are complete. Source dev.23 uses schema 27; no additional SQL migration or ZIP is included.

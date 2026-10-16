@@ -23,6 +23,7 @@ final class TickerbotStore {
 	use TickerbotMapping;
 	use TickerbotCoverage;
 	use TickerbotRecovery;
+	use TickerbotControls;
 
 	/**
 	 * Scoped persistence.

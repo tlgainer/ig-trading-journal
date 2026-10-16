@@ -44,6 +44,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot', plugins_url( 'assets/tickerbot.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot-controls', plugins_url( 'assets/tickerbot-controls.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-mapping', plugins_url( 'assets/tickerbot-mapping.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-coverage', plugins_url( 'assets/tickerbot-coverage.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -389,6 +390,21 @@ final class Screen {
 	<div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-test" disabled><?php esc_html_e( 'Test connection (one request)', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-new-test" hidden><?php esc_html_e( 'Start a separate test', 'ig-trading-journal' ); ?></button></div>
 	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
 	<div id="tgit-tickerbot-readiness"></div>
+	<details id="tgit-tickerbot-controls" hidden><summary><?php esc_html_e( 'Assets and recurring refresh', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Positive open holdings are always included. Add whole watchlists or individually selected planned trades. Saved selections are dynamic: holdings, watchlist contents, trade status and mapping changes can change the inventory. This preview covers the complete saved scope, not a filtered page.', 'ig-trading-journal' ); ?></p>
+	<button type="button" class="button" id="tgit-tickerbot-controls-reload"><?php esc_html_e( 'Reload asset selections', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-tickerbot-controls-status" role="status" aria-live="polite"></p>
+	<form id="tgit-tickerbot-scope-form" class="tgit-form">
+	<div class="tgit-grid"><fieldset><legend><?php esc_html_e( 'Include watchlists', 'ig-trading-journal' ); ?></legend><div id="tgit-tickerbot-list-choices"></div></fieldset><fieldset><legend><?php esc_html_e( 'Include planned trades', 'ig-trading-journal' ); ?></legend><div id="tgit-tickerbot-trade-choices"></div></fieldset></div>
+	<button type="submit" class="button" disabled><?php esc_html_e( 'Save asset selections', 'ig-trading-journal' ); ?></button>
+	</form>
+	<div id="tgit-tickerbot-inventory"></div>
+	<form id="tgit-tickerbot-cadence-form" class="tgit-form">
+	<p><?php esc_html_e( 'Saving selections or settings requires renewed recurring review. Enabling saves permission for future counted requests when server transport, worker, scheduler and host cron are enabled. It sends no request now and does not change those switches. Current holdings pricing remains unchanged. Projection excludes retries, discovery and other applications; shared admission limits still apply.', 'ig-trading-journal' ); ?></p>
+	<label><?php esc_html_e( 'Recurring refresh intent', 'ig-trading-journal' ); ?><select name="enabled"><option value="off"><?php esc_html_e( 'Off', 'ig-trading-journal' ); ?></option><option value="on"><?php esc_html_e( 'On - reviewed saved scope', 'ig-trading-journal' ); ?></option></select></label>
+	<label><input name="acknowledged" type="checkbox"> <?php esc_html_e( 'I reviewed the saved scope and interval and authorize recurring counted provider requests when server processing is enabled.', 'ig-trading-journal' ); ?></label>
+	<button type="submit" class="button" disabled><?php esc_html_e( 'Save recurring intent', 'ig-trading-journal' ); ?></button>
+	</form></details>
 	<details id="tgit-tickerbot-recovery"><summary><?php esc_html_e( 'Recover a shared provider pause', 'ig-trading-journal' ); ?></summary>
 	<p><?php esc_html_e( 'Only the controlling workspace owner can clear the reviewed pause. Retry-After and monthly-quota waits cannot be shortened. Recovery sends no provider request, refunds no usage and changes no schedules or server switches. Already-enabled recurring work may resume under its existing settings.', 'ig-trading-journal' ); ?></p>
 	<p id="tgit-tickerbot-recovery-help"></p>
