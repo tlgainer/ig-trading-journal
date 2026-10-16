@@ -22,6 +22,7 @@ final class TickerbotStore {
 	use TickerbotConnection;
 	use TickerbotMapping;
 	use TickerbotCoverage;
+	use TickerbotRecovery;
 
 	/**
 	 * Scoped persistence.
@@ -295,7 +296,7 @@ final class TickerbotStore {
 				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET monthly_cap = %d WHERE id = %d', array( $cap, $account['id'] ) );
 				if ( $clear_pause ) {
-					$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = NULL WHERE id = %d', array( $account['id'] ) );
+					$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = NULL, pause_kind = NULL, recovery_not_before = NULL, pause_revision = pause_revision + 1 WHERE id = %d', array( $account['id'] ) );
 				}
 				$next = TickerbotSchedule::next( $this->now, $interval );
 				if ( $settings ) {
@@ -673,7 +674,19 @@ final class TickerbotStore {
 					$until = '9999-12-31 23:59:59';
 				}
 				if ( null !== $until ) {
-					$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = %s WHERE id = %d', array( $until, $account['id'] ) );
+					if ( in_array( $state, array( 'rate_limit', 'monthly_quota' ), true ) && ( ! $account['recovery_not_before'] || $until > $account['recovery_not_before'] ) ) {
+						$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET recovery_not_before = %s WHERE id = %d', array( $until, $account['id'] ) );
+					}
+					$kind = $state;
+					if ( $account['paused_until'] && $account['paused_until'] > $until ) {
+						$until = $account['paused_until'];
+						$kind  = $account['pause_kind'];
+					}
+					if ( null === $kind ) {
+						$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = %s, pause_kind = NULL, pause_revision = pause_revision + 1 WHERE id = %d', array( $until, $account['id'] ) );
+					} else {
+						$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET paused_until = %s, pause_kind = %s, pause_revision = pause_revision + 1 WHERE id = %d', array( $until, $kind, $account['id'] ) );
+					}
 				}
 				$this->settle_dispatch( $workspace, $run, $attempt, $state, $issues );
 				$this->audit( $workspace, 'tickerbot.attempt.finish', 'tickerbot_attempts', $attempt );

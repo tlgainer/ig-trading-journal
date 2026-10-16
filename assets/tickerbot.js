@@ -7,6 +7,7 @@
  const message = document.getElementById('tgit-tickerbot-status');
  const output = document.getElementById('tgit-tickerbot-readiness');
  const form = document.getElementById('tgit-tickerbot-form'), test = document.getElementById('tgit-tickerbot-test'), separate = document.getElementById('tgit-tickerbot-new-test');
+ const recovery = document.getElementById('tgit-tickerbot-recovery-form'), recover = document.getElementById('tgit-tickerbot-recover'), recoveryHelp = document.getElementById('tgit-tickerbot-recovery-help');
  let workspace = '', generation = 0, savedRevision = 0, latest = null, operation = '', baseline = '';
  const storageKey = (selected = workspace) => `tgit-tickerbot-connection:${config.actorId}:${selected}`;
  const snapshot = () => `${form.elements.monthly_cap.value}:${form.elements.interval_seconds.value}`;
@@ -15,6 +16,9 @@
   test.textContent = operation ? 'Check connection test outcome' : 'Test connection (one request)';
   test.disabled = window.tgitWriteBusy || !latest || (!operation && !(latest.credential_configured && latest.account_scope_configured && latest.transport_enabled && latest.saved?.enrolled));
   separate.hidden = !operation; separate.disabled = Boolean(window.tgitWriteBusy);
+  recover.disabled = Boolean(window.tgitWriteBusy) || latest?.saved?.recovery_state !== 'ready' || !recovery.elements.acknowledged.checked;
+  const recoveryStates = { ready: 'Review and correct the cause before acknowledging recovery.', controller_only: 'Only the controlling workspace owner can recover this shared pause.', not_paused: 'There is no saved pause to recover.', active_operation: 'An account operation is active. Wait until it finishes or its lease expires, then reload.', wait_for_provider: 'The provider wait period has not ended. Reload after the saved pause time.', legacy_review: 'This pause predates reason tracking or has unknown evidence. Trusted server-side review is required; it cannot be cleared here.' };
+  recoveryHelp.textContent = recoveryStates[latest?.saved?.recovery_state] || 'Load saved setup status to review recovery.';
  }
  const onOff = (value) => value ? 'On' : 'Off';
  function render(data) {
@@ -37,6 +41,8 @@
     ['Shared monthly soft cap', String(saved.soft_cap)],
     ['Shared recurring projection (31-day normal cycle)', String(saved.projected_recurring_calls)],
     ['Shared pause until (UTC)', saved.paused_until || 'No saved pause']);
+   rows.push(['Provider wait before recovery (UTC)', saved.recovery_not_before || 'No saved wait']);
+   rows.push(['Pause cause', ({ authentication: 'Authentication rejected', capability: 'Provider access denied', rate_limit: 'Rate limit', monthly_quota: 'Monthly quota' })[saved.pause_kind] || (saved.paused_until ? 'Unknown or legacy pause' : 'Not paused')], ['Pause revision', String(saved.pause_revision ?? 0)]);
    if (saved.latest_run) rows.push(['Latest workspace run', `${saved.latest_run.state} (${saved.latest_run.cause})`], ['Run started (UTC)', saved.latest_run.started_at], ['Run completed (UTC)', saved.latest_run.completed_at || 'No completion recorded']);
    else rows.push(['Latest workspace run', 'No saved run']);
   }
@@ -60,7 +66,7 @@
    const response = await fetch(tgitRestUrl(config.root, `workspaces/${selected}/tickerbot/status`), { credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce } });
    const result = await response.json(); if (expected !== generation) return;
    if (!response.ok) throw new Error(result.message || config.i18n.network);
-   latest = result.data; savedRevision = latest.saved?.settings_revision || 0;
+   latest = result.data; savedRevision = latest.saved?.settings_revision || 0; recovery.reset();
    form.elements.monthly_cap.value = latest.saved?.soft_cap ?? 8000; form.elements.interval_seconds.value = latest.saved?.interval_seconds ?? 7200;
    form.elements.monthly_cap.readOnly = latest.saved?.enrolled && !latest.saved.can_manage_budget;
    document.getElementById('tgit-tickerbot-save').disabled = !latest.account_scope_configured;
@@ -75,6 +81,16 @@
   const response = await fetch(tgitRestUrl(config.root, `workspaces/${workspace}/tickerbot/${path}`), { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'X-WP-Nonce': config.nonce, 'Content-Type': 'application/json', ...(key ? { 'Idempotency-Key': key } : {}) }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(result.message || config.i18n.network); return result.data;
  }
+ recovery.elements.acknowledged.addEventListener('change', controls);
+ recovery.addEventListener('submit', async (event) => {
+  event.preventDefault(); if (window.tgitWriteBusy || dirty() || latest?.saved?.recovery_state !== 'ready' || !recovery.reportValidity()) { if (dirty()) message.textContent = 'Save or reload unsaved setup changes before recovery.'; return; }
+  const expected = generation, revision = latest.saved.pause_revision; window.tgitWriteBusy = true; recovery.inert = true; form.inert = true; button.disabled = true; controls();
+  try {
+   await command('pause-recovery', { expected_revision: revision, acknowledged: recovery.elements.acknowledged.checked });
+   if (expected !== generation) return; await load(); message.setAttribute('role', 'status'); message.textContent = 'Reviewed pause cleared. Usage was not reset and no request was sent. Existing enabled work may resume; normal limits and cooldown still apply.';
+  } catch (error) { if (expected === generation) { message.setAttribute('role', 'alert'); message.textContent = `${error.message} Reload saved status before any further recovery attempt.`; } }
+  finally { window.tgitWriteBusy = false; if (expected === generation) { recovery.inert = false; form.inert = !latest; button.disabled = false; recovery.reset(); controls(); } }
+ });
  form.addEventListener('submit', async (event) => {
   event.preventDefault(); if (window.tgitWriteBusy || !latest || !form.reportValidity()) return;
   const expected = generation; window.tgitWriteBusy = true; form.inert = true; button.disabled = true; controls();
@@ -111,7 +127,7 @@
  window.addEventListener('beforeunload', (event) => { if (dirty() || window.tgitWriteBusy) { event.preventDefault(); event.returnValue = ''; } });
  window.addEventListener('tgit-workspace', (event) => {
   ++generation; workspace = event.detail.role === 'owner' ? event.detail.workspace : '';
-  latest = null; baseline = ''; operation = ''; savedRevision = 0; form.reset();
+  latest = null; baseline = ''; operation = ''; savedRevision = 0; form.reset(); recovery.reset(); recovery.inert = false;
   try { const prior = sessionStorage.getItem(storageKey()); if (/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(prior || '')) operation = prior; } catch (_) { /* Ignore unavailable browser storage. */ }
   panel.hidden = !workspace; button.disabled = false; message.textContent = ''; output.replaceChildren(); controls();
   if (workspace) load();

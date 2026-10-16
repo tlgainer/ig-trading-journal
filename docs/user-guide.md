@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.21/schema 26** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.22/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -426,7 +426,7 @@ The result shows estimated loss at stop, potential net reward at the target and 
 
 Entered fee/cost totals apply equally to either hypothetical exit; they increase stop loss and reduce target reward. The short sizing calculator reuses its entered stop-cost estimate at the target. Long sizing has no cost input. If costs erase the target profit, the ratio is unavailable. Invalid stop/target directions are rejected. Stops do not guarantee execution; gaps, slippage and liquidation can increase losses. Leverage changes exposure, not a fee-free ratio for identical price levels. Scenarios never open positions or change the ledger.
 
-Tickerbot source now includes internal storage, inventory selections, gated batch dispatch and explicit recurring recovery and shared capacity guards (schema 26). No new installable ZIP is provided yet; the source setup panel is preparation only. Keep Tickerbot disabled; the existing dev.12 ZIP remains schema 18. Source installers must back up the database/private media and explicitly reactivate to apply bundled migrations 019 through 026. See tickerbot-implementation.md for progress.
+Tickerbot source now includes internal storage, inventory selections, gated batch dispatch and explicit recurring recovery and shared capacity guards (schema 27). No new installable ZIP is provided yet; the source setup panel is preparation only. Keep Tickerbot disabled; the existing dev.12 ZIP remains schema 18. Source installers must back up the database/private media and explicitly reactivate to apply bundled migrations 019 through 027. See tickerbot-implementation.md for progress.
 
 ### Tickerbot preparation status (development source dev.20)
 
@@ -461,4 +461,12 @@ Open **Settings > API setup > Tickerbot setup and progress > Check mapped asset 
 4. A check for an old mapping/changed identity is labeled **Historical check**. Its evidence is preserved. Verify the latest identity before requesting a new check.
 5. For an uncertain result, **Check coverage outcome** reuses the saved operation and mapping through reload; it cannot resend an admitted request. **Start a separate coverage check** discards only the browser retry identity and may consume another request. It does not cancel/refund the old attempt.
 
-A successful check saves metadata only. It does not fetch a price, update holdings values, verify realtime access/fundamentals, enable recurring work or change your current price provider. Malformed/error responses remain counted when admitted. Keep worker and scheduler switches off until recurring/cutover acceptance is delivered; operator pause recovery and scope/recurring controls are still pending.
+A successful check saves metadata only. It does not fetch a price, update holdings values, verify realtime access/fundamentals, enable recurring work or change your current price provider. Malformed/error responses remain counted when admitted. Keep worker and scheduler switches off until recurring/cutover acceptance is delivered; scope/recurring controls are still pending.
+
+### Recover a shared Tickerbot pause (development source dev.22)
+
+In Settings > API setup, reload the Tickerbot saved status, then expand Recover a shared provider pause. Only an owner in the workspace controlling the shared provider account can clear it. Correct the underlying authentication/access problem first, review the displayed cause, and acknowledge that existing enabled recurring work may resume. Then select the recovery button.
+
+Rate-limit and monthly-quota waits cannot be shortened. An active operation must finish or its lease expire. A future legacy pause with an unknown cause needs trusted server review. If the pause changes during review, reload and review the new status. After an uncertain save, reload status before trying another recovery.
+
+Recovery clears only the reviewed pause. It preserves counted requests, budget, cooldown, selected assets, schedules and all enablement switches; it sends no request and creates no scheduled work. A zero budget still prevents new requests. Keep production Tickerbot switches off until recurring and pricing-cutover acceptance is complete. Source upgrades require a backup and explicit reactivation with all twenty-seven bundled migrations, including 027-tickerbot-pause-recovery.sql.

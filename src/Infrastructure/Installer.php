@@ -12,7 +12,7 @@ namespace GainerInteractive\IGTradingJournal\Infrastructure;
 
 /** Installer service for the current implementation slice. */
 final class Installer {
-	public const VERSION = '26';
+	public const VERSION = '27';
 
 	/**
 	 * Check runtime prerequisites and the installed schema marker.
@@ -48,7 +48,7 @@ final class Installer {
 	public static function install(): void {
 		global $wpdb;
 		$installed = get_option( 'tgit_schema_version' );
-		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', self::VERSION ), true ) ) {
+		if ( false !== $installed && ! in_array( $installed, array( '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', self::VERSION ), true ) ) {
 			throw new \RuntimeException( 'Schema version is incompatible; restore matching code or use a reviewed migration.' );
 		}
 		$lock = 'tgit_schema_' . substr( hash( 'sha256', $wpdb->prefix . DB_NAME ), 0, 40 );
@@ -212,12 +212,41 @@ final class Installer {
 				throw new \RuntimeException( 'Tickerbot coverage migration is missing.' );
 			}
 			$sql .= $coverage_sql;
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Bundled additive recovery migration.
+			$recovery_sql = file_get_contents( dirname( __DIR__, 2 ) . '/docs/027-tickerbot-pause-recovery.sql' );
+			if ( false === $recovery_sql ) {
+				throw new \RuntimeException( 'Tickerbot recovery migration is missing.' ); }
+			$sql .= $recovery_sql;
 			$sql  = preg_replace( '/^--.*$/m', '', $sql );
 			$sql  = str_replace( '{{prefix}}', $wpdb->prefix, $sql );
 			foreach ( explode( ';', $sql ) as $statement ) {
 				if ( trim( $statement ) === '' ) {
 					continue;
 				}
+				$pause_table   = $wpdb->prefix . 'tgit_tickerbot_accounts';
+				$pause_handled = false;
+				foreach ( array(
+					'pause_revision'      => 'bigint unsigned NOT NULL DEFAULT 0',
+					'pause_kind'          => 'varchar(20) DEFAULT NULL',
+					'recovery_not_before' => 'datetime DEFAULT NULL',
+				) as $field => $definition ) {
+					if ( trim( $statement ) !== "ALTER TABLE $pause_table ADD COLUMN $field $definition" ) {
+						continue; }
+					$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $pause_table, $field ), ARRAY_A );
+					if ( ! $column ) {
+						// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Exact allowlisted table, field and DDL matched above.
+						if ( false === $wpdb->query( trim( $statement ) ) ) {
+							throw new \RuntimeException( 'Pause metadata migration failed; forward repair is required.' ); }
+						$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $pause_table, $field ), ARRAY_A );
+					}
+					$valid = $column && ( 'pause_revision' === $field ? in_array( $column['Type'], array( 'bigint unsigned', 'bigint(20) unsigned' ), true ) && 'NO' === $column['Null'] && '0' === (string) $column['Default'] : ( 'pause_kind' === $field ? 'varchar(20)' : 'datetime' ) === $column['Type'] && 'YES' === $column['Null'] && null === $column['Default'] );
+					if ( ! $valid ) {
+						throw new \RuntimeException( 'Pause metadata is incompatible; forward repair is required.' ); }
+					$pause_handled = true;
+					break;
+				}
+				if ( $pause_handled ) {
+					continue; }
 				$ai_table = $wpdb->prefix . 'tgit_ai_requests';
 				if ( trim( $statement ) === "ALTER TABLE $ai_table ADD COLUMN approval_id bigint unsigned NULL" ) {
 					$column = $wpdb->get_row( $wpdb->prepare( 'SHOW COLUMNS FROM %i WHERE Field = %s', $ai_table, 'approval_id' ), ARRAY_A );

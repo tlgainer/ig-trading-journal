@@ -6,7 +6,7 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
  const browser = await chromium.launch({ executablePath: process.env.TGIT_CHROME_EXECUTABLE || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
  try {
   const page = await browser.newPage();
-  await page.setContent('<select id="tgit-workspace"></select><div id="tgit-tabs"></div><details open id="tgit-tickerbot-setup" hidden><summary>Tickerbot setup and progress</summary><button id="tgit-tickerbot-reload">Reload saved status</button><form id="tgit-tickerbot-form"><input name="monthly_cap" value="8000"><select name="interval_seconds"><option value="7200">Two hours</option></select><button id="tgit-tickerbot-save">Save</button></form><button id="tgit-tickerbot-test">Test</button><button id="tgit-tickerbot-new-test">Separate</button><p id="tgit-tickerbot-status" role="status"></p><div id="tgit-tickerbot-readiness"></div></details>');
+  await page.setContent('<select id="tgit-workspace"></select><div id="tgit-tabs"></div><details open id="tgit-tickerbot-setup" hidden><summary>Tickerbot setup and progress</summary><button id="tgit-tickerbot-reload">Reload saved status</button><form id="tgit-tickerbot-form"><input name="monthly_cap" value="8000"><select name="interval_seconds"><option value="7200">Two hours</option></select><button id="tgit-tickerbot-save">Save</button></form><button id="tgit-tickerbot-test">Test</button><button id="tgit-tickerbot-new-test">Separate</button><p id="tgit-tickerbot-status" role="status"></p><div id="tgit-tickerbot-readiness"></div><p id="tgit-tickerbot-recovery-help"></p><form id="tgit-tickerbot-recovery-form"><label><input name="acknowledged" type="checkbox" required>Reviewed cause</label><button type="submit" id="tgit-tickerbot-recover">Clear reviewed pause</button></form></details>');
   await page.addStyleTag({ path: 'assets/admin.css' });
   await page.evaluate(() => {
    window.tgitConfig = { root: 'https://fixture.invalid/', nonce: 'synthetic', i18n: { network: 'Unavailable' } };
@@ -61,6 +61,14 @@ const { chromium } = require(process.env.TGIT_PLAYWRIGHT_MODULE || './browser/no
   await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
   await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => window.fixtureRequests.at(-1).options.method), undefined);
+  await page.getByRole('button', { name: 'Reload saved status' }).click(); ready.saved.recovery_not_before = '2026-10-15 12:02:00'; ready.saved.pause_revision = 4; ready.saved.pause_kind = 'authentication'; ready.saved.paused_until = '9999-12-31 23:59:59'; ready.saved.recovery_state = 'wait_for_provider'; await respond(ready);
+  await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  await page.locator('#tgit-tickerbot-recovery-form [name=acknowledged]').check(); assert.equal(await page.locator('#tgit-tickerbot-recover').isDisabled(), true);
+  await page.getByRole('button', { name: 'Reload saved status' }).click(); ready.saved.recovery_state = 'ready'; ready.saved.recovery_not_before = null; await respond(ready); await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();
+  assert.equal(await page.locator('#tgit-tickerbot-recover').isDisabled(), true); await page.locator('#tgit-tickerbot-recovery-form [name=acknowledged]').check(); await page.getByRole('button', { name: 'Clear reviewed pause', exact: true }).click();
+  const recoveryRequest = await page.evaluate(() => window.fixtureRequests.at(-1)); assert(recoveryRequest.url.endsWith('/tickerbot/pause-recovery')); assert.deepEqual(JSON.parse(recoveryRequest.options.body), { expected_revision: 4, acknowledged: true });
+  await respond({ state: 'recovered', pause_revision: 5 }); await page.waitForFunction(() => window.fixturePending.length === 1); ready.saved.pause_revision = 5; ready.saved.paused_until = null; ready.saved.recovery_state = 'not_paused'; await respond(ready); await page.waitForFunction(() => !window.tgitWriteBusy);
+  assert.equal(await page.locator('#tgit-tickerbot-recovery-form [name=acknowledged]').isChecked(), false); assert.equal(await page.locator('#tgit-tickerbot-recover').isDisabled(), true);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('tgit-tickerbot-coverage-updated', { detail: { workspace: '3' } })));
   await page.waitForFunction(() => window.fixturePending.length === 1); await respond(ready);
   await page.getByText('Saved status loaded. No provider request was made.', { exact: true }).waitFor();

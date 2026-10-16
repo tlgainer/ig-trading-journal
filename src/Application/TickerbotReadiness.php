@@ -57,6 +57,10 @@ trait TickerbotReadiness {
 					'soft_cap'                  => (int) $account['monthly_cap'],
 					'projected_recurring_calls' => $this->capacity_total( $account ),
 					'paused_until'              => $account['paused_until'],
+					'pause_kind'                => $account['pause_kind'],
+					'recovery_not_before'       => $account['recovery_not_before'],
+					'pause_revision'            => (int) $account['pause_revision'],
+					'recovery_state'            => $this->recovery_state( $workspace, $account ),
 					'latest_run'                => $run,
 				);
 			}

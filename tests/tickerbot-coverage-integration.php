@@ -37,7 +37,7 @@ test('Tickerbot coverage endpoint families foreign assets and owner membership r
 });
 
 test('Tickerbot coverage route rejects browser proof and schema 26 preserves selective receipts',function()use($owner){
- [$s,$w,$asset,$map]=tbcov_context();TickerbotCoverageCheck::run($s,$w,$asset,$map,wp_generate_uuid4(),fn()=>tbcov_response());update_option('tgit_schema_version','25');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal(get_option('tgit_schema_version'),'26');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal($s->coverage_current($w,$asset)['coverage']['summary']['price_null'],true);equal($s->usage($w)['attempts'],1);
+ [$s,$w,$asset,$map]=tbcov_context();TickerbotCoverageCheck::run($s,$w,$asset,$map,wp_generate_uuid4(),fn()=>tbcov_response());update_option('tgit_schema_version','25');\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal(get_option('tgit_schema_version'),\GainerInteractive\IGTradingJournal\Infrastructure\Installer::VERSION);\GainerInteractive\IGTradingJournal\Infrastructure\Installer::install();equal($s->coverage_current($w,$asset)['coverage']['summary']['price_null'],true);equal($s->usage($w)['attempts'],1);
  $request=new WP_REST_Request('POST','/tgit/v1/workspaces/'.$w.'/assets/'.$asset.'/tickerbot-coverage');$request->set_url_params(['workspace'=>(string)$w,'asset_id'=>(string)$asset]);$request->set_header('Content-Type','application/json');$request->set_header('Idempotency-Key',wp_generate_uuid4());$request->set_body(json_encode(['expected_mapping_id'=>$map,'summary'=>['columns'=>100]]));wp_set_current_user($owner);equal(is_wp_error(\GainerInteractive\IGTradingJournal\Http\Controller::dispatch($request,'tickerbot_check_coverage')),true);
 });
 

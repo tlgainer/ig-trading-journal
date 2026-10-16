@@ -389,6 +389,14 @@ final class Screen {
 	<div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-test" disabled><?php esc_html_e( 'Test connection (one request)', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-new-test" hidden><?php esc_html_e( 'Start a separate test', 'ig-trading-journal' ); ?></button></div>
 	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
 	<div id="tgit-tickerbot-readiness"></div>
+	<details id="tgit-tickerbot-recovery"><summary><?php esc_html_e( 'Recover a shared provider pause', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Only the controlling workspace owner can clear the reviewed pause. Retry-After and monthly-quota waits cannot be shortened. Recovery sends no provider request, refunds no usage and changes no schedules or server switches. Already-enabled recurring work may resume under its existing settings.', 'ig-trading-journal' ); ?></p>
+	<p id="tgit-tickerbot-recovery-help"></p>
+	<form id="tgit-tickerbot-recovery-form" class="tgit-form">
+	<label><input name="acknowledged" type="checkbox" required> <?php esc_html_e( 'I reviewed and corrected the pause cause, and understand that already-enabled work may resume.', 'ig-trading-journal' ); ?></label>
+	<button type="submit" class="button" id="tgit-tickerbot-recover" disabled><?php esc_html_e( 'Clear reviewed pause', 'ig-trading-journal' ); ?></button>
+	</form>
+	</details>
 	<details id="tgit-tickerbot-mapping"><summary><?php esc_html_e( 'Verify an asset mapping', 'ig-trading-journal' ); ?></summary>
 	<p><?php esc_html_e( 'Choose a saved asset. Verify mapping sends one counted catalogue request and saves only an exact identity match. It does not request a price or confirm price coverage. Stocks and ETFs require the exact saved symbol, exchange and quote currency. Crypto currently requires a USD identity; other quote identities are unsupported by this adapter.', 'ig-trading-journal' ); ?></p>
 	<form id="tgit-tickerbot-mapping-form" class="tgit-form tgit-grid">

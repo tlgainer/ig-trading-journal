@@ -93,6 +93,7 @@ final class Controller {
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
 		self::route( $base . '/tickerbot/connection', 'POST', 'tickerbot_connection' );
+		self::route( $base . '/tickerbot/pause-recovery', 'POST', 'tickerbot_recover_pause' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'GET', 'tickerbot_mapping' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-mapping', 'POST', 'tickerbot_resolve' );
 		self::route( $base . '/assets/(?P<asset_id>[1-9][0-9]*)/tickerbot-coverage', 'GET', 'tickerbot_coverage' );
@@ -234,7 +235,13 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'tickerbot_coverage', 'tickerbot_check_coverage' ), true ) ) {
+			if ( 'tickerbot_recover_pause' === $operation ) {
+				Tracker::fields( $data, array( 'expected_revision', 'acknowledged' ), array( 'expected_revision', 'acknowledged' ) );
+				if ( ! is_int( $data['expected_revision'] ) || ! is_bool( $data['acknowledged'] ) ) {
+					throw new \InvalidArgumentException( 'A reviewed pause revision and explicit acknowledgment are required.' ); }
+				$setup  = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$result = $setup->recover_pause( $workspace, $data['expected_revision'], $data['acknowledged'] );
+			} elseif ( in_array( $operation, array( 'tickerbot_coverage', 'tickerbot_check_coverage' ), true ) ) {
 				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
 				$asset = (int) $request->get_url_params()['asset_id'];
 				if ( 'tickerbot_coverage' === $operation ) {
