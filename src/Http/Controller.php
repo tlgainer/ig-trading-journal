@@ -93,6 +93,10 @@ final class Controller {
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
 		self::route( $base . '/tickerbot/controls', 'GET', 'tickerbot_controls' );
 		self::route( $base . '/tickerbot/diagnostics', 'GET', 'tickerbot_diagnostics' );
+		self::route( $base . '/pricing-policy', 'GET', 'pricing_policy' );
+		self::route( $base . '/pricing-policy/review', 'GET', 'pricing_review' );
+		self::route( $base . '/pricing-policy', 'POST', 'pricing_switch' );
+		self::route( $base . '/tickerbot/refresh', 'POST', 'tickerbot_manual_refresh' );
 		self::route( $base . '/tickerbot/scope', 'POST', 'tickerbot_scope' );
 		self::route( $base . '/tickerbot/cadence', 'POST', 'tickerbot_cadence' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
@@ -191,8 +195,8 @@ final class Controller {
 				'args'                => 'GET' === $method && ( str_starts_with( $operation, 'list_' ) || in_array( $operation, array( 'ai_request_history', 'ai_review_history', 'fundamentals', 'stock_summary', 'provider_mappings', 'observations', 'reports', 'saved_views', 'holdings', 'watchlists', 'watchlist_items', 'watchlist_item_revisions', 'research_notes', 'research_note_revisions' ), true ) ) ? array(
 					'price_source' => array(
 						'type'    => 'string',
-						'enum'    => array( 'manual', 'fmp', 'alpha_vantage' ),
-						'default' => 'manual',
+						'enum'    => array( 'workspace', 'manual', 'fmp', 'alpha_vantage', 'tickerbot' ),
+						'default' => 'workspace',
 					),
 					'after'        => array(
 						'type'    => 'integer',
@@ -239,7 +243,28 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'tickerbot_controls', 'tickerbot_scope', 'tickerbot_cadence', 'tickerbot_diagnostics' ), true ) ) {
+			if ( in_array( $operation, array( 'pricing_policy', 'pricing_review', 'pricing_switch' ), true ) ) {
+				$policy = new \GainerInteractive\IGTradingJournal\Application\PricingPolicy( new Database( $wpdb ), get_current_user_id(), $correlation );
+				if ( 'pricing_policy' === $operation ) {
+					$result = $policy->get( $workspace ); } elseif ( 'pricing_review' === $operation ) {
+					$result = $policy->review( $workspace ); } else {
+						Tracker::fields( $data, array( 'source', 'expected_revision', 'acknowledged', 'settings_revision', 'scope_revision' ), array( 'source', 'expected_revision', 'acknowledged', 'settings_revision', 'scope_revision' ) );
+						if ( ! is_string( $data['source'] ) || ! is_int( $data['expected_revision'] ) || ! is_bool( $data['acknowledged'] ) || ! is_int( $data['settings_revision'] ) || ! is_int( $data['scope_revision'] ) ) {
+							throw new \InvalidArgumentException( 'Reviewed pricing revisions and acknowledgment are required.' ); }
+						$result = $policy->save( $workspace, $data['source'], $data['expected_revision'], $data['acknowledged'], $data['settings_revision'], $data['scope_revision'] );
+						if ( 'tickerbot' === $result['source'] ) {
+							$result['queue_repaired'] = \GainerInteractive\IGTradingJournal\Infrastructure\RecurringTickerbot::queue( $workspace );
+						} else {
+							wp_clear_scheduled_hook( 'tgit_tickerbot_schedule_tick', array( $workspace ) );
+							$result['queue_repaired'] = \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::recover_workspace( $workspace, get_current_user_id() ); }
+					}
+			} elseif ( 'tickerbot_manual_refresh' === $operation ) {
+				Tracker::fields( $data, array( 'settings_revision', 'scope_revision' ), array( 'settings_revision', 'scope_revision' ) );
+				if ( ! is_int( $data['settings_revision'] ) || ! is_int( $data['scope_revision'] ) ) {
+					throw new \InvalidArgumentException( 'Reviewed refresh settings and scope revisions are required.' ); }
+				$store  = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotManual::run( $store, $workspace, (string) $request->get_header( 'idempotency-key' ), $data['settings_revision'], $data['scope_revision'] );
+			} elseif ( in_array( $operation, array( 'tickerbot_controls', 'tickerbot_scope', 'tickerbot_cadence', 'tickerbot_diagnostics' ), true ) ) {
 				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
 				if ( 'tickerbot_diagnostics' === $operation ) {
 					$result = $setup->diagnostics( $workspace );
@@ -256,7 +281,8 @@ final class Controller {
 					if ( ! is_bool( $data['enabled'] ) || ! is_bool( $data['acknowledged'] ) || ( $data['enabled'] && ! $data['acknowledged'] ) || ! is_int( $data['expected_revision'] ) || ! is_int( $data['expected_settings'] ) || ! is_int( $data['expected_scope'] ) ) {
 						throw new \InvalidArgumentException( 'Review current settings and asset scope and acknowledge recurring requests before enabling.' );
 					}
-					$result = $setup->save_cadence( $workspace, $data['enabled'], $data['expected_revision'], $data['expected_settings'], $data['expected_scope'] );
+					$result           = $setup->save_cadence( $workspace, $data['enabled'], $data['expected_revision'], $data['expected_settings'], $data['expected_scope'] );
+					$result['queued'] = $data['enabled'] ? \GainerInteractive\IGTradingJournal\Infrastructure\RecurringTickerbot::queue( $workspace ) : false;
 				}
 			} elseif ( 'tickerbot_recover_pause' === $operation ) {
 				Tracker::fields( $data, array( 'expected_revision', 'acknowledged' ), array( 'expected_revision', 'acknowledged' ) );

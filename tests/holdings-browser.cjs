@@ -14,7 +14,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
    const url = new URL(route.request().url()), path = url.searchParams.get('rest_route') || url.pathname;
    if (route.request().method() !== 'GET' || !path.endsWith(`/workspaces/${fixture.workspace}/holdings`)) return route.continue();
    const after = Number(url.searchParams.get('after') || 0); cursors.push(after);
-   const rows = Array.from({ length: after ? 1 : 100 }, (_, index) => ({ account_id: accountId, asset_id: after ? 101 : index + 1, symbol: after ? 'CURSOR-SENTINEL' : `ASSET-${index}`, quantity: '30.000000000000000000', remaining_basis: '312.000000000000', basis_status: 'complete', currency: 'USD', realized_gain: '0.000000000000', market_value: null, unrealized_gain: null, price_status: 'missing' }));
+   const rows = Array.from({ length: after ? 1 : 100 }, (_, index) => ({ account_id: accountId, asset_id: after ? 101 : index + 1, symbol: after ? 'CURSOR-SENTINEL' : `ASSET-${index}`, quantity: '30.000000000000000000', remaining_basis: '312.000000000000', basis_status: 'complete', currency: 'USD', realized_gain: '0.000000000000', market_value: null, unrealized_gain: null, price_policy_revision: 0, price_status: 'missing' }));
    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ data: { items: rows, next_cursor: after ? null : 100 } }) });
   });
   await page.route('**/*accounts*', async (route) => { const response = await route.fetch(), json = await response.json(); accountId = json.data.items[0].id; await route.fulfill({ response }); });

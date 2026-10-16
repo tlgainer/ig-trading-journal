@@ -48,7 +48,7 @@ final class TickerbotInventory {
 		$eligible = array();
 		$cursor   = 0;
 		do {
-			$page = $tracker->holdings( $workspace, $cursor, 100 );
+			$page = $tracker->holdings( $workspace, $cursor, 100, 'manual' );
 			foreach ( $page['items'] as $position ) {
 				if ( Decimal::compare( $position['quantity'], '0' ) > 0 ) {
 					$eligible[ (int) $position['asset_id'] ]['holding'] = true;

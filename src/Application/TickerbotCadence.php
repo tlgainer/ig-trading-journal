@@ -82,6 +82,9 @@ trait TickerbotCadence {
 	 * @throws \DomainException On revoked or superseded enrollment.
 	 */
 	private function check_cadence( int $workspace, int $cadence, array $account ): array {
+		$policy = PricingPolicy::saved( $this->db, $workspace );
+		if ( $policy['revision'] > 0 && 'tickerbot' !== $policy['source'] ) {
+			throw new \DomainException( 'Tickerbot recurring quotes are suspended by the current pricing policy.' ); }
 		$current  = $this->cadence( $workspace );
 		$settings = $this->settings( $workspace, $account );
 		$scope    = $this->scope_selection( $workspace );

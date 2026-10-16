@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.24/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.25/schema 28** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -491,3 +491,13 @@ The latest saved quote run is separate from connection/mapping/coverage checks. 
 The cache table covers the complete currently saved scope; that scope can differ from the frozen run. Each available price includes source type, source time meaning, source time, provider response assembly time, last receipt time and diagnostic source age. Fair-value source time means provider fetch time, not an exchange trade. Re-receiving an old price does not refresh its source age. Unknown times stay unknown, and future source times have unavailable age.
 
 Prices are labeled stale when source age exceeds twice the saved refresh interval, including weekends and market closures. Within that diagnostic window does not mean realtime. Price text uses at most eight decimal places; its tooltip retains the stored precision. Missing/unsupported/unmapped prices stay unavailable rather than zero. These are diagnostics only: holdings, unrealized totals, dated reports and manual prices still use their existing source policies. Source dev.24/schema27 needs no new SQL; no installation ZIP or provider cutover is included.
+
+## Tickerbot holdings prices and provider switching (development test build dev.25)
+
+See [installation and setup walkthrough](test-build-0.27.0-dev.25.md). This build uses schema 28; back up database/private images, install the stable-folder ZIP and explicitly reactivate. Intermediate ZIPs are unnecessary. Server keys/switches stay unchanged.
+
+Overview defaults to the saved Workspace pricing policy. Cached Tickerbot marks value stock, ETF and supported crypto holdings exactly in native currency. Unknown/stale/future source times remain unavailable; receiving an old mark again does not renew its age. Unresolved basis leaves gain unavailable. Stock totals show partial/mixed-cohort coverage and separate currencies, without guessed FX or Tickerbot daily change. Explicit local price-source previews are available, including Manual override. Dated reports keep their manual price/FX history.
+
+In Settings > API setup, review saved asset scope, enable transport/worker on a test copy and Request selected prices. Host cron processes the queue; checking the same operation does not create another run. Review saved progress and current cached-price evidence before switching. In Workspace price source and rollback, choose and acknowledge the shared source; Tickerbot requires a current connection check and complete recent saved-scope coverage. It suspends legacy quote requests while preserving their schedules. Fundamentals and AI are unaffected.
+
+Choose Roll back to previous source to append a reversal and restore saved legacy scheduling intent. This does not need a working Tickerbot key and does not change posted history or refund requests. Old queued batches are fenced; already admitted requests may finish. Do not downgrade plugin code over a newer schema. Live API/plan, host-cron and 24-hour/seven-day observations remain owner acceptance checks.

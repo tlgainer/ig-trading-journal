@@ -60,6 +60,8 @@ test('Tickerbot recurring hook recovers lost queued batches without page visits 
  // Reuse the trusted synthetic server account while leaving prior revoked fixture rows isolated.
  $w=(int)(new \GainerInteractive\IGTradingJournal\Application\Tracker($db,$owner,wp_generate_uuid4()))->create_workspace(['name'=>'Recurring hook fixture'])['id'];$s=new TickerbotStore($db,$owner,wp_generate_uuid4(),TGIT_TICKERBOT_ACCOUNT_SCOPE);$s->configure($w);
  $asset=tbi_asset($w,'S0');$s->save_mapping($w,$asset,'S0',tb_row('S0'));$tracker=new \GainerInteractive\IGTradingJournal\Application\Tracker($db,$owner,wp_generate_uuid4());$list=(int)$tracker->create_watchlist($w,['name'=>'Recurring idea'],'recurring-list')['id'];$tracker->add_watchlist_item($w,$list,['asset_id'=>$asset,'status'=>'watch'],'recurring-item');$s->select_scope($w,[$list],[],0);$c=$s->save_cadence($w,true,0);
+ // Reviewed active policy fixture; public switching readiness is covered separately.
+ $account=$db->row('SELECT account_id FROM '.$db->table('tickerbot_settings').' WHERE workspace_id=%d',[$w]);$db->insert('pricing_policies',['workspace_id'=>$w,'revision'=>1,'source'=>'tickerbot','previous_source'=>'manual','account_id'=>$account['account_id'],'settings_revision'=>1,'scope_revision'=>1,'actor_id'=>$owner,'created_at'=>gmdate('Y-m-d H:i:s')]);
  $db->query('UPDATE '.$db->table('tickerbot_settings').' SET next_due_at=%s WHERE workspace_id=%d',['2026-01-01 00:00:00',$w]);$calls=0;
  $fixture=function($preempt,$options,$url)use(&$calls){if(!str_starts_with($url,'https://api.tickerbot.io/v2/'))return new WP_Error('fixture_blocked','Unexpected fixture URL');$calls++;return tbw_response($url);};add_filter('pre_http_request',$fixture,10,3);
  try{

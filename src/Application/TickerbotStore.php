@@ -367,20 +367,22 @@ final class TickerbotStore {
 	/**
 	 * Claim one account-wide lease, joining only same-workspace active runs.
 	 *
-	 * @param int    $workspace Workspace ID.
-	 * @param string $key Retry identity.
-	 * @param string $cause manual or scheduled.
-	 * @param int    $cadence Explicit recurring enrollment, zero for existing direct operations.
+	 * @param int      $workspace Workspace ID.
+	 * @param string   $key Retry identity.
+	 * @param string   $cause manual or scheduled.
+	 * @param int      $cadence Explicit recurring enrollment, zero for existing direct operations.
+	 * @param int|null $expected_settings Explicit manual review settings revision.
+	 * @param int|null $expected_scope Explicit manual review scope revision.
 	 * @return array Private run token for a new claim; joins/status never expose it.
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
-	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0 ): array {
+	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0, ?int $expected_settings = null, ?int $expected_scope = null ): array {
 		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution', 'coverage' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $key, $cause, $cadence ): array {
+			function () use ( $workspace, $key, $cause, $cadence, $expected_settings, $expected_scope ): array {
 				$account  = $this->account();
 				$settings = $this->settings( $workspace, $account );
 				if ( $cadence ) {
@@ -388,6 +390,11 @@ final class TickerbotStore {
 				}
 				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id = %d AND request_key = %s', array( $workspace, $key ) );
 				if ( $prior ) {
+					if ( null !== $expected_settings ) {
+						$plan = $this->db->row( 'SELECT settings_revision,scope_revision FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $prior['id'] ) );
+						if ( ! $plan || (int) $plan['settings_revision'] !== $expected_settings || (int) $plan['scope_revision'] !== $expected_scope ) {
+							throw new \DomainException( 'Refresh key is bound to different reviewed settings or scope.' ); }
+					}
 					if ( $prior['cause'] !== $cause || (int) $prior['account_id'] !== (int) $account['id'] ) {
 						throw new \DomainException( 'Refresh identity conflicts with its saved command.' );
 					}
@@ -396,6 +403,8 @@ final class TickerbotStore {
 						'run_id' => (int) $prior['id'],
 					);
 				}
+				if ( null !== $expected_settings && ( 'manual' !== $cause || $expected_settings !== (int) $settings['revision'] || $expected_scope !== $this->scope_selection( $workspace )['revision'] ) ) {
+					throw new \UnexpectedValueException( 'Refresh review changed; reload before requesting prices.' ); }
 				if ( $account['active_run_id'] && $account['lease_until'] > $this->time() ) {
 					return (int) $account['active_workspace_id'] === $workspace ? array(
 						'state'  => 'joined',
@@ -439,6 +448,8 @@ final class TickerbotStore {
 						)
 					);
 				}
+				if ( null !== $expected_settings ) {
+					$this->freeze_dispatch( $workspace, $id, $token ); }
 				$this->audit( $workspace, 'tickerbot.run.start', 'tickerbot_runs', $id );
 				return array(
 					'state'       => 'running',
@@ -972,7 +983,7 @@ final class TickerbotStore {
 		$t        = $this->db->table( 'tickerbot_receipt_times' );
 		$attempts = $this->db->table( 'tickerbot_attempts' );
 		$accounts = $this->db->table( 'tickerbot_accounts' );
-		$row      = $this->db->row( 'SELECT q.*, q.response_as_of AS first_response_as_of, t.response_as_of AS response_as_of, m.provider_symbol, m.asset_class, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $attempts . ' admitted ON admitted.workspace_id = r.workspace_id AND admitted.id = r.attempt_id JOIN ' . $accounts . ' account ON account.id = admitted.account_id AND account.scope_digest = %s JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id LEFT JOIN ' . $t . ' t ON t.workspace_id = r.workspace_id AND t.receipt_id = r.id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $this->scope, $workspace, $asset ) );
+		$row      = $this->db->row( 'SELECT q.*, q.response_as_of AS first_response_as_of, t.response_as_of AS response_as_of, m.provider_symbol, m.asset_class, admitted.run_id AS received_run_id, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $attempts . ' admitted ON admitted.workspace_id = r.workspace_id AND admitted.id = r.attempt_id JOIN ' . $accounts . ' account ON account.id = admitted.account_id AND account.scope_digest = %s JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id LEFT JOIN ' . $t . ' t ON t.workspace_id = r.workspace_id AND t.receipt_id = r.id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $this->scope, $workspace, $asset ) );
 		return $row ? array_merge( $row, array( 'provider' => 'tickerbot' ) ) : null;
 	}
 }

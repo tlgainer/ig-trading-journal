@@ -119,8 +119,10 @@ final class TickerbotRefresh {
 		}
 		try {
 			global $wpdb;
-			$db     = new Database( $wpdb );
-			$row    = $db->object( 'tickerbot_runs', $workspace, $run );
+			$db  = new Database( $wpdb );
+			$row = $db->object( 'tickerbot_runs', $workspace, $run );
+			if ( 'scheduled' === $row['cause'] && 'tickerbot' !== \GainerInteractive\IGTradingJournal\Application\PricingPolicy::saved( $db, $workspace )['source'] ) {
+				return; }
 			$store  = new TickerbotStore( $db, (int) $row['actor_id'], wp_generate_uuid4(), TGIT_TICKERBOT_ACCOUNT_SCOPE );
 			$result = self::step( $store, $workspace, $run, $row['lease_token'] );
 			if ( 'pending' === $result['state'] || 'waiting' === $result['state'] ) {

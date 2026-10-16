@@ -370,6 +370,8 @@ final class MarketData {
 						}
 						return self::request_result( $prior );
 					}
+					if ( 'quote' === $dataset && 'tickerbot' === PricingPolicy::saved( $this->db, $workspace )['source'] ) {
+						throw new \DomainException( 'Legacy price refresh is suspended while Tickerbot is the workspace source. Fundamentals are unchanged.' ); }
 					$cutoff = gmdate( 'Y-m-d H:i:s', time() - 86400 );
 					// Locking read avoids an older REPEATABLE READ snapshot under concurrent workspaces.
 					$used  = $this->db->rows( 'SELECT id FROM ' . $this->db->table( 'provider_requests' ) . ' WHERE pool_id = %d AND (created_at >= %s OR dispatched_at >= %s OR state = %s) LIMIT 251 FOR UPDATE', array( $pool['id'], $cutoff, $cutoff, 'dispatched' ) );
@@ -412,6 +414,8 @@ final class MarketData {
 			function () use ( $workspace, $request ): array {
 				$this->lock_owner( $workspace );
 				$row = $this->request( $workspace, $request );
+				if ( 'quote' === $row['dataset'] && 'tickerbot' === PricingPolicy::saved( $this->db, $workspace )['source'] ) {
+					throw new \DomainException( 'Pricing policy changed; legacy quotes cannot dispatch.' ); }
 				$this->mapping( $workspace, (int) $row['mapping_id'] );
 				if ( 'reserved' !== $row['state'] || $row['created_at'] <= gmdate( 'Y-m-d H:i:s', time() - 86400 ) ) {
 					throw new \UnexpectedValueException( 'Provider request is expired or already dispatched.' );

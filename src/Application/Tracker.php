@@ -2084,9 +2084,9 @@ final class Tracker {
 	 * @throws \InvalidArgumentException When the operation contract cannot be satisfied.
 	 * @throws \RuntimeException When the stored projection is inconsistent.
 	 */
-	public function holdings( int $workspace, int $after = 0, int $limit = 100, string $price_source = 'manual' ): array {
+	public function holdings( int $workspace, int $after = 0, int $limit = 100, string $price_source = 'workspace' ): array {
 		$this->authorize( $workspace, 'tgit_view' );
-		if ( $after < 0 || $limit < 1 || $limit > 100 || ! in_array( $price_source, array( 'manual', 'fmp', 'alpha_vantage' ), true ) ) {
+		if ( $after < 0 || $limit < 1 || $limit > 100 || ! in_array( $price_source, array( 'workspace', 'manual', 'fmp', 'alpha_vantage', 'tickerbot' ), true ) ) {
 			throw new \InvalidArgumentException( 'Invalid list parameters.' );
 		}
 		// Project each account once so corrected rows never contribute twice.
@@ -2137,7 +2137,7 @@ final class Tracker {
 			}
 		}
 		$positions = $this->value_holdings( $workspace, $positions, $price_source );
-		$coverage  = in_array( 'missing', array_column( $positions, 'price_status' ), true ) ? 'missing' : ( in_array( 'stale', array_column( $positions, 'price_status' ), true ) ? 'stale' : 'complete' );
+		$coverage  = in_array( 'unknown', array_column( $positions, 'price_status' ), true ) ? 'unknown' : ( in_array( 'missing', array_column( $positions, 'price_status' ), true ) ? 'missing' : ( in_array( 'stale', array_column( $positions, 'price_status' ), true ) ? 'stale' : 'complete' ) );
 		return array(
 			'items'               => $positions,
 			'next_cursor'         => count( $assets ) === $limit ? (string) end( $assets )['id'] : null,

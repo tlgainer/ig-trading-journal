@@ -44,7 +44,10 @@ final class RecurringTickerbot {
 	 */
 	private static function context( int $workspace ): array {
 		global $wpdb;
-		$db  = new Database( $wpdb );
+		$db     = new Database( $wpdb );
+		$policy = \GainerInteractive\IGTradingJournal\Application\PricingPolicy::saved( $db, $workspace );
+		if ( 'tickerbot' !== $policy['source'] ) {
+			throw new \DomainException( 'Tickerbot recurring work is suspended by the pricing policy.' ); }
 		$row = $db->row( 'SELECT actor_id FROM ' . $db->table( 'tickerbot_cadences' ) . ' WHERE workspace_id = %d ORDER BY revision DESC LIMIT 1', array( $workspace ) );
 		if ( ! $row ) {
 			throw new \DomainException( 'No explicit recurring enrollment.' );

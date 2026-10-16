@@ -145,7 +145,7 @@ const fixture = JSON.parse(fs.readFileSync('tmp/journal-http-fixtures.json', 'ut
   assert.equal(await journalCard.locator('[data-label="Active images"]').textContent(), '3');
   console.log('CHECK Dirty cancellation and list context retained.');
   await journalCard.getByRole('button', { name: 'View', exact: true }).click(); await page.waitForFunction(() => !window.tgitWriteBusy);
-  const deepLink = page.url(); await page.goBack(); await page.locator('#tgit-trade-list').waitFor({ state: 'visible' });
+  await page.locator('#tgit-trade-detail').waitFor({ state: 'visible' }); const deepLink = page.url(); await page.goBack(); await page.locator('#tgit-trade-list').waitFor({ state: 'visible' });
   assert.equal(await page.getByRole('searchbox', { name: 'Search Trades', exact: true }).inputValue(), tradeName);
   await page.goto(deepLink); await page.locator('#tgit-trade-detail').waitFor({ state: 'visible' }); await page.getByRole('tab', { name: 'Plan and journal', exact: true }).click();
   assert.equal(await form.locator('textarea[name=notes]').inputValue(), 'Feeling calm; no financial effect.'); assert.deepEqual(errors, []);

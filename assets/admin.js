@@ -7,6 +7,7 @@
  let workspaces = [], accounts = [], assets = [], workspace = '', generation = 0;
  let valuationGeneration = 0;
  let transactionBaseline = null, transactionRows = [];
+ let effectivePriceSource = 'manual';
  let pending = null, editingDraft = null, transactionViewGeneration = 0;
  const promotionKeys = new Map();
  async function request(path, body, key) {
@@ -87,7 +88,7 @@
  }
  function renderHoldings(items) {
   const accountName = (row) => accounts.find((account) => String(account.id) === String(row.account_id))?.name || `Account #${row.account_id}`;
-  const decimal = (value, currency = '', minimum = 2) => { if (value === null || value === undefined) return 'Unavailable'; const span = document.createElement('span'); span.textContent = `${tgitDisplayDecimal(value, minimum)}${currency ? ` ${currency}` : ''}`; span.title = `${value}${currency ? ` ${currency}` : ''}`; return span; };
+  const decimal = (value, currency = '', minimum = 2) => { if (value === null || value === undefined) return 'Unavailable'; const span = document.createElement('span'); span.textContent = `${tgitDisplayDecimal(value, minimum, minimum === 0 ? 8 : 2)}${currency ? ` ${currency}` : ''}`; span.title = `${value}${currency ? ` ${currency}` : ''}`; return span; };
   tgitCollection($('holdings'), { actor: config.actorId, workspace, key: 'holdings', title: 'Holdings', defaultSort: 'symbol',
    search: (row) => `${row.symbol} ${accountName(row)} ${row.currency} ${row.basis_status} ${row.price_status}`,
    filters: [{ key: 'account', label: 'Holding account', values: [['', 'All accounts'], ...accounts.map((account) => [String(account.id), account.name])], matches: (row, value) => !value || String(row.account_id) === value }],
@@ -99,14 +100,17 @@
     { key: 'realized', label: 'Realized gain', numeric: true, render: (row) => decimal(row.realized_gain, row.currency) },
     { key: 'market', label: 'Market value', numeric: true, render: (row) => decimal(row.market_value, row.currency) },
     { key: 'unrealized', label: 'Unrealized gain', numeric: true, render: (row) => decimal(row.unrealized_gain, row.currency) },
-    { key: 'price', label: 'Price coverage', render: (row) => row.price_status === 'missing' ? `Missing price — ${$('price-source').value !== 'manual' && row.asset_class === 'stock' ? 'check provider mapping and saved quotes in Settings' : 'enter a manual price in Reports'}` : `${row.price_status}: ${row.price_observation?.source || 'Manual observation'} / ${row.price_observation?.effective_date || 'Date unavailable'}` }
+    { key: 'price', label: 'Price coverage', render: (row) => row.price_observation?.kind === 'tickerbot_mark' ? `${row.price_status}: ${row.price_observation.source}; ${row.price_observation.source_time_semantics === 'provider_fetch_time' ? 'provider fetch time' : 'source observation time'} ${row.price_observation.price_asof || 'unknown'} UTC; received ${row.price_observation.retrieved_at} UTC` : row.price_status === 'missing' ? `Missing price — ${effectivePriceSource === 'tickerbot' ? 'verify Tickerbot mapping and request selected prices in Settings' : effectivePriceSource !== 'manual' && row.asset_class === 'stock' ? 'check provider mapping and saved quotes in Settings' : 'enter a manual price in Reports'}` : `${row.price_status}: ${row.price_observation?.source || 'Manual observation'} / ${row.price_observation?.effective_date || 'Date unavailable'}` }
    ] }, items.map((row) => ({ ...row, id: `${row.account_id}:${row.asset_id}` })));
  }
  async function loadValuations(expected = generation) {
   const valuation = ++valuationGeneration, selected = workspace, source = $('price-source').value;
+  $('holdings').hidden = true; $('stock-summary').textContent = 'Reading selected pricing policy and saved prices...';
   const [holdings, summary] = await Promise.all([all(`holdings?price_source=${source}`, expected), request(`workspaces/${selected}/stock-summary?price_source=${source}`)]);
   if (expected !== generation || valuation !== valuationGeneration || selected !== workspace) return;
-  renderHoldings(holdings);
+  if (holdings.some(row => row.price_policy_revision !== summary.price_policy_revision)) { $('holdings').replaceChildren(); $('stock-summary').replaceChildren(); throw new Error('Pricing policy changed while loading; reload prices.'); }
+  effectivePriceSource = summary.price_source;
+  renderHoldings(holdings); $('holdings').hidden = false;
   const amount = (value, currency) => value === null ? 'Unavailable' : `${tgitDisplayDecimal(value, 2, 2)} ${currency}`;
   $('stock-summary').replaceChildren();
   for (const row of summary.currency_groups) {
@@ -116,12 +120,13 @@
    const values = [['Market value', amount(row.market_value, row.currency)], ['Unrealized gain/loss', amount(row.unrealized_gain, row.currency)]];
    if (row.market_value === null) values.push(['Market value — covered subtotal', amount(row.covered_market_value, row.currency)]);
    if (row.unrealized_gain === null) values.push(['Unrealized gain/loss — covered subtotal', amount(row.covered_unrealized_gain, row.currency)]);
-   values.push(['Price coverage', `${row.priced_positions} / ${row.positions} positions`], ['Gain coverage', `${row.gain_positions} / ${row.positions} positions`], ['Price sessions', row.session_dates.join(', ') || 'Unavailable']);
+   values.push(['Price coverage', `${row.priced_positions} / ${row.positions} positions`], ['Gain coverage', `${row.gain_positions} / ${row.positions} positions`], ['Price sessions / cohorts', row.session_dates.join(', ') || 'Unavailable']);
    for (const [label, value] of values) { const term = document.createElement('dt'), detail = document.createElement('dd'); term.textContent = label; detail.textContent = value; facts.append(term, detail); }
-   const note = document.createElement('p'); note.textContent = 'Mixed sessions produce partial totals.'; card.append(facts, note); $('stock-summary').append(card);
+   const note = document.createElement('p'); note.textContent = summary.price_source === 'tickerbot' ? 'Cached Tickerbot marks; one receipt-run cohort is required for complete totals. Daily change is unavailable. Native currencies remain separate; cash is excluded.' : 'Mixed sessions produce partial totals.'; card.append(facts, note); $('stock-summary').append(card);
   }
   if (!summary.currency_groups.length) $('stock-summary').textContent = 'No open stock positions.';
  }
+ window.addEventListener('tgit-pricing-policy-updated', (event) => { if (String(event.detail.workspace) === workspace) { $('price-source').value = 'workspace'; try { sessionStorage.setItem(`tgit-stock-source:${config.actorId}:${workspace}`, 'workspace'); } catch (_) {} loadValuations().catch(error => status(error.message,true)); } });
  $('price-source').addEventListener('change', () => {
   try { sessionStorage.setItem(`tgit-stock-source:${config.actorId}:${workspace}`, $('price-source').value); } catch (_) { /* Keep the current page selection. */ }
   loadValuations().catch((error) => status(error.message, true));
@@ -215,7 +220,7 @@
  window.addEventListener('popstate', () => { if (!dirtyTransaction()) return; if (leaveTransaction()) cancelEdit(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'transactions'); history.pushState(null, '', url); window.tgitSelectSection('transactions'); } });
  async function refresh() {
   cancelEdit();
-  let priceSource = 'manual'; try { const saved = sessionStorage.getItem(`tgit-stock-source:${config.actorId}:${workspace}`); if (['manual', 'fmp', 'alpha_vantage'].includes(saved)) priceSource = saved; } catch (_) { /* Manual is the safe default. */ }
+  let priceSource = 'workspace'; try { const saved = sessionStorage.getItem(`tgit-stock-source:${config.actorId}:${workspace}`); if (['workspace', 'manual', 'fmp', 'alpha_vantage', 'tickerbot'].includes(saved)) priceSource = saved; } catch (_) { /* Manual is the safe default. */ }
   $('price-source').value = priceSource;
   const expected = ++generation; status(config.i18n.loading); pending = null;
   const member = workspaces.find((row) => String(row.id) === workspace);

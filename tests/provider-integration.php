@@ -337,9 +337,9 @@ test('Provider values reject superseded mappings and preserve unknown basis', fu
  $s->save_mapping($w,$asset,array_replace($input,['expected_mapping_id'=>$mapping,'enabled'=>false])); equal($tracker->holdings($w,0,100,'alpha_vantage')['items'][0]['price_status'],'missing');
 });
 
-test('Stock valuation REST defaults manual, validates sources and enforces membership', function () use ($owner,$viewer) {
+test('Stock valuation REST defaults to workspace policy, validates sources and enforces membership', function () use ($owner,$viewer) {
  [$s,$w,$asset,$mapping]=provider_context(); wp_set_current_user($owner);
- $base='workspaces/'.$w; equal(provider_rest('GET',$base.'/holdings')->get_data()['data']['price_source'],'manual');
+ $base='workspaces/'.$w; equal(provider_rest('GET',$base.'/holdings')->get_data()['data']['price_source'],'workspace');
  equal(provider_rest('GET',$base.'/stock-summary?price_source=fmp')->get_status(),200); equal(provider_rest('GET',$base.'/stock-summary?price_source=unknown')->get_status(),400); equal(provider_rest('GET',$base.'/holdings?price_source=unknown')->get_status(),400);
  wp_set_current_user($viewer); equal(provider_rest('GET',$base.'/stock-summary')->get_status(),403); equal(provider_rest('GET',$base.'/holdings?price_source=fmp')->get_status(),403); wp_set_current_user($owner);
 });

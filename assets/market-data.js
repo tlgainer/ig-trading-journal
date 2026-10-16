@@ -3,7 +3,7 @@
  'use strict';
  const config = window.tgitConfig, $ = (id) => document.getElementById(`tgit-market-${id}`);
  const form = $('form'), section = document.getElementById('tgit-market-data-section');
- let workspace = '', role = '', assets = [], mappings = [], providers = [], generation = 0, baseline = '';
+ let workspace = '', role = '', assets = [], mappings = [], providers = [], generation = 0, baseline = '', tickerbotActive = false;
  const refreshKeys = new Map();
  const keyStorage = () => `tgit-market-requests:${config.actorId}:${workspace}`;
  function persistKeys() { try { sessionStorage.setItem(keyStorage(), JSON.stringify([...refreshKeys])); } catch (_) { /* Retry identity remains available in this page. */ } }
@@ -31,7 +31,7 @@
    { key: 'symbol', label: 'Provider symbol', identity: true, required: true, sort: (a, b) => a.provider_symbol.localeCompare(b.provider_symbol), render: (row) => row.provider_symbol },
    { key: 'provider', label: 'Provider', render: (row) => row.provider === 'fmp' ? 'FMP' : 'Alpha Vantage' },
    { key: 'exchange', label: 'Exchange', render: (row) => row.exchange },
-   { key: 'enabled', label: 'Requests', render: (row) => String(row.enabled) === '1' ? 'Enabled' : 'Disabled' },
+   { key: 'enabled', label: 'Requests', render: (row) => tickerbotActive ? 'Quote polling suspended by Tickerbot policy' : String(row.enabled) === '1' ? 'Enabled' : 'Disabled' },
    { key: 'price', label: 'End-of-day price', numeric: true, render: (row) => row.price === null ? 'Not fetched' : `${tgitDisplayDecimal(row.price)} ${row.currency}` },
    { key: 'session', label: 'Price session', render: (row) => row.session_date || 'Not fetched' },
    { key: 'frequency', label: 'Automatic refresh', render: (row) => ({ once: 'Weekdays 6:30 PM NY', twice: 'Weekdays 6:30 and 10:30 PM NY' })[row.frequency] || 'Off' },
@@ -40,7 +40,7 @@
     const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button'; edit.textContent = 'Edit mapping'; edit.setAttribute('aria-label', `Edit ${row.provider_symbol} ${row.provider} mapping`);
     edit.addEventListener('click', () => { if (window.tgitWriteBusy || (dirty() && !confirm('Discard unsaved market-data changes?'))) return; form.elements.asset_id.value = row.asset_id; form.elements.provider.value = row.provider; fill(); form.elements.provider_symbol.focus(); });
     const refresh = document.createElement('button'); refresh.type = 'button'; refresh.className = 'button'; refresh.textContent = refreshKeys.has(String(row.id)) ? 'Check refresh outcome' : 'Refresh price'; refresh.setAttribute('aria-label', `${refresh.textContent} for ${row.provider_symbol} ${row.provider}`);
-    refresh.disabled = String(row.enabled) !== '1' || !providers.find((provider) => provider.provider === row.provider)?.enabled;
+    refresh.disabled = (tickerbotActive && !refreshKeys.has(String(row.id))) || String(row.enabled) !== '1' || !providers.find((provider) => provider.provider === row.provider)?.enabled;
     refresh.addEventListener('click', async () => {
      if (window.tgitWriteBusy) return; window.tgitWriteBusy = true; refresh.disabled = true;
      const selected = workspace, expected = generation, slot = String(row.id); const key = refreshKeys.get(slot) || crypto.randomUUID(); refreshKeys.set(slot, key); persistKeys();
@@ -60,11 +60,11 @@
  }
  async function load(reset = true) {
   const expected = generation, selected = workspace;
-  const configuration = await request(`workspaces/${selected}/market-data`); if (expected !== generation) return;
+  const [configuration, policy] = await Promise.all([request(`workspaces/${selected}/market-data`),request(`workspaces/${selected}/pricing-policy`)]); tickerbotActive = policy.source === 'tickerbot'; if (expected !== generation) return;
   const rows = []; let after = 0;
   do { const result = await request(`workspaces/${selected}/provider-mappings?after=${after}&limit=100`); if (expected !== generation) return; rows.push(...result.items); after = result.next_cursor; } while (after !== null);
   providers = configuration.providers; mappings = rows;
-  $('config').textContent = providers.map((row) => `${row.provider === 'fmp' ? 'FMP' : 'Alpha Vantage'}: ${row.enabled ? 'configured' : 'disabled or missing server key'}; ${row.daily_limit} requests per rolling 24 hours shared across workspaces.`).join(' ');
+  $('config').textContent = (tickerbotActive ? 'Workspace Tickerbot policy suspends legacy quote refreshes; saved schedules are retained for rollback. Fundamentals are unchanged. ' : '') + providers.map((row) => `${row.provider === 'fmp' ? 'FMP' : 'Alpha Vantage'}: ${row.enabled ? 'configured' : 'disabled or missing server key'}; ${row.daily_limit} requests per rolling 24 hours shared across workspaces.`).join(' ');
   render(); if (reset) fill();
  }
  for (const name of ['asset_id', 'provider']) form.elements[name].addEventListener('change', () => {
@@ -101,8 +101,9 @@
  document.getElementById('tgit-tabs').addEventListener('keydown', (event) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return; if (!leave()) { event.preventDefault(); event.stopImmediatePropagation(); } else fill(); }, true);
  window.addEventListener('popstate', () => { if (!dirty()) return; if (leave()) fill(); else { const url = new URL(location.href); url.searchParams.set('tgit_section', 'settings'); history.pushState(null, '', url); window.tgitSelectSection('settings'); } });
  window.addEventListener('beforeunload', (event) => { if (dirty() || window.tgitWriteBusy) { event.preventDefault(); event.returnValue = ''; } });
+ window.addEventListener('tgit-pricing-policy-updated', event => { if (event.detail.workspace === workspace && role === 'owner') load(false).catch(error => status(error.message,true)); });
  window.addEventListener('tgit-workspace', (event) => {
-  ++generation; ({ workspace, role } = event.detail); assets = event.detail.assets.filter((row) => row.asset_class === 'stock'); mappings = []; providers = []; refreshKeys.clear(); baseline = ''; form.reset(); $('mappings').replaceChildren(); status(''); section.hidden = role !== 'owner';
+  ++generation; ({ workspace, role } = event.detail); assets = event.detail.assets.filter((row) => row.asset_class === 'stock'); mappings = []; providers = []; tickerbotActive = false; refreshKeys.clear(); baseline = ''; form.reset(); $('mappings').replaceChildren(); status(''); section.hidden = role !== 'owner';
   try { const stored = JSON.parse(sessionStorage.getItem(keyStorage()) || '[]'); if (Array.isArray(stored) && stored.length <= 1000) for (const item of stored) if (Array.isArray(item) && /^[1-9][0-9]*$/.test(item[0]) && typeof item[1] === 'string' && /^[0-9a-f-]{36}$/.test(item[1])) refreshKeys.set(item[0], item[1]); } catch (_) { /* Ignore malformed browser state. */ }
   form.elements.asset_id.replaceChildren(); for (const asset of assets) { const option = document.createElement('option'); option.value = asset.id; option.textContent = `${asset.symbol} · ${asset.exchange} (${asset.quote_currency})`; form.elements.asset_id.append(option); }
   fill(); form.inert = role === 'owner';

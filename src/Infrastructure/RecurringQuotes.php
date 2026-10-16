@@ -54,7 +54,9 @@ final class RecurringQuotes {
 	 */
 	private static function authorized( int $workspace, int $schedule ): array {
 		global $wpdb;
-		$db      = new Database( $wpdb );
+		$db = new Database( $wpdb );
+		if ( 'tickerbot' === \GainerInteractive\IGTradingJournal\Application\PricingPolicy::saved( $db, $workspace )['source'] ) {
+			throw new \UnexpectedValueException( 'Legacy quote scheduling is suspended by the workspace pricing policy.' ); }
 		$row     = $db->object( 'provider_schedules', $workspace, $schedule );
 		$service = new MarketData( $db, (int) $row['actor_id'], wp_generate_uuid4() );
 		$current = $service->schedule_config( $workspace, (int) $row['mapping_id'] );
@@ -88,6 +90,28 @@ final class RecurringQuotes {
 			// Revoked owners and obsolete configurations never authorize new requests.
 			return;
 		}
+	}
+
+	/** Repair only this owner's workspace schedules after explicit rollback. */
+	/**
+	 * Repair only this authorized workspace after explicit rollback.
+	 *
+	 * @param int $workspace Workspace ID.
+	 * @param int $actor Explicit owner.
+	 * @return bool
+	 */
+	public static function recover_workspace( int $workspace, int $actor ): bool {
+		global $wpdb;
+		$db = new Database( $wpdb );
+		( new \GainerInteractive\IGTradingJournal\Application\Tracker( $db, $actor, wp_generate_uuid4() ) )->authorize( $workspace, 'tgit_manage_members' );
+		$table = $db->table( 'provider_schedules' );
+		$rows  = $db->rows( 'SELECT s.id FROM ' . $table . " s WHERE s.workspace_id=%d AND s.frequency <> 'off' AND NOT EXISTS (SELECT newer.id FROM " . $table . ' newer WHERE newer.workspace_id=s.workspace_id AND newer.mapping_id=s.mapping_id AND newer.id>s.id) ORDER BY s.id LIMIT 10001', array( $workspace ) );
+		if ( count( $rows ) > 10000 ) {
+			return false; }
+		$ok = true;
+		foreach ( $rows as $row ) {
+			$ok = self::queue( $workspace, (int) $row['id'] ) && $ok; }
+		return $ok;
 	}
 
 	/** Recover jobs from durable explicit enrollment, never from holdings or API keys. */

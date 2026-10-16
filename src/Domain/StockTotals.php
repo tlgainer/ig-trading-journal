@@ -39,7 +39,7 @@ final class StockTotals {
 				continue;
 			}
 			++$groups[ $currency ]['priced_positions'];
-			$date = $position['price_observation']['effective_date'] ?? null;
+			$date = $position['price_observation']['cohort'] ?? $position['price_observation']['effective_date'] ?? null;
 			if ( is_string( $date ) && ! in_array( $date, $groups[ $currency ]['session_dates'], true ) ) {
 				$groups[ $currency ]['session_dates'][] = $date;
 			}

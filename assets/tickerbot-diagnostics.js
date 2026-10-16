@@ -23,7 +23,7 @@
  }
  async function load(){
   if(!workspace||window.tgitWriteBusy)return;const expected=++generation,selected=workspace;reload.disabled=true;status.setAttribute('role','status');status.textContent='Reading saved progress and cached prices…';output.replaceChildren();
-  try{const response=await fetch(tgitRestUrl(config.root,`workspaces/${selected}/tickerbot/diagnostics`),{credentials:'same-origin',cache:'no-store',headers:{'X-WP-Nonce':config.nonce}});const result=await response.json();if(expected!==generation)return;if(!response.ok)throw new Error(result.message||config.i18n.network);render(result.data);status.textContent='Saved diagnostics loaded. No provider request was made.';}
+  try{const response=await fetch(tgitRestUrl(config.root,`workspaces/${selected}/tickerbot/diagnostics`),{credentials:'same-origin',cache:'no-store',headers:{'X-WP-Nonce':config.nonce}});const result=await response.json();if(expected!==generation)return;if(!response.ok)throw new Error(result.message||config.i18n.network);render(result.data);window.dispatchEvent(new CustomEvent('tgit-prices-updated',{detail:{workspace:selected}}));status.textContent='Saved diagnostics loaded. No provider request was made.';}
   catch(error){if(expected===generation){status.setAttribute('role','alert');status.textContent=error.message;output.replaceChildren();}}
   finally{if(expected===generation)reload.disabled=false;}
  }

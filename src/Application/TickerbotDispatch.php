@@ -23,22 +23,37 @@ trait TickerbotDispatch {
 		return $this->atomic(
 			$workspace,
 			function () use ( $workspace, $run, $token ): int {
+				return $this->freeze_dispatch( $workspace, $run, $token );
+			}
+		);
+	}
+
+	/**
+	 * Freeze the plan inside an already-held workspace/account transaction.
+	 *
+	 * @param int    $workspace Workspace ID.
+	 * @param int    $run Active run.
+	 * @param string $token Private lease.
+	 * @return int Frozen plan ID.
+	 * @throws \DomainException On incompatible intent or budget.
+	 */
+	private function freeze_dispatch( int $workspace, int $run, string $token ): int {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
-				if ( in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
-					throw new \DomainException( 'Connection commands cannot prepare quote plans.' );
-				}
+		if ( in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
+			throw new \DomainException( 'Connection commands cannot prepare quote plans.' );
+		}
 				$this->guard_run_cadence( $workspace, $run, $account );
 				$prior = $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id = %d AND run_id = %d', array( $workspace, $run ) );
-				if ( $prior ) {
-					return (int) $prior['id'];
-				}
+		if ( $prior ) {
+			return (int) $prior['id'];
+		}
 				$settings  = $this->settings( $workspace, $account );
 				$inventory = $this->inventory( $workspace );
 				$this->plan_capacity( $workspace, $account, $inventory, $run );
-				if ( 'scheduled' === $current['cause'] && $inventory['projected_monthly_attempts'] > (int) $account['monthly_cap'] ) {
-					throw new \DomainException( 'Eligible quote projection exceeds the account soft cap.' );
-				}
+		if ( 'scheduled' === $current['cause'] && $inventory['projected_monthly_attempts'] > (int) $account['monthly_cap'] ) {
+			throw new \DomainException( 'Eligible quote projection exceeds the account soft cap.' );
+		}
 				$id = $this->db->insert(
 					'tickerbot_plans',
 					array(
@@ -50,31 +65,37 @@ trait TickerbotDispatch {
 						'created_at'        => $this->time(),
 					)
 				);
-				foreach ( $inventory['batches'] as $ordinal => $symbols ) {
-					$mappings = array();
-					foreach ( $inventory['items'] as $item ) {
-						if ( 'mapped' === $item['state'] && in_array( $item['provider_symbol'], $symbols, true ) ) {
-							$mappings[] = $item['mapping_id'];
-						}
-					}
-					$this->db->insert(
-						'tickerbot_batches',
-						array(
-							'workspace_id'  => $workspace,
-							'run_id'        => $run,
-							'plan_id'       => $id,
-							'ordinal'       => $ordinal + 1,
-							'symbols_json'  => wp_json_encode( $symbols ),
-							'mappings_json' => wp_json_encode( $mappings ),
-							'state'         => 'pending',
-							'next_due_at'   => $this->time(),
-						)
-					);
+		foreach ( $inventory['batches'] as $ordinal => $symbols ) {
+			$mappings = array();
+			foreach ( $inventory['items'] as $item ) {
+				if ( 'mapped' === $item['state'] && in_array( $item['provider_symbol'], $symbols, true ) ) {
+					$mappings[] = $item['mapping_id'];
 				}
+			}
+			$this->db->insert(
+				'tickerbot_batches',
+				array(
+					'workspace_id'  => $workspace,
+					'run_id'        => $run,
+					'plan_id'       => $id,
+					'ordinal'       => $ordinal + 1,
+					'symbols_json'  => wp_json_encode( $symbols ),
+					'mappings_json' => wp_json_encode( $mappings ),
+					'state'         => 'pending',
+					'next_due_at'   => $this->time(),
+				)
+			);
+		}
+				$this->db->insert(
+					'tickerbot_plan_policies',
+					array(
+						'workspace_id'    => $workspace,
+						'plan_id'         => $id,
+						'policy_revision' => PricingPolicy::saved( $this->db, $workspace )['revision'],
+					)
+				);
 				$this->audit( $workspace, 'tickerbot.plan.prepare', 'tickerbot_plans', $id );
 				return $id;
-			}
-		);
 	}
 
 	/**
@@ -88,7 +109,10 @@ trait TickerbotDispatch {
 	 */
 	private function dispatch_inputs( int $workspace, array $batch, array $account ): array {
 		$this->guard_run_cadence( $workspace, (int) $batch['run_id'], $account );
-		$plan     = $this->db->object( 'tickerbot_plans', $workspace, (int) $batch['plan_id'] );
+		$plan    = $this->db->object( 'tickerbot_plans', $workspace, (int) $batch['plan_id'] );
+		$binding = $this->db->row( 'SELECT policy_revision FROM ' . $this->db->table( 'tickerbot_plan_policies' ) . ' WHERE workspace_id=%d AND plan_id=%d', array( $workspace, $batch['plan_id'] ) );
+		if ( (int) ( $binding['policy_revision'] ?? 0 ) !== PricingPolicy::saved( $this->db, $workspace )['revision'] ) {
+			throw new \DomainException( 'Pricing policy changed; old queued quote batches cannot send.' ); }
 		$settings = $this->settings( $workspace, $account );
 		$scope    = $this->scope_selection( $workspace );
 		if ( (int) $plan['run_id'] !== (int) $batch['run_id'] || (int) $settings['revision'] !== (int) $plan['settings_revision'] || $scope['revision'] !== (int) $plan['scope_revision'] ) {

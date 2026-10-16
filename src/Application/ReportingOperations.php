@@ -23,11 +23,14 @@ trait ReportingOperations {
 	 * @param string $source Explicit stock quote source.
 	 * @return array
 	 * @throws \RuntimeException On excessive synchronous position history.
+	 * @throws \UnexpectedValueException On a changed pricing policy during pagination.
 	 */
-	public function stock_summary( int $workspace, string $source = 'manual' ): array {
+	public function stock_summary( int $workspace, string $source = 'workspace' ): array {
 		$this->authorize( $workspace, 'tgit_view' );
-		$positions = array();
-		$after     = 0;
+		$pricing_policy = PricingPolicy::saved( $this->db, $workspace );
+		$source         = 'workspace' === $source ? $pricing_policy['source'] : $source;
+		$positions      = array();
+		$after          = 0;
 		do {
 			$page      = $this->holdings( $workspace, $after, 100, $source );
 			$positions = array_merge( $positions, $page['items'] );
@@ -36,11 +39,16 @@ trait ReportingOperations {
 			}
 			$after = (int) $page['next_cursor'];
 		} while ( null !== $page['next_cursor'] );
+		foreach ( $positions as $position ) {
+			if ( $position['price_policy_revision'] !== $pricing_policy['revision'] ) {
+				throw new \UnexpectedValueException( 'Pricing policy changed during summary calculation; reload.' ); }
+		}
 		return array(
-			'currency_groups' => \GainerInteractive\IGTradingJournal\Domain\StockTotals::calculate( $positions ),
-			'price_source'    => $source,
-			'scope'           => 'all_accounts_open_stocks',
-			'as_of'           => gmdate( 'c' ),
+			'currency_groups'       => \GainerInteractive\IGTradingJournal\Domain\StockTotals::calculate( $positions ),
+			'price_source'          => $source,
+			'price_policy_revision' => $pricing_policy['revision'],
+			'scope'                 => 'all_accounts_open_stocks',
+			'as_of'                 => gmdate( 'c' ),
 		);
 	}
 
@@ -129,17 +137,24 @@ trait ReportingOperations {
 	 * @throws \RuntimeException When observation bounds are exceeded.
 	 */
 	private function value_holdings( int $workspace, array $positions, string $source = 'manual' ): array {
-		$settings = $this->authorize( $workspace, 'tgit_view' );
-		$date     = ( new \DateTimeImmutable( 'now', new \DateTimeZone( $settings['timezone'] ) ) )->format( 'Y-m-d' );
-		$rows     = $this->db->rows( 'SELECT o.* FROM ' . $this->db->table( 'market_observations' ) . ' o LEFT JOIN ' . $this->db->table( 'market_observations' ) . ' s ON s.workspace_id = o.workspace_id AND s.supersedes_id = o.id WHERE o.workspace_id = %d AND s.id IS NULL ORDER BY o.id LIMIT 10001', array( $workspace ) );
+		$settings       = $this->authorize( $workspace, 'tgit_view' );
+		$pricing_policy = PricingPolicy::saved( $this->db, $workspace );
+		$source         = 'workspace' === $source ? $pricing_policy['source'] : $source;
+		$date           = ( new \DateTimeImmutable( 'now', new \DateTimeZone( $settings['timezone'] ) ) )->format( 'Y-m-d' );
+		$rows           = $this->db->rows( 'SELECT o.* FROM ' . $this->db->table( 'market_observations' ) . ' o LEFT JOIN ' . $this->db->table( 'market_observations' ) . ' s ON s.workspace_id = o.workspace_id AND s.supersedes_id = o.id WHERE o.workspace_id = %d AND s.id IS NULL ORDER BY o.id LIMIT 10001', array( $workspace ) );
 		if ( count( $rows ) > 10000 ) {
 			throw new \RuntimeException( 'Observation history exceeds the synchronous valuation limit.' );
 		}
-		$quotes = 'manual' === $source ? array() : $this->holding_quotes( $workspace, $positions, $source, $date );
+		$quotes = 'tickerbot' === $source ? TickerbotValuation::prices( $this->db, $this->actor, $workspace, $positions ) : ( 'manual' === $source ? array() : $this->holding_quotes( $workspace, $positions, $source, $date ) );
 		foreach ( $positions as &$position ) {
 			$asset_id = $position['asset_id'];
 			$price    = Valuation::select( array_filter( $rows, static fn( array $row ): bool => 'price' === $row['kind'] && (int) $row['asset_id'] === $asset_id ), $date );
-			if ( 'manual' !== $source && 'stock' === $position['asset_class'] ) {
+			if ( 'tickerbot' === $source ) {
+				$price = $quotes[ $asset_id ] ?? array(
+					'status'      => 'missing',
+					'observation' => null,
+				);
+			} elseif ( 'manual' !== $source && 'stock' === $position['asset_class'] ) {
 				$quote   = $quotes[ $asset_id ] ?? null;
 				$expires = $quote ? ( new \DateTimeImmutable( $quote['session_date'] ) )->modify( '+3 days' )->format( 'Y-m-d' ) : null;
 				$price   = array(
@@ -157,14 +172,15 @@ trait ReportingOperations {
 				);
 			}
 			$value = Valuation::position( $position['quantity'], $price['observation']['value'] ?? null, $position['remaining_basis'] );
-			if ( 'manual' !== $source && 'stock' === $position['asset_class'] && 'complete' !== $price['status'] ) {
+			if ( ( 'tickerbot' === $source || ( 'manual' !== $source && 'stock' === $position['asset_class'] ) ) && 'complete' !== $price['status'] ) {
 				$value = Valuation::position( $position['quantity'], null, $position['remaining_basis'] );
 			}
-			$position['market_value']      = $value['market_value'];
-			$position['unrealized_gain']   = $value['unrealized_gain'];
-			$position['price_status']      = $price['status'];
-			$position['price_observation'] = $price['observation'];
-			$position['valuation_date']    = $date;
+			$position['market_value']          = $value['market_value'];
+			$position['unrealized_gain']       = $value['unrealized_gain'];
+			$position['price_status']          = $price['status'];
+			$position['price_observation']     = $price['observation'];
+			$position['valuation_date']        = $date;
+			$position['price_policy_revision'] = $pricing_policy['revision'];
 		}
 		unset( $position );
 		return $positions;

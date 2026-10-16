@@ -225,5 +225,6 @@ require_once __DIR__ . '/risk-reward-unit.php';
 require_once __DIR__ . '/tickerbot-unit.php';
 require_once __DIR__ . '/tickerbot-schedule-unit.php';
 require_once __DIR__ . '/tickerbot-inventory-unit.php';
+require_once __DIR__ . '/tickerbot-cutover-unit.php';
 
 echo "$passed tests passed.\n";

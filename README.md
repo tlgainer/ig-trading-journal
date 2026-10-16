@@ -75,4 +75,6 @@ October 8, 2026: latest installation test artifact is 0.27.0-dev.6/schema 18, in
 
 October 9, 2026: crypto name/symbol suggestions now use coins.json, with distinct catalogue IDs for repeated symbols. Select Crypto before searching. Confirm network, exchange and currency; no schema change. See asset-typeahead.md.
 
-Tickerbot work in development source 0.27.0-dev.24/schema 27 adds internal storage/quota controls, explicit inventory selections, gated batch dispatch, recurring recovery and shared capacity guards; active pricing and the last dev.12/schema-18 test ZIP remain unchanged. See docs/tickerbot-implementation.md. No cutover build yet.
+Tickerbot work in development source 0.27.0-dev.25/schema 28 adds internal storage/quota controls, explicit inventory selections, gated batch dispatch, recurring recovery and shared capacity guards; active pricing and the last dev.12/schema-18 test ZIP remain unchanged. See docs/tickerbot-implementation.md. No cutover build yet.
+
+Development test package 0.27.0-dev.25/schema28 includes cached holdings valuation, explicit Tickerbot source switching/rollback and guarded manual refresh. See docs/test-build-0.27.0-dev.25.md for backup, direct upgrade, setup and remaining host/live acceptance.
