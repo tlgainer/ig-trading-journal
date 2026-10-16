@@ -24,6 +24,7 @@ final class TickerbotStore {
 	use TickerbotCoverage;
 	use TickerbotRecovery;
 	use TickerbotControls;
+	use TickerbotDiagnostics;
 
 	/**
 	 * Scoped persistence.
@@ -964,12 +965,14 @@ final class TickerbotStore {
 	public function latest_quote( int $workspace, int $asset ): ?array {
 		( new Tracker( $this->db, $this->actor, $this->correlation ) )->authorize( $workspace, 'tgit_view' );
 		$this->db->object( 'assets', $workspace, $asset );
-		$m   = $this->db->table( 'tickerbot_mappings' );
-		$r   = $this->db->table( 'tickerbot_quote_receipts' );
-		$q   = $this->db->table( 'tickerbot_quotes' );
-		$a   = $this->db->table( 'assets' );
-		$t   = $this->db->table( 'tickerbot_receipt_times' );
-		$row = $this->db->row( 'SELECT q.*, q.response_as_of AS first_response_as_of, t.response_as_of AS response_as_of, m.provider_symbol, m.asset_class, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id LEFT JOIN ' . $t . ' t ON t.workspace_id = r.workspace_id AND t.receipt_id = r.id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $workspace, $asset ) );
+		$m        = $this->db->table( 'tickerbot_mappings' );
+		$r        = $this->db->table( 'tickerbot_quote_receipts' );
+		$q        = $this->db->table( 'tickerbot_quotes' );
+		$a        = $this->db->table( 'assets' );
+		$t        = $this->db->table( 'tickerbot_receipt_times' );
+		$attempts = $this->db->table( 'tickerbot_attempts' );
+		$accounts = $this->db->table( 'tickerbot_accounts' );
+		$row      = $this->db->row( 'SELECT q.*, q.response_as_of AS first_response_as_of, t.response_as_of AS response_as_of, m.provider_symbol, m.asset_class, r.fetched_at AS last_received_at FROM ' . $m . ' m JOIN ' . $r . ' r ON r.workspace_id = m.workspace_id AND r.mapping_id = m.id JOIN ' . $attempts . ' admitted ON admitted.workspace_id = r.workspace_id AND admitted.id = r.attempt_id JOIN ' . $accounts . ' account ON account.id = admitted.account_id AND account.scope_digest = %s JOIN ' . $q . ' q ON q.workspace_id = r.workspace_id AND q.mapping_id = r.mapping_id AND q.id = r.quote_id JOIN ' . $a . ' a ON a.workspace_id = m.workspace_id AND a.id = m.asset_id LEFT JOIN ' . $t . ' t ON t.workspace_id = r.workspace_id AND t.receipt_id = r.id WHERE m.workspace_id = %d AND m.asset_id = %d AND a.quote_currency = m.currency AND a.exchange = m.exchange AND a.asset_class = m.asset_class AND m.id = (SELECT MAX(latest.id) FROM ' . $m . ' latest WHERE latest.workspace_id = m.workspace_id AND latest.asset_id = m.asset_id) ORDER BY r.fetched_at DESC, r.id DESC LIMIT 1', array( $this->scope, $workspace, $asset ) );
 		return $row ? array_merge( $row, array( 'provider' => 'tickerbot' ) ) : null;
 	}
 }

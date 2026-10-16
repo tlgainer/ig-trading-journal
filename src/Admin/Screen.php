@@ -44,6 +44,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-reports', plugins_url( 'assets/reports.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-market-data', plugins_url( 'assets/market-data.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot', plugins_url( 'assets/tickerbot.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot-diagnostics', plugins_url( 'assets/tickerbot-diagnostics.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-controls', plugins_url( 'assets/tickerbot-controls.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-mapping', plugins_url( 'assets/tickerbot-mapping.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-coverage', plugins_url( 'assets/tickerbot-coverage.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -390,6 +391,12 @@ final class Screen {
 	<div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-test" disabled><?php esc_html_e( 'Test connection (one request)', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-new-test" hidden><?php esc_html_e( 'Start a separate test', 'ig-trading-journal' ); ?></button></div>
 	<p id="tgit-tickerbot-status" role="status" aria-live="polite"></p>
 	<div id="tgit-tickerbot-readiness"></div>
+	<details id="tgit-tickerbot-diagnostics" hidden><summary><?php esc_html_e( 'Saved batch progress and cached prices', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Reads saved records only. Reloading sends no provider request, resumes no worker and changes no holdings/report price source. The latest quote run is shown separately from connection and coverage checks. Cached prices cover the complete currently saved asset scope, which may differ from the frozen run plan.', 'ig-trading-journal' ); ?></p>
+	<button type="button" class="button" id="tgit-tickerbot-diagnostics-reload"><?php esc_html_e( 'Reload saved progress and prices', 'ig-trading-journal' ); ?></button>
+	<p id="tgit-tickerbot-diagnostics-status" role="status" aria-live="polite"></p>
+	<div id="tgit-tickerbot-diagnostics-output"></div>
+	</details>
 	<details id="tgit-tickerbot-controls" hidden><summary><?php esc_html_e( 'Assets and recurring refresh', 'ig-trading-journal' ); ?></summary>
 	<p><?php esc_html_e( 'Positive open holdings are always included. Add whole watchlists or individually selected planned trades. Saved selections are dynamic: holdings, watchlist contents, trade status and mapping changes can change the inventory. This preview covers the complete saved scope, not a filtered page.', 'ig-trading-journal' ); ?></p>
 	<button type="button" class="button" id="tgit-tickerbot-controls-reload"><?php esc_html_e( 'Reload asset selections', 'ig-trading-journal' ); ?></button>

@@ -149,3 +149,4 @@
  .tgit .tgit-summary-facts dt { border-bottom: 0; padding-bottom: 0; }
  .tgit .tgit-summary-facts dd { text-align: left; padding-top: 4px; }
 }
+.tgit .tgit-table-scroll .tgit-diagnostics-table { min-width: 1100px; }

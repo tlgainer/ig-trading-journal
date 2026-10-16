@@ -53,3 +53,13 @@ test('Tickerbot rejects ambiguous batches, unknown sources and unsafe canonical 
  $row=tb_row();$row['price_source']='published_rate';equal(tb_parse(['ticker'=>'AAPL','data'=>$row],[tb_asset()])['issues'],[1=>'invalid_quote']);
  $row=tb_row();$row['exchange_mic']='XNYS';equal(tb_parse(['ticker'=>'AAPL','data'=>$row],[tb_asset()])['issues'],[1=>'identity_mismatch']);
 });
+require_once __DIR__.'/../src/Domain/TickerbotSchedule.php';
+require_once __DIR__.'/../src/Domain/TickerbotAge.php';
+
+test('Tickerbot source age uses the elapsed interval without blessing unknown future or invalid times',function(){
+ $now=new DateTimeImmutable('2026-10-15T12:00:00Z');$age=\GainerInteractive\IGTradingJournal\Domain\TickerbotAge::class;
+ equal($age::inspect(null,$now,7200)['state'],'unknown');equal($age::inspect('2026-02-30 12:00:00',$now,7200)['state'],'unknown');equal($age::inspect('2026-10-15 12:00:00.000001',$now,7200)['state'],'future');equal($age::inspect('2026-10-15 08:00:00',$now,7200)['state'],'recent');equal($age::inspect('2026-10-15 07:59:59',$now,7200)['state'],'stale');equal($age::inspect('2026-10-15 08:00:00',$now,3600)['state'],'stale');equal($age::inspect('2026-10-15 08:00:00',$now,86400)['state'],'recent');
+});
+test('Tickerbot source age compares absolute UTC time across New York daylight transitions',function(){
+ $now=new DateTimeImmutable('2026-11-01T02:30:00-05:00');$age=\GainerInteractive\IGTradingJournal\Domain\TickerbotAge::inspect('2026-11-01 05:30:00',$now,3600);equal($age['seconds'],7200);equal($age['state'],'recent');
+});

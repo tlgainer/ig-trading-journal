@@ -1,6 +1,6 @@
 # IG Trading Journal user guide
 
-Current development source: **0.27.0-dev.23/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
+Current development source: **0.27.0-dev.24/schema 27** includes asset typeahead and default-off owner AI generation controls. See [asset search](asset-typeahead.md), [AI summary setup](ai-owner-generation.md) and [test-build installation](test-build-0.27.0-dev.12.md). Versioned rollout notes below describe earlier builds.
 
 For **plugin 0.27.0-dev.1 test build (schema 17)**, used inside WordPress administration. This guide describes the current screens; later UI updates may change their layout. Base currency and timezone for new workspaces default to **USD** and **America/New_York** (EST or EDT according to the date).
 
@@ -481,3 +481,13 @@ Open Settings > API setup > Tickerbot setup and progress. Save local setup first
 4. Choose Off and save to withdraw recurring intent. This releases forecast capacity without refunding counted requests. An already admitted request may still finish; opt-out fences later scheduled admissions.
 
 These local saves make no provider request and change no server switches or current holdings price source. Actual recurring work additionally requires server transport, worker and scheduler switches, valid access/mappings, budget and functioning host cron. Inventory is dynamic as holdings, watchlist contents, planned status and mappings change. Keep production Tickerbot processing off until host scheduling, live coverage and pricing-cutover acceptance are complete. Source dev.23 uses schema 27; no additional SQL migration or ZIP is included.
+
+### Read saved batch progress and cached prices (development source dev.24)
+
+Open Settings > API setup > Tickerbot setup and progress > Saved batch progress and cached prices. Select Reload saved progress and prices to read local records. It does not make a provider request or resume a worker.
+
+The latest saved quote run is separate from connection/mapping/coverage checks. Its frozen batches show recorded state, counted attempts, assets with receipts, next retry time and last safe request/asset outcomes. Failed or partial batches can still retain useful prices. A recorded running run with an expired lease may be abandoned; reading it does not recover it or prove the host scheduler is working. Future due times are saved intent, not execution guarantees.
+
+The cache table covers the complete currently saved scope; that scope can differ from the frozen run. Each available price includes source type, source time meaning, source time, provider response assembly time, last receipt time and diagnostic source age. Fair-value source time means provider fetch time, not an exchange trade. Re-receiving an old price does not refresh its source age. Unknown times stay unknown, and future source times have unavailable age.
+
+Prices are labeled stale when source age exceeds twice the saved refresh interval, including weekends and market closures. Within that diagnostic window does not mean realtime. Price text uses at most eight decimal places; its tooltip retains the stored precision. Missing/unsupported/unmapped prices stay unavailable rather than zero. These are diagnostics only: holdings, unrealized totals, dated reports and manual prices still use their existing source policies. Source dev.24/schema27 needs no new SQL; no installation ZIP or provider cutover is included.

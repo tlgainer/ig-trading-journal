@@ -92,6 +92,7 @@ final class Controller {
 		self::route( $base . '/market-data', 'GET', 'market_status' );
 		self::route( $base . '/tickerbot/status', 'GET', 'tickerbot_status' );
 		self::route( $base . '/tickerbot/controls', 'GET', 'tickerbot_controls' );
+		self::route( $base . '/tickerbot/diagnostics', 'GET', 'tickerbot_diagnostics' );
 		self::route( $base . '/tickerbot/scope', 'POST', 'tickerbot_scope' );
 		self::route( $base . '/tickerbot/cadence', 'POST', 'tickerbot_cadence' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
@@ -238,9 +239,11 @@ final class Controller {
 					throw new \InvalidArgumentException( 'A JSON object is required.' );
 				}
 			}
-			if ( in_array( $operation, array( 'tickerbot_controls', 'tickerbot_scope', 'tickerbot_cadence' ), true ) ) {
+			if ( in_array( $operation, array( 'tickerbot_controls', 'tickerbot_scope', 'tickerbot_cadence', 'tickerbot_diagnostics' ), true ) ) {
 				$setup = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
-				if ( 'tickerbot_controls' === $operation ) {
+				if ( 'tickerbot_diagnostics' === $operation ) {
+					$result = $setup->diagnostics( $workspace );
+				} elseif ( 'tickerbot_controls' === $operation ) {
 					$result = $setup->controls( $workspace );
 				} elseif ( 'tickerbot_scope' === $operation ) {
 					Tracker::fields( $data, array( 'watchlists', 'trades', 'expected_revision' ), array( 'watchlists', 'trades', 'expected_revision' ) );
