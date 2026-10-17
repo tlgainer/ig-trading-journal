@@ -25,13 +25,23 @@ trait TickerbotDiagnostics {
 				$account   = $this->account();
 				$settings  = $this->settings( $workspace, $account );
 				$inventory = $this->inventory( $workspace );
-				$run       = $this->db->row( 'SELECT id,state,cause,started_at,completed_at,lease_until FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id=%d AND account_id=%d AND cause IN (%s,%s) ORDER BY id DESC LIMIT 1', array( $workspace, $account['id'], 'manual', 'scheduled' ) );
+				$run       = $this->db->row( 'SELECT id,state,cause,started_at,completed_at,lease_until FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id=%d AND account_id=%d AND cause IN (%s,%s,%s) ORDER BY id DESC LIMIT 1', array( $workspace, $account['id'], 'manual', 'scheduled', 'selected' ) );
 				$batches   = array();
 				$attempts  = 0;
 				$planned   = false;
 				if ( $run ) {
-					$planned = (bool) $this->db->row( 'SELECT id FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $run['id'] ) );
-					$rows    = $this->db->rows( 'SELECT id,ordinal,state,attempts,next_due_at,outcome_json FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id=%d AND run_id=%d ORDER BY ordinal LIMIT 201', array( $workspace, $run['id'] ) );
+					$frozen  = $this->db->row( 'SELECT id,inventory_json FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $run['id'] ) );
+					$planned = (bool) $frozen;
+					if ( $frozen && 'selected' === $run['cause'] ) {
+						$existing = array_column( $inventory['items'], null, 'asset_id' );
+						foreach ( json_decode( $frozen['inventory_json'], true, 512, JSON_THROW_ON_ERROR ) as $item ) {
+							if ( ! isset( $existing[ $item['asset_id'] ] ) ) {
+								$asset                = $this->db->object( 'assets', $workspace, (int) $item['asset_id'] );
+								$mapping              = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' WHERE workspace_id=%d AND asset_id=%d ORDER BY id DESC LIMIT 1', array( $workspace, $item['asset_id'] ) );
+								$inventory['items'][] = TickerbotInventory::entry( $asset, $mapping, array( 'manual_selection' ) ); }
+						}
+					}
+					$rows = $this->db->rows( 'SELECT id,ordinal,state,attempts,next_due_at,outcome_json FROM ' . $this->db->table( 'tickerbot_batches' ) . ' WHERE workspace_id=%d AND run_id=%d ORDER BY ordinal LIMIT 201', array( $workspace, $run['id'] ) );
 					if ( count( $rows ) > 200 ) {
 						throw new \DomainException( 'Saved batch plan exceeds supported bounds; no partial progress is shown.' );}
 					foreach ( $rows as $row ) {

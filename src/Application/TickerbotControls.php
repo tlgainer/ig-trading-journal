@@ -51,8 +51,24 @@ trait TickerbotControls {
 						'enabled'  => 1 === (int) ( $cadence['enabled'] ?? 0 ),
 					),
 					'inventory'         => $this->inventory( $workspace ),
+					'manual_assets'     => $this->manual_asset_choices( $workspace ),
 				);
 			}
 		);
+	}
+	/**
+	 * Complete local asset choices; read only, no saved recurring-scope mutation.
+	 *
+	 * @param int $workspace Authorized workspace.
+	 * @return array Safe mapped/unmapped identity choices.
+	 * @throws \DomainException When complete choices exceed the supported bound.
+	 */
+	private function manual_asset_choices( int $workspace ): array {
+		$assets = $this->db->rows( 'SELECT * FROM ' . $this->db->table( 'assets' ) . ' WHERE workspace_id=%d ORDER BY id LIMIT 10001', array( $workspace ) );
+		if ( count( $assets ) > 10000 ) {
+			throw new \DomainException( 'Too many assets for complete manual choices.' ); }
+		$maps     = $this->db->rows( 'SELECT m.* FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' m WHERE m.workspace_id=%d AND m.id IN (SELECT MAX(id) FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' WHERE workspace_id=%d GROUP BY asset_id)', array( $workspace, $workspace ) );
+		$by_asset = array_column( $maps, null, 'asset_id' );
+		return array_map( static fn( $asset ) => TickerbotInventory::entry( $asset, $by_asset[ $asset['id'] ] ?? null, array( 'manual_selection' ) ), $assets );
 	}
 }

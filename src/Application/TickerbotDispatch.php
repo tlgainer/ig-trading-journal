@@ -31,13 +31,14 @@ trait TickerbotDispatch {
 	/**
 	 * Freeze the plan inside an already-held workspace/account transaction.
 	 *
-	 * @param int    $workspace Workspace ID.
-	 * @param int    $run Active run.
-	 * @param string $token Private lease.
+	 * @param int        $workspace Workspace ID.
+	 * @param int        $run Active run.
+	 * @param string     $token Private lease.
+	 * @param array|null $selected_assets Direct refresh selection, or complete saved scope.
 	 * @return int Frozen plan ID.
 	 * @throws \DomainException On incompatible intent or budget.
 	 */
-	private function freeze_dispatch( int $workspace, int $run, string $token ): int {
+	private function freeze_dispatch( int $workspace, int $run, string $token, ?array $selected_assets = null ): int {
 				$account = $this->account();
 				$current = $this->lease( $workspace, $run, $token, $account );
 		if ( in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
@@ -49,7 +50,24 @@ trait TickerbotDispatch {
 			return (int) $prior['id'];
 		}
 				$settings  = $this->settings( $workspace, $account );
-				$inventory = $this->inventory( $workspace );
+				$inventory = null;
+		if ( 'selected' === $current['cause'] && null === $selected_assets ) {
+			throw new \DomainException( 'Selected refresh has no frozen plan; it cannot expand to the saved scope.' ); }
+		if ( null !== $selected_assets ) {
+			$rows = array();
+			foreach ( $selected_assets as $asset_id ) {
+				$asset   = $this->db->object( 'assets', $workspace, $asset_id );
+				$mapping = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_mappings' ) . ' WHERE workspace_id=%d AND asset_id=%d ORDER BY id DESC LIMIT 1', array( $workspace, $asset_id ) );
+				$entry   = TickerbotInventory::entry( $asset, $mapping, array( 'manual_selection' ) );
+				if ( 'mapped' !== $entry['state'] ) {
+					throw new \DomainException( 'Every selected asset needs a current supported mapping.' ); }
+				$rows[] = $entry;
+			}
+			$revision                    = $this->scope_selection( $workspace )['revision'];
+			$inventory                   = TickerbotInventory::plan( $rows, (int) $settings['interval_seconds'] );
+			$inventory['scope_revision'] = $revision;
+		} else {
+			$inventory = $this->inventory( $workspace ); }
 				$this->plan_capacity( $workspace, $account, $inventory, $run );
 		if ( 'scheduled' === $current['cause'] && $inventory['projected_monthly_attempts'] > (int) $account['monthly_cap'] ) {
 			throw new \DomainException( 'Eligible quote projection exceeds the account soft cap.' );

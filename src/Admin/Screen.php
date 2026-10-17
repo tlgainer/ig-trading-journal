@@ -47,6 +47,7 @@ final class Screen {
 		wp_enqueue_script( 'tgit-pricing-policy', plugins_url( 'assets/pricing-policy.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-diagnostics', plugins_url( 'assets/tickerbot-diagnostics.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-controls', plugins_url( 'assets/tickerbot-controls.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
+		wp_enqueue_script( 'tgit-tickerbot-manual', plugins_url( 'assets/tickerbot-manual.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot-controls', 'tgit-collection' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-mapping', plugins_url( 'assets/tickerbot-mapping.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-tickerbot-coverage', plugins_url( 'assets/tickerbot-coverage.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-tickerbot' ), IG_TRADING_JOURNAL_VERSION, true );
 		wp_enqueue_script( 'tgit-ai-settings', plugins_url( 'assets/ai-settings.js', IG_TRADING_JOURNAL_FILE ), array( 'tgit-admin' ), IG_TRADING_JOURNAL_VERSION, true );
@@ -412,6 +413,13 @@ final class Screen {
 	<button type="submit" class="button" disabled><?php esc_html_e( 'Save asset selections', 'ig-trading-journal' ); ?></button>
 	</form>
 	<div id="tgit-tickerbot-inventory"></div><p><?php esc_html_e( 'After reviewing saved selections, request a counted price refresh. Server transport and worker must be enabled; host cron runs queued batches. The same operation can be checked again without creating another run. A separate refresh may consume more requests. No fallback or source switch is automatic.', 'ig-trading-journal' ); ?></p><div class="tgit-row-actions"><button type="button" class="button" id="tgit-tickerbot-refresh" disabled><?php esc_html_e( 'Request selected prices', 'ig-trading-journal' ); ?></button><button type="button" class="button" id="tgit-tickerbot-refresh-new" hidden><?php esc_html_e( 'Start a separate price refresh', 'ig-trading-journal' ); ?></button></div>
+	<details id="tgit-tickerbot-manual" class="tgit-card"><summary><?php esc_html_e( 'Refresh individual assets now', 'ig-trading-journal' ); ?></summary>
+	<p><?php esc_html_e( 'Select one or up to fifty mapped assets. Refresh now makes one counted server request immediately; the background worker, scheduler and cron can stay off. The API transport switch and key must be enabled. The existing five-minute manual cooldown, shared budget and provider pauses apply. This does not change your recurring scope or pricing source. Partial refreshes may leave portfolio totals marked as partial.', 'ig-trading-journal' ); ?></p>
+	<div id="tgit-tickerbot-manual-assets"></div>
+	<p id="tgit-tickerbot-manual-selection" aria-live="polite"></p>
+	<div class="tgit-row-actions"><button id="tgit-tickerbot-manual-send" class="button" type="button" disabled><?php esc_html_e( 'Refresh selected assets now', 'ig-trading-journal' ); ?></button><button id="tgit-tickerbot-manual-new" class="button" type="button" hidden><?php esc_html_e( 'New manual selection', 'ig-trading-journal' ); ?></button></div>
+	<p id="tgit-tickerbot-manual-status" role="status" aria-live="polite"></p>
+	</details>
 	<form id="tgit-tickerbot-cadence-form" class="tgit-form">
 	<p><?php esc_html_e( 'Saving selections or settings requires renewed recurring review. Enabling saves permission for future counted requests when server transport, worker, scheduler and host cron are enabled. It sends no request now and does not change those switches. Current holdings pricing remains unchanged. Projection excludes retries, discovery and other applications; shared admission limits still apply.', 'ig-trading-journal' ); ?></p>
 	<label><?php esc_html_e( 'Recurring refresh intent', 'ig-trading-journal' ); ?><select name="enabled"><option value="off"><?php esc_html_e( 'Off', 'ig-trading-journal' ); ?></option><option value="on"><?php esc_html_e( 'On - reviewed saved scope', 'ig-trading-journal' ); ?></option></select></label>

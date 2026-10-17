@@ -367,22 +367,37 @@ final class TickerbotStore {
 	/**
 	 * Claim one account-wide lease, joining only same-workspace active runs.
 	 *
-	 * @param int      $workspace Workspace ID.
-	 * @param string   $key Retry identity.
-	 * @param string   $cause manual or scheduled.
-	 * @param int      $cadence Explicit recurring enrollment, zero for existing direct operations.
-	 * @param int|null $expected_settings Explicit manual review settings revision.
-	 * @param int|null $expected_scope Explicit manual review scope revision.
+	 * @param int        $workspace Workspace ID.
+	 * @param string     $key Retry identity.
+	 * @param string     $cause manual or scheduled.
+	 * @param int        $cadence Explicit recurring enrollment, zero for existing direct operations.
+	 * @param int|null   $expected_settings Explicit manual review settings revision.
+	 * @param int|null   $expected_scope Explicit manual review scope revision.
+	 * @param array|null $selected_assets Explicit direct-refresh asset IDs, at most fifty.
 	 * @return array Private run token for a new claim; joins/status never expose it.
 	 * @throws \InvalidArgumentException On invalid command.
 	 */
-	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0, ?int $expected_settings = null, ?int $expected_scope = null ): array {
-		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution', 'coverage' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
+	public function start_run( int $workspace, string $key, string $cause = 'manual', int $cadence = 0, ?int $expected_settings = null, ?int $expected_scope = null, ?array $selected_assets = null ): array {
+		if ( ! preg_match( '/^[A-Za-z0-9:-]{1,80}$/D', $key ) || ! in_array( $cause, array( 'manual', 'scheduled', 'connection', 'resolution', 'coverage', 'selected' ), true ) || $cadence < 0 || ( $cadence && 'scheduled' !== $cause ) ) {
 			throw new \InvalidArgumentException( 'Invalid Tickerbot refresh command.' );
 		}
+		if ( ( 'selected' === $cause ) !== ( null !== $selected_assets ) || ( null !== $selected_assets && ( null === $expected_settings || null === $expected_scope ) ) ) {
+			throw new \InvalidArgumentException( 'Selected refresh requires explicit reviewed assets.' ); }
+		if ( null !== $selected_assets ) {
+			if ( ! array_is_list( $selected_assets ) || count( $selected_assets ) < 1 || count( $selected_assets ) > 50 ) {
+				throw new \InvalidArgumentException( 'Select between one and fifty assets.' ); }
+			foreach ( $selected_assets as $id ) {
+				if ( ! is_int( $id ) || $id < 1 ) {
+					throw new \InvalidArgumentException( 'Asset IDs must be positive integers.' ); }
+			}
+			if ( count( array_unique( $selected_assets ) ) !== count( $selected_assets ) ) {
+				throw new \InvalidArgumentException( 'Select each asset once.' ); }
+			sort( $selected_assets, SORT_NUMERIC );
+		}
+
 		return $this->atomic(
 			$workspace,
-			function () use ( $workspace, $key, $cause, $cadence, $expected_settings, $expected_scope ): array {
+			function () use ( $workspace, $key, $cause, $cadence, $expected_settings, $expected_scope, $selected_assets ): array {
 				$account  = $this->account();
 				$settings = $this->settings( $workspace, $account );
 				if ( $cadence ) {
@@ -391,11 +406,17 @@ final class TickerbotStore {
 				$prior = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id = %d AND request_key = %s', array( $workspace, $key ) );
 				if ( $prior ) {
 					if ( null !== $expected_settings ) {
-						$plan = $this->db->row( 'SELECT settings_revision,scope_revision FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $prior['id'] ) );
+						$plan = $this->db->row( 'SELECT settings_revision,scope_revision,inventory_json FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $prior['id'] ) );
 						if ( ! $plan || (int) $plan['settings_revision'] !== $expected_settings || (int) $plan['scope_revision'] !== $expected_scope ) {
 							throw new \DomainException( 'Refresh key is bound to different reviewed settings or scope.' ); }
 					}
-					if ( $prior['cause'] !== $cause || (int) $prior['account_id'] !== (int) $account['id'] ) {
+					if ( null !== $selected_assets ) {
+						$bound = array_column( json_decode( $plan['inventory_json'], true, 512, JSON_THROW_ON_ERROR ), 'asset_id' );
+						sort( $bound, SORT_NUMERIC );
+						if ( $bound !== $selected_assets ) {
+							throw new \DomainException( 'Refresh key is bound to different assets.' ); }
+					}
+					if ( (int) $prior['actor_id'] !== $this->actor || $prior['cause'] !== $cause || (int) $prior['account_id'] !== (int) $account['id'] ) {
 						throw new \DomainException( 'Refresh identity conflicts with its saved command.' );
 					}
 					return array(
@@ -403,7 +424,7 @@ final class TickerbotStore {
 						'run_id' => (int) $prior['id'],
 					);
 				}
-				if ( null !== $expected_settings && ( 'manual' !== $cause || $expected_settings !== (int) $settings['revision'] || $expected_scope !== $this->scope_selection( $workspace )['revision'] ) ) {
+				if ( null !== $expected_settings && ( ! in_array( $cause, array( 'manual', 'selected' ), true ) || $expected_settings !== (int) $settings['revision'] || $expected_scope !== $this->scope_selection( $workspace )['revision'] ) ) {
 					throw new \UnexpectedValueException( 'Refresh review changed; reload before requesting prices.' ); }
 				if ( $account['active_run_id'] && $account['lease_until'] > $this->time() ) {
 					return (int) $account['active_workspace_id'] === $workspace ? array(
@@ -449,12 +470,45 @@ final class TickerbotStore {
 					);
 				}
 				if ( null !== $expected_settings ) {
-					$this->freeze_dispatch( $workspace, $id, $token ); }
+					$this->freeze_dispatch( $workspace, $id, $token, $selected_assets ); }
 				$this->audit( $workspace, 'tickerbot.run.start', 'tickerbot_runs', $id );
 				return array(
 					'state'       => 'running',
 					'run_id'      => $id,
 					'lease_token' => $token,
+				);
+			}
+		);
+	}
+
+	/**
+	 * Read an immediate operation outcome only; never acquire a lease or start work.
+	 *
+	 * @param int    $workspace Owner workspace.
+	 * @param string $key Original request UUID.
+	 * @param int    $settings Original reviewed settings revision.
+	 * @param int    $scope Original reviewed scope revision.
+	 * @param array  $assets Original selected IDs.
+	 * @return array Safe saved state or not_started.
+	 * @throws \DomainException On conflicting original intent.
+	 */
+	public function selected_outcome( int $workspace, string $key, int $settings, int $scope, array $assets ): array {
+		return $this->atomic(
+			$workspace,
+			function () use ( $workspace, $key, $settings, $scope, $assets ): array {
+				$account = $this->account();
+				$row     = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_runs' ) . ' WHERE workspace_id=%d AND request_key=%s', array( $workspace, $key ) );
+				if ( ! $row ) {
+					return array( 'state' => 'not_started' ); }
+				$plan = $this->db->row( 'SELECT * FROM ' . $this->db->table( 'tickerbot_plans' ) . ' WHERE workspace_id=%d AND run_id=%d', array( $workspace, $row['id'] ) );
+				$ids  = $plan ? array_column( json_decode( $plan['inventory_json'], true, 512, JSON_THROW_ON_ERROR ), 'asset_id' ) : array();
+				sort( $ids, SORT_NUMERIC );
+				sort( $assets, SORT_NUMERIC );
+				if ( (int) $row['actor_id'] !== $this->actor || (int) $row['account_id'] !== (int) $account['id'] || 'selected' !== $row['cause'] || ! $plan || (int) $plan['settings_revision'] !== $settings || (int) $plan['scope_revision'] !== $scope || $ids !== $assets ) {
+					throw new \DomainException( 'Refresh identity conflicts with its saved command.' ); }
+				return array(
+					'state'  => 'running' === $row['state'] && $row['lease_until'] <= $this->time() ? 'expired' : $row['state'],
+					'run_id' => (int) $row['id'],
 				);
 			}
 		);
@@ -741,7 +795,7 @@ final class TickerbotStore {
 						'completed_at' => $this->time(),
 					)
 				);
-				if ( ! in_array( $current['cause'], array( 'connection', 'resolution', 'coverage' ), true ) ) {
+				if ( ! in_array( $current['cause'], array( 'connection', 'resolution', 'coverage', 'selected' ), true ) ) {
 					$this->db->update_object( 'tickerbot_settings', $workspace, (int) $settings['id'], array( 'next_due_at' => TickerbotSchedule::next( $this->now, (int) $settings['interval_seconds'] ) ) );
 				}
 				$this->db->query( 'UPDATE ' . $this->db->table( 'tickerbot_accounts' ) . ' SET active_run_id = NULL, active_workspace_id = NULL, lease_until = NULL WHERE id = %d', array( $account['id'] ) );

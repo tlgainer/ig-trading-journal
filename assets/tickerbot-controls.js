@@ -43,7 +43,7 @@
  }
  async function load() {
   if (!workspace) return; const expected = ++generation; saved = null; controls(); reload.disabled = true; scope.inert = true; cadence.inert = true; tell('Reading saved selections and complete inventory…');
-  try { const data = await request('controls'); if (expected !== generation) return; saved = data; render(data); tell('Saved selections loaded. No provider request was made.'); }
+  try { const data = await request('controls'); if (expected !== generation) return; saved = data; render(data); window.dispatchEvent(new CustomEvent('tgit-tickerbot-controls-loaded', { detail: { workspace, data } })); tell('Saved selections loaded. No provider request was made.'); }
   catch (error) { if (expected === generation) { inventory.replaceChildren(); tell(error.message, true); } }
   finally { if (expected === generation) { reload.disabled = false; scope.inert = !saved; cadence.inert = !saved; controls(); } }
  }

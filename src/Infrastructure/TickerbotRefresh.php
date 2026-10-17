@@ -121,6 +121,8 @@ final class TickerbotRefresh {
 			global $wpdb;
 			$db  = new Database( $wpdb );
 			$row = $db->object( 'tickerbot_runs', $workspace, $run );
+			if ( 'selected' === $row['cause'] ) {
+				return; }
 			if ( 'scheduled' === $row['cause'] && 'tickerbot' !== \GainerInteractive\IGTradingJournal\Application\PricingPolicy::saved( $db, $workspace )['source'] ) {
 				return; }
 			$store  = new TickerbotStore( $db, (int) $row['actor_id'], wp_generate_uuid4(), TGIT_TICKERBOT_ACCOUNT_SCOPE );

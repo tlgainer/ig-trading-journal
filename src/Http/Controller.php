@@ -97,6 +97,7 @@ final class Controller {
 		self::route( $base . '/pricing-policy/review', 'GET', 'pricing_review' );
 		self::route( $base . '/pricing-policy', 'POST', 'pricing_switch' );
 		self::route( $base . '/tickerbot/refresh', 'POST', 'tickerbot_manual_refresh' );
+		self::route( $base . '/tickerbot/refresh-selected', 'POST', 'tickerbot_selected_refresh' );
 		self::route( $base . '/tickerbot/scope', 'POST', 'tickerbot_scope' );
 		self::route( $base . '/tickerbot/cadence', 'POST', 'tickerbot_cadence' );
 		self::route( $base . '/tickerbot/settings', 'POST', 'tickerbot_settings' );
@@ -258,6 +259,12 @@ final class Controller {
 							wp_clear_scheduled_hook( 'tgit_tickerbot_schedule_tick', array( $workspace ) );
 							$result['queue_repaired'] = \GainerInteractive\IGTradingJournal\Infrastructure\RecurringQuotes::recover_workspace( $workspace, get_current_user_id() ); }
 					}
+			} elseif ( 'tickerbot_selected_refresh' === $operation ) {
+				Tracker::fields( $data, array( 'settings_revision', 'scope_revision', 'asset_ids', 'check_only' ), array( 'settings_revision', 'scope_revision', 'asset_ids' ) );
+				if ( ! is_int( $data['settings_revision'] ) || ! is_int( $data['scope_revision'] ) || ! is_array( $data['asset_ids'] ) || ( array_key_exists( 'check_only', $data ) && ! is_bool( $data['check_only'] ) ) ) {
+					throw new \InvalidArgumentException( 'Reviewed revisions and an asset ID list are required.' ); }
+				$store  = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotSetup::service( new Database( $wpdb ), get_current_user_id(), $workspace, $correlation );
+				$result = \GainerInteractive\IGTradingJournal\Infrastructure\TickerbotManual::selected( $store, $workspace, (string) $request->get_header( 'idempotency-key' ), $data['settings_revision'], $data['scope_revision'], $data['asset_ids'], null, $data['check_only'] ?? false );
 			} elseif ( 'tickerbot_manual_refresh' === $operation ) {
 				Tracker::fields( $data, array( 'settings_revision', 'scope_revision' ), array( 'settings_revision', 'scope_revision' ) );
 				if ( ! is_int( $data['settings_revision'] ) || ! is_int( $data['scope_revision'] ) ) {

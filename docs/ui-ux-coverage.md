@@ -133,3 +133,6 @@ October 15, 2026 - Tickerbot Assets and recurring refresh uses the existing scop
 October 15, 2026 - Tickerbot saved progress/cache panel reuses scoped accordion and table patterns, safe text, owner-only local reload, responsive horizontal tables, explicit missing/unknown/old source-age labels and rounded display with exact tooltips. Frozen-run batch progress is distinguished from current saved inventory. Full rendered WordPress/HTTP/mobile acceptance remains pending.
 
 Development test build dev.25: holdings source previews, exact cached value/gain with coverage/cohort/currency limits, and owner workspace source/rollback controls reuse shared cards, tables, explicit acknowledgment and safe text. Manual refresh retains fixed operation identity and reviewed settings/scope across reload; switches have dirty/navigation and stale-response guards. Source/build browser and HTTP evidence is recorded in tickerbot-implementation.md; live host acceptance remains separate.
+
+
+Dev.26: Settings immediate refresh uses the shared searchable/paginated collection and scoped white card. Selection spans pages/filters, unmapped assets are disabled, selected count and one-request cost are shown, fixed UUID survives reload, status checks are explicitly read-only, and stale workspace responses are fenced. One asset uses the same flow as a small group.

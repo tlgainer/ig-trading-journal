@@ -153,6 +153,7 @@ require __DIR__ . '/tickerbot-recovery-integration.php';
 require __DIR__ . '/tickerbot-controls-integration.php';
 require __DIR__ . '/tickerbot-diagnostics-integration.php';
 require __DIR__ . '/tickerbot-cutover-integration.php';
+require __DIR__ . '/tickerbot-selected-integration.php';
 
 require __DIR__ . '/research-integration.php';
 require __DIR__ . '/report-integration.php';
